@@ -60,13 +60,20 @@ export async function POST(req: Request) {
     if (!tourn) return jsonError("Tournament not found in this pool", 404);
 
     // Round lock enforcement
-    const lockField = `round${body.round}_lock` as const;
-    const lockVal = tourn[lockField] as string | null;
-    if (lockVal) {
-      const lockTime = new Date(lockVal).getTime();
-      const now = Date.now();
-      if (now >= lockTime) return jsonError(`Round ${body.round} is locked`, 409);
-    }
+const lockField = `round${body.round}_lock` as keyof typeof tourn;
+const lockVal = tourn[lockField] as string | null;
+
+if (lockVal) {
+  const lockTime = new Date(lockVal).getTime();
+  const now = Date.now();
+
+  if (now >= lockTime) {
+    return Response.json(
+      { error: `Round ${body.round} is locked` },
+      { status: 400 }
+    );
+  }
+}
 
     // Validate golferIds belong to this pool
     const { data: golferRows, error: gErr } = await admin
