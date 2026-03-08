@@ -8,6 +8,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
+
 type Tournament = {
   id: string;
   name: string;
@@ -51,6 +53,7 @@ function getLastInitial(name: string) {
 
 export default function PicksPage() {
   const [poolId, setPoolId] = useState<string>("");
+  const [session, setSession] = useState<any>(null);
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [golfers, setGolfers] = useState<Golfer[]>([]);
@@ -62,6 +65,7 @@ export default function PicksPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<string>("Loading…");
   const [saving, setSaving] = useState<boolean>(false);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
 
   const [query, setQuery] = useState<string>("");
   const [showUsed, setShowUsed] = useState<boolean>(false);
@@ -72,6 +76,31 @@ export default function PicksPage() {
     const id = setInterval(() => setNowMs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        window.location.href = "/";
+        return;
+      }
+      setSession(data.session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!nextSession) {
+        window.location.href = "/";
+        return;
+      }
+      setSession(nextSession);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const userEmail = session?.user?.email?.toLowerCase() ?? "";
+  const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
 
   const currentTournament: Tournament | null = useMemo(() => {
     return tournaments.find((t) => t.id === selectedTournament) ?? null;
@@ -104,8 +133,9 @@ export default function PicksPage() {
   }, [myPicksAllRounds, round]);
 
   useEffect(() => {
-    (async () => {
+    async function loadInitial() {
       try {
+        setInitialLoading(true);
         setMessage("Loading…");
 
         const { data: sess } = await supabase.auth.getSession();
@@ -114,44 +144,50 @@ export default function PicksPage() {
           return;
         }
 
-        const token = sess.session.access_token;
-        const boot = await fetch("/api/bootstrap", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const userId = sess.session.user.id;
 
-        const bootJson = await boot.json().catch(() => ({} as any));
-        if (!boot.ok) {
-          setMessage(bootJson?.error || `Bootstrap failed (${boot.status})`);
+        const { data: membership, error: memberErr } = await supabase
+          .from("pool_members")
+          .select("pool_id")
+          .eq("user_id", userId)
+          .limit(1)
+          .maybeSingle();
+
+        if (memberErr) {
+          setMessage(`Error loading pool membership: ${memberErr.message}`);
+          setInitialLoading(false);
           return;
         }
 
-        const pool = bootJson.pool;
-        if (!pool?.id) {
-          setMessage("Pool not returned from bootstrap.");
+        const resolvedPoolId = membership?.pool_id;
+        if (!resolvedPoolId) {
+          setMessage("You are not assigned to a pool yet.");
+          setInitialLoading(false);
           return;
         }
 
-        setPoolId(pool.id);
+        setPoolId(resolvedPoolId);
 
         const { data: tData, error: tErr } = await supabase
           .from("tournaments")
           .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
-          .eq("pool_id", pool.id)
+          .eq("pool_id", resolvedPoolId)
           .order("created_at", { ascending: false });
 
         if (tErr) {
           setMessage(`Error loading tournaments: ${tErr.message}`);
+          setInitialLoading(false);
           return;
         }
 
         const { data: gData, error: gErr } = await supabase
           .from("golfers")
           .select("id,name")
-          .eq("pool_id", pool.id);
+          .eq("pool_id", resolvedPoolId);
 
         if (gErr) {
           setMessage(`Error loading golfers: ${gErr.message}`);
+          setInitialLoading(false);
           return;
         }
 
@@ -159,27 +195,46 @@ export default function PicksPage() {
         setGolfers((gData ?? []) as Golfer[]);
 
         if ((tData ?? []).length === 0) {
-          setMessage("No tournaments found. Go to /admin and create one.");
+          setMessage(
+            isAdmin
+              ? "No tournaments found yet. Use the admin area to create one."
+              : "No tournaments are available yet."
+          );
         } else {
           setSelectedTournament((tData ?? [])[0]?.id ?? "");
           setMessage("");
         }
       } catch (e: any) {
         setMessage(e?.message || "Load error");
+      } finally {
+        setInitialLoading(false);
       }
-    })();
-  }, []);
+    }
+
+    if (session) {
+      loadInitial();
+    }
+  }, [session, isAdmin]);
 
   useEffect(() => {
-    (async () => {
+    async function loadPicks() {
       try {
         if (!poolId || !selectedTournament) return;
+
+        const { data: sess } = await supabase.auth.getSession();
+        if (!sess.session) {
+          window.location.href = "/";
+          return;
+        }
+
+        const userId = sess.session.user.id;
 
         const { data: pData, error: pErr } = await supabase
           .from("picks")
           .select("golfer_id, round")
           .eq("pool_id", poolId)
-          .eq("tournament_id", selectedTournament);
+          .eq("tournament_id", selectedTournament)
+          .eq("user_id", userId);
 
         if (pErr) {
           setMessage(`Error loading picks: ${pErr.message}`);
@@ -196,7 +251,9 @@ export default function PicksPage() {
       } catch (e: any) {
         setMessage(e?.message || "Pick load error");
       }
-    })();
+    }
+
+    loadPicks();
   }, [poolId, selectedTournament, round]);
 
   function togglePick(id: string) {
@@ -227,7 +284,7 @@ export default function PicksPage() {
       }
 
       if (!selectedTournament) {
-        setMessage("Select tournament");
+        setMessage("Select a tournament");
         return;
       }
 
@@ -275,11 +332,14 @@ export default function PicksPage() {
 
       setMessage("Picks saved ✅");
 
+      const userId = data.session?.user?.id;
+
       const { data: pData, error: pErr } = await supabase
         .from("picks")
         .select("golfer_id, round")
         .eq("pool_id", poolId)
-        .eq("tournament_id", selectedTournament);
+        .eq("tournament_id", selectedTournament)
+        .eq("user_id", userId);
 
       if (!pErr) {
         const picks = (pData ?? []) as PickRow[];
@@ -316,9 +376,7 @@ export default function PicksPage() {
 
   const selectedGolfers = useMemo(() => {
     const byId = new Map(golfers.map((g) => [g.id, g] as const));
-    return selected
-      .map((id) => byId.get(id))
-      .filter(Boolean) as Golfer[];
+    return selected.map((id) => byId.get(id)).filter(Boolean) as Golfer[];
   }, [selected, golfers]);
 
   const availableFilteredGolfers = useMemo(() => {
@@ -340,7 +398,6 @@ export default function PicksPage() {
       byId.set(g.id, g);
     }
 
-    // Always keep selected golfers visible
     for (const gid of selected) {
       const g = golfers.find((x) => x.id === gid);
       if (g) byId.set(g.id, g);
@@ -372,356 +429,550 @@ export default function PicksPage() {
   }, [golfersToShow]);
 
   const totalVisibleCount = golfersToShow.length;
-  const availableCount = golfersSorted.filter((g) => !usedBefore.has(g.id) || selectedSet.has(g.id)).length;
-  const usedCount = golfersSorted.filter((g) => usedBefore.has(g.id) && !selectedSet.has(g.id)).length;
+  const availableCount = golfersSorted.filter(
+    (g) => !usedBefore.has(g.id) || selectedSet.has(g.id)
+  ).length;
+  const usedCount = golfersSorted.filter(
+    (g) => usedBefore.has(g.id) && !selectedSet.has(g.id)
+  ).length;
 
-  const shell: React.CSSProperties = {
-    maxWidth: 760,
-    margin: "0 auto",
-    padding: "14px 12px 108px",
-    fontFamily: "system-ui",
-    color: "#111",
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background:
+        "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
+      color: "#f8fafc",
+      fontFamily: "Inter, system-ui, sans-serif",
+      padding: "18px 14px 120px",
+    } as React.CSSProperties,
+
+    shell: {
+      maxWidth: 900,
+      margin: "0 auto",
+    } as React.CSSProperties,
+
+    topBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      gap: 12,
+      flexWrap: "wrap",
+      marginBottom: 14,
+    } as React.CSSProperties,
+
+    brand: {
+      display: "flex",
+      flexDirection: "column" as const,
+      gap: 6,
+    } as React.CSSProperties,
+
+    badge: {
+      display: "inline-block",
+      width: "fit-content",
+      padding: "5px 10px",
+      borderRadius: 999,
+      background: "rgba(34,197,94,0.14)",
+      color: "#86efac",
+      border: "1px solid rgba(34,197,94,0.28)",
+      fontWeight: 800,
+      fontSize: 12,
+      textTransform: "uppercase" as const,
+      letterSpacing: 0.5,
+    } as React.CSSProperties,
+
+    title: {
+      margin: 0,
+      fontSize: 30,
+      fontWeight: 900,
+      letterSpacing: -0.6,
+    } as React.CSSProperties,
+
+    subtitle: {
+      margin: 0,
+      color: "#94a3b8",
+      fontSize: 14,
+    } as React.CSSProperties,
+
+    nav: {
+      display: "flex",
+      gap: 10,
+      flexWrap: "wrap",
+    } as React.CSSProperties,
+
+    navLink: {
+      textDecoration: "none",
+      color: "#e2e8f0",
+      fontWeight: 700,
+      fontSize: 14,
+      padding: "10px 14px",
+      borderRadius: 999,
+      background: "rgba(15,23,42,0.88)",
+      border: "1px solid rgba(148,163,184,0.14)",
+    } as React.CSSProperties,
+
+    card: {
+      border: "1px solid rgba(148,163,184,0.14)",
+      borderRadius: 22,
+      padding: 16,
+      background: "rgba(15,23,42,0.86)",
+      boxShadow: "0 14px 32px rgba(0,0,0,0.28)",
+      backdropFilter: "blur(10px)",
+    } as React.CSSProperties,
+
+    alertOpen: {
+      borderColor: "rgba(96,165,250,0.35)",
+      background: "rgba(30,41,59,0.92)",
+    } as React.CSSProperties,
+
+    alertLocked: {
+      borderColor: "rgba(248,113,113,0.35)",
+      background: "rgba(69,10,10,0.35)",
+    } as React.CSSProperties,
+
+    input: {
+      width: "100%",
+      padding: "13px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(148,163,184,0.16)",
+      fontSize: 15,
+      outline: "none",
+      background: "rgba(2,6,23,0.82)",
+      color: "#f8fafc",
+    } as React.CSSProperties,
+
+    select: {
+      width: "100%",
+      padding: "13px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(148,163,184,0.16)",
+      fontSize: 15,
+      outline: "none",
+      background: "rgba(2,6,23,0.82)",
+      color: "#f8fafc",
+    } as React.CSSProperties,
+
+    roundRow: {
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "repeat(4, 1fr)",
+      gap: 8,
+    } as React.CSSProperties,
+
+    roundBtn: (active: boolean): React.CSSProperties => ({
+      minWidth: 0,
+      padding: "12px 10px",
+      borderRadius: 14,
+      border: active
+        ? "1px solid rgba(34,197,94,0.65)"
+        : "1px solid rgba(148,163,184,0.16)",
+      background: active
+        ? "linear-gradient(135deg, rgba(34,197,94,0.24) 0%, rgba(22,163,74,0.18) 100%)"
+        : "rgba(2,6,23,0.76)",
+      color: active ? "#dcfce7" : "#e2e8f0",
+      fontWeight: 900,
+      fontSize: 14,
+      cursor: "pointer",
+    }),
+
+    sectionHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      gap: 10,
+      marginBottom: 12,
+      flexWrap: "wrap",
+    } as React.CSSProperties,
+
+    sectionTitle: {
+      margin: 0,
+      fontWeight: 900,
+      fontSize: 18,
+      color: "#f8fafc",
+    } as React.CSSProperties,
+
+    sectionMeta: {
+      fontSize: 13,
+      color: "#94a3b8",
+      fontWeight: 700,
+    } as React.CSSProperties,
+
+    chipRow: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 10,
+    } as React.CSSProperties,
+
+    chip: (locked: boolean): React.CSSProperties => ({
+      padding: "10px 12px",
+      borderRadius: 999,
+      border: "1px solid rgba(148,163,184,0.16)",
+      background: locked ? "rgba(51,65,85,0.6)" : "rgba(34,197,94,0.14)",
+      color: locked ? "#94a3b8" : "#f8fafc",
+      fontWeight: 700,
+      fontSize: 13,
+      cursor: locked ? "default" : "pointer",
+    }),
+
+    message: {
+      marginTop: 12,
+      padding: 12,
+      borderRadius: 14,
+      background: "rgba(2,6,23,0.62)",
+      border: "1px solid rgba(148,163,184,0.12)",
+      fontSize: 14,
+      color: "#e2e8f0",
+    } as React.CSSProperties,
+
+    toolbar: {
+      marginTop: 12,
+      display: "grid",
+      gridTemplateColumns: "1fr auto",
+      gap: 10,
+    } as React.CSSProperties,
+
+    smallBtn: {
+      padding: "12px 14px",
+      borderRadius: 14,
+      border: "1px solid rgba(148,163,184,0.16)",
+      background: "rgba(15,23,42,0.92)",
+      color: "#e2e8f0",
+      fontWeight: 800,
+      cursor: "pointer",
+    } as React.CSSProperties,
+
+    pill: (active: boolean): React.CSSProperties => ({
+      padding: "9px 12px",
+      borderRadius: 999,
+      border: active
+        ? "1px solid rgba(34,197,94,0.55)"
+        : "1px solid rgba(148,163,184,0.16)",
+      background: active ? "rgba(34,197,94,0.16)" : "rgba(2,6,23,0.72)",
+      color: active ? "#dcfce7" : "#e2e8f0",
+      fontWeight: 800,
+      fontSize: 13,
+      cursor: "pointer",
+    }),
+
+    groupHeader: {
+      position: "sticky" as const,
+      top: 0,
+      zIndex: 1,
+      padding: "7px 12px",
+      borderRadius: 12,
+      background: "rgba(30,41,59,0.98)",
+      border: "1px solid rgba(148,163,184,0.12)",
+      color: "#cbd5e1",
+      fontWeight: 900,
+      marginBottom: 8,
+      backdropFilter: "blur(8px)",
+    } as React.CSSProperties,
+
+    golferList: {
+      display: "grid",
+      gridTemplateColumns: "1fr",
+      gap: 10,
+    } as React.CSSProperties,
+
+    golferBtn: (opts: { selected: boolean; disabled: boolean; used: boolean }): React.CSSProperties => ({
+      width: "100%",
+      textAlign: "left",
+      padding: "15px 15px",
+      borderRadius: 18,
+      border: opts.selected
+        ? "1px solid rgba(34,197,94,0.55)"
+        : "1px solid rgba(148,163,184,0.12)",
+      background: opts.selected
+        ? "linear-gradient(135deg, rgba(34,197,94,0.16) 0%, rgba(15,23,42,0.98) 100%)"
+        : "rgba(2,6,23,0.76)",
+      color: opts.selected ? "#f8fafc" : opts.used ? "#94a3b8" : "#f8fafc",
+      opacity: opts.disabled ? 0.55 : 1,
+      cursor: opts.disabled ? "not-allowed" : "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
+    }),
+
+    stickyBar: {
+      position: "fixed" as const,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: "rgba(2,6,23,0.92)",
+      backdropFilter: "blur(14px)",
+      borderTop: "1px solid rgba(148,163,184,0.14)",
+      padding: "12px 14px",
+    } as React.CSSProperties,
+
+    stickyInner: {
+      maxWidth: 900,
+      margin: "0 auto",
+      display: "flex",
+      gap: 12,
+      alignItems: "center",
+    } as React.CSSProperties,
+
+    saveBtn: {
+      width: "100%",
+      padding: "15px 14px",
+      borderRadius: 16,
+      border: "none",
+      background:
+        saving || !selectedTournament || isLocked
+          ? "rgba(71,85,105,0.9)"
+          : "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+      color: saving || !selectedTournament || isLocked ? "#cbd5e1" : "#03120a",
+      fontWeight: 900,
+      fontSize: 16,
+      cursor: saving || !selectedTournament || isLocked ? "default" : "pointer",
+      boxShadow:
+        saving || !selectedTournament || isLocked
+          ? "none"
+          : "0 10px 24px rgba(34,197,94,0.26)",
+    } as React.CSSProperties,
   };
-
-  const card: React.CSSProperties = {
-    border: "1px solid #e6e6e6",
-    borderRadius: 18,
-    padding: 14,
-    background: "#fff",
-    boxShadow: "0 1px 8px rgba(0,0,0,0.05)",
-  };
-
-  const topLink: React.CSSProperties = {
-    textDecoration: "none",
-    fontSize: 14,
-  };
-
-  const roundBtn = (active: boolean): React.CSSProperties => ({
-    flex: 1,
-    minWidth: 0,
-    padding: "11px 10px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    background: active ? "#111" : "#f5f5f5",
-    color: active ? "#fff" : "#111",
-    fontWeight: 800,
-    fontSize: 14,
-  });
-
-  const golferBtn = (opts: { selected: boolean; disabled: boolean; used: boolean }): React.CSSProperties => ({
-    width: "100%",
-    textAlign: "left",
-    padding: "14px 14px",
-    borderRadius: 16,
-    border: "1px solid #e3e3e3",
-    background: opts.selected ? "#111" : "#fff",
-    color: opts.selected ? "#fff" : opts.used ? "#8a8a8a" : "#111",
-    opacity: opts.disabled ? 0.55 : 1,
-    cursor: opts.disabled ? "not-allowed" : "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  });
-
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "12px 12px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    fontSize: 16,
-    outline: "none",
-    background: "#fff",
-  };
-
-  const smallBtn: React.CSSProperties = {
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #ddd",
-    background: "#f5f5f5",
-    fontWeight: 800,
-  };
-
-  const stickyBar: React.CSSProperties = {
-    position: "fixed",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(255,255,255,0.94)",
-    backdropFilter: "blur(10px)",
-    borderTop: "1px solid #e9e9e9",
-    padding: "10px 12px",
-  };
-
-  const stickyInner: React.CSSProperties = {
-    maxWidth: 760,
-    margin: "0 auto",
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-  };
-
-  const saveBtn: React.CSSProperties = {
-    width: "100%",
-    padding: "14px 14px",
-    borderRadius: 14,
-    border: "1px solid #111",
-    background: isLocked || !selectedTournament ? "#ddd" : "#111",
-    color: isLocked || !selectedTournament ? "#666" : "#fff",
-    fontWeight: 900,
-    fontSize: 16,
-  };
-
-  const togglePill = (active: boolean): React.CSSProperties => ({
-    padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid #ddd",
-    background: active ? "#111" : "#f5f5f5",
-    color: active ? "#fff" : "#111",
-    fontWeight: 800,
-    fontSize: 13,
-  });
 
   return (
     <>
-      <main style={shell}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24 }}>LynxDemo Picks</h1>
-            <div style={{ fontSize: 13, opacity: 0.7, marginTop: 2 }}>Grouped by last-name initial</div>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <a href="/leaderboard" style={topLink}>Leaderboard</a>
-            <a href="/admin" style={topLink}>Admin</a>
-            <a href="/" style={topLink}>Home</a>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 14,
-            ...card,
-            borderColor: isLocked ? "#ffb3b3" : "#cfe6ff",
-            background: isLocked ? "#fff2f2" : "#f2f8ff",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 15 }}>
-            Round {round}: {lockLine.status}
-          </div>
-          <div style={{ opacity: 0.85, marginTop: 4, fontSize: 14 }}>{lockLine.detail}</div>
-          {isLocked ? (
-            <div style={{ marginTop: 8, fontWeight: 600, fontSize: 14 }}>
-              Picks are locked for this round. You can view your saved picks, but not change them.
+      <main style={styles.page}>
+        <div style={styles.shell}>
+          <div style={styles.topBar}>
+            <div style={styles.brand}>
+              <div style={styles.badge}>LynxDemo</div>
+              <h1 style={styles.title}>Make your picks</h1>
+              <p style={styles.subtitle}>
+                Lock in 4 golfers each round. Used golfers from earlier rounds stay off the board.
+              </p>
             </div>
-          ) : null}
-        </div>
 
-        <div style={{ marginTop: 14, ...card }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>Tournament</div>
+            <div style={styles.nav}>
+              <a href="/leaderboard" style={styles.navLink}>
+                Leaderboard
+              </a>
+              <a href="/" style={styles.navLink}>
+                Home
+              </a>
+              {isAdmin ? (
+                <a href="/admin" style={styles.navLink}>
+                  Admin
+                </a>
+              ) : null}
+            </div>
+          </div>
 
-          <select
-            value={selectedTournament}
-            onChange={(e) => {
-              setSelectedTournament(e.target.value);
-              setMessage("");
+          <div
+            style={{
+              ...styles.card,
+              ...(isLocked ? styles.alertLocked : styles.alertOpen),
+              marginBottom: 14,
             }}
-            style={inputStyle}
           >
-            <option value="">Select Tournament</option>
-            {tournaments.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-
-          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-            {[1, 2, 3, 4].map((r) => (
-              <button
-                key={r}
-                onClick={() => {
-                  setRound(r);
-                  setMessage("");
-                }}
-                style={roundBtn(round === r)}
-              >
-                R{r}
-              </button>
-            ))}
+            <div style={{ fontWeight: 900, fontSize: 15 }}>
+              Round {round}: {lockLine.status}
+            </div>
+            <div style={{ opacity: 0.9, marginTop: 4, fontSize: 14, color: "#cbd5e1" }}>
+              {lockLine.detail}
+            </div>
+            {isLocked ? (
+              <div style={{ marginTop: 8, fontWeight: 700, fontSize: 14, color: "#fecaca" }}>
+                Picks are locked for this round. You can review your saved picks, but not change them.
+              </div>
+            ) : null}
           </div>
 
-          <div style={{ marginTop: 10, fontSize: 14, opacity: 0.78 }}>
-            Pick <b>4 golfers</b> each round. Golfers used in earlier rounds stay locked.
-          </div>
-        </div>
+          <div style={{ ...styles.card, marginBottom: 14 }}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Tournament & Round</h2>
+              <div style={styles.sectionMeta}>
+                {selectedTournament ? "Ready to pick" : "Select a tournament"}
+              </div>
+            </div>
 
-        <div style={{ marginTop: 14, ...card }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ fontWeight: 800 }}>Your Picks</div>
-            <div style={{ fontWeight: 900, fontSize: 14 }}>Selected {selected.length}/4</div>
-          </div>
-
-          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {selectedGolfers.length === 0 ? (
-              <div style={{ fontSize: 14, opacity: 0.65 }}>No golfers selected yet.</div>
-            ) : (
-              selectedGolfers.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => removePick(g.id)}
-                  disabled={isLocked}
-                  style={{
-                    padding: "9px 12px",
-                    borderRadius: 999,
-                    border: "1px solid #d7d7d7",
-                    background: isLocked ? "#f3f3f3" : "#111",
-                    color: isLocked ? "#777" : "#fff",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: isLocked ? "not-allowed" : "pointer",
-                  }}
-                  title={isLocked ? "Locked" : "Remove pick"}
-                >
-                  {g.name} {isLocked ? "" : "×"}
-                </button>
-              ))
-            )}
-          </div>
-
-          {message ? (
-            <div
-              style={{
-                marginTop: 12,
-                padding: 10,
-                borderRadius: 12,
-                background: "#f6f6f6",
-                fontSize: 14,
+            <select
+              value={selectedTournament}
+              onChange={(e) => {
+                setSelectedTournament(e.target.value);
+                setMessage("");
               }}
+              style={styles.select}
             >
-              {message}
+              <option value="">Select Tournament</option>
+              {tournaments.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+
+            <div style={styles.roundRow}>
+              {[1, 2, 3, 4].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => {
+                    setRound(r);
+                    setMessage("");
+                  }}
+                  style={styles.roundBtn(round === r)}
+                >
+                  R{r}
+                </button>
+              ))}
             </div>
-          ) : null}
-        </div>
 
-        <div style={{ marginTop: 14, ...card }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ fontWeight: 800 }}>Golfers</div>
-            <div style={{ fontSize: 13, opacity: 0.75 }}>
-              {totalVisibleCount} visible
+            <div style={{ marginTop: 12, fontSize: 14, color: "#94a3b8" }}>
+              Pick <b style={{ color: "#f8fafc" }}>exactly 4 golfers</b> each round.
             </div>
           </div>
 
-          <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search golfers…"
-              style={inputStyle}
-              disabled={golfers.length === 0}
-            />
-            <button
-              onClick={() => setQuery("")}
-              style={smallBtn}
-              disabled={!query}
-              title="Clear search"
-            >
-              Clear
-            </button>
-          </div>
+          <div style={{ ...styles.card, marginBottom: 14 }}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Your card</h2>
+              <div style={styles.sectionMeta}>Selected {selected.length}/4</div>
+            </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => setShowUsed(false)}
-              style={togglePill(!showUsed)}
-            >
-              Available ({availableCount})
-            </button>
-            <button
-              onClick={() => setShowUsed(true)}
-              style={togglePill(showUsed)}
-            >
-              Show Used ({usedCount})
-            </button>
-          </div>
-
-          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>
-            {q
-              ? `Search filter: “${query.trim()}”`
-              : "Sorted by last name and grouped by initial"}
-          </div>
-
-          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            {groupedGolfers.length === 0 ? (
-              <div style={{ fontSize: 14, opacity: 0.7 }}>No golfers match this filter.</div>
-            ) : (
-              groupedGolfers.map((group) => (
-                <div key={group.letter}>
-                  <div
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 1,
-                      padding: "6px 10px",
-                      borderRadius: 10,
-                      background: "#f5f5f5",
-                      fontWeight: 900,
-                      marginBottom: 8,
-                    }}
+            <div style={styles.chipRow}>
+              {selectedGolfers.length === 0 ? (
+                <div style={{ fontSize: 14, color: "#94a3b8" }}>No golfers selected yet.</div>
+              ) : (
+                selectedGolfers.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => removePick(g.id)}
+                    disabled={isLocked}
+                    style={styles.chip(isLocked)}
+                    title={isLocked ? "Locked" : "Remove pick"}
                   >
-                    {group.letter}
-                  </div>
+                    {g.name} {isLocked ? "" : "×"}
+                  </button>
+                ))
+              )}
+            </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
-                    {group.golfers.map((g) => {
-                      const isUsed = usedBefore.has(g.id);
-                      const isSelected = selectedSet.has(g.id);
-                      const disabled = isLocked || (isUsed && !isSelected);
+            {message ? <div style={styles.message}>{message}</div> : null}
+          </div>
 
-                      return (
-                        <button
-                          key={g.id}
-                          onClick={() => togglePick(g.id)}
-                          disabled={disabled}
-                          style={golferBtn({ selected: isSelected, disabled, used: isUsed })}
-                        >
-                          <div style={{ minWidth: 0 }}>
+          <div style={styles.card}>
+            <div style={styles.sectionHeader}>
+              <h2 style={styles.sectionTitle}>Golfer board</h2>
+              <div style={styles.sectionMeta}>{totalVisibleCount} visible</div>
+            </div>
+
+            <div style={styles.toolbar}>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search golfers…"
+                style={styles.input}
+                disabled={golfers.length === 0}
+              />
+              <button
+                onClick={() => setQuery("")}
+                style={styles.smallBtn}
+                disabled={!query}
+                title="Clear search"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={() => setShowUsed(false)} style={styles.pill(!showUsed)}>
+                Available ({availableCount})
+              </button>
+              <button onClick={() => setShowUsed(true)} style={styles.pill(showUsed)}>
+                Show Used ({usedCount})
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 13, color: "#94a3b8" }}>
+              {q ? `Search filter: “${query.trim()}”` : "Sorted by last name and grouped by initial"}
+            </div>
+
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+              {initialLoading ? (
+                <div style={{ fontSize: 14, color: "#94a3b8" }}>Loading golfers…</div>
+              ) : groupedGolfers.length === 0 ? (
+                <div style={{ fontSize: 14, color: "#94a3b8" }}>No golfers match this filter.</div>
+              ) : (
+                groupedGolfers.map((group) => (
+                  <div key={group.letter}>
+                    <div style={styles.groupHeader}>{group.letter}</div>
+
+                    <div style={styles.golferList}>
+                      {group.golfers.map((g) => {
+                        const isUsed = usedBefore.has(g.id);
+                        const isSelected = selectedSet.has(g.id);
+                        const disabled = isLocked || (isUsed && !isSelected);
+
+                        return (
+                          <button
+                            key={g.id}
+                            onClick={() => togglePick(g.id)}
+                            disabled={disabled}
+                            style={styles.golferBtn({
+                              selected: isSelected,
+                              disabled,
+                              used: isUsed,
+                            })}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: 800,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {g.name}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "#94a3b8",
+                                  marginTop: 4,
+                                }}
+                              >
+                                Last name: {getLastName(g.name)}
+                              </div>
+                            </div>
+
                             <div
                               style={{
-                                fontWeight: 800,
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                color: isSelected ? "#86efac" : "#cbd5e1",
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {g.name}
+                              {isLocked
+                                ? "LOCKED"
+                                : disabled
+                                ? "USED"
+                                : isSelected
+                                ? "SELECTED"
+                                : "TAP"}
                             </div>
-                            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 3 }}>
-                              Last name: {getLastName(g.name)}
-                            </div>
-                          </div>
-
-                          <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.85, whiteSpace: "nowrap" }}>
-                            {isLocked ? "LOCKED" : disabled ? "USED" : isSelected ? "SELECTED" : "TAP"}
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         </div>
       </main>
 
-      <div style={stickyBar}>
-        <div style={stickyInner}>
-          <div style={{ minWidth: 145 }}>
-            <div style={{ fontWeight: 900, fontSize: 14 }}>
+      <div style={styles.stickyBar}>
+        <div style={styles.stickyInner}>
+          <div style={{ minWidth: 160 }}>
+            <div style={{ fontWeight: 900, fontSize: 14, color: "#f8fafc" }}>
               {isLocked ? `Round ${round} locked` : `Selected ${selected.length}/4`}
             </div>
-            <div style={{ fontSize: 12, opacity: 0.72 }}>
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>
               {selectedTournament ? "Save when ready" : "Pick a tournament first"}
             </div>
           </div>
@@ -730,7 +981,7 @@ export default function PicksPage() {
             <button
               onClick={savePicks}
               disabled={saving || !selectedTournament || isLocked}
-              style={saveBtn}
+              style={styles.saveBtn}
             >
               {saving ? "Saving…" : isLocked ? "Locked" : "Save Picks"}
             </button>
