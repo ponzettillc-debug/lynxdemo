@@ -1273,7 +1273,7 @@ export default function AdminPage() {
           </button>
 
           <p style={{ ...styles.sectionText, marginTop: 12, marginBottom: 12 }}>
-            Existing passwords cannot be viewed. You can only set a new password. :contentReference[oaicite:1]{index=1}
+  Existing passwords cannot be viewed. You can only set a new password.
           </p>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
