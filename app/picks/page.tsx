@@ -739,7 +739,7 @@ export default function PicksPage() {
         <div style={styles.shell}>
           <div style={styles.topBar}>
             <div style={styles.brand}>
-              <div style={styles.badge}>LynxDemo</div>
+              <div style={styles.badge}>4Play</div>
               <h1 style={styles.title}>Make your picks</h1>
               <p style={styles.subtitle}>
                 Lock in 4 golfers each round. Used golfers from earlier rounds stay off the board.
