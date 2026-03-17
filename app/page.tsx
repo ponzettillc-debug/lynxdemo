@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import AppLogo from "./components/AppLogo";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -200,6 +201,12 @@ export default function Home() {
     border: "1px solid #d0d7de",
   };
 
+  const logoWrap: React.CSSProperties = {
+    marginBottom: 12,
+    display: "flex",
+    justifyContent: "center",
+  };
+
   if (loading) {
     return (
       <main
@@ -212,9 +219,11 @@ export default function Home() {
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div style={{ ...cardStyle, width: "100%", maxWidth: 460 }}>
-          <h1 style={{ marginTop: 0, marginBottom: 8 }}>4Play</h1>
-          <p style={{ margin: 0 }}>Loading...</p>
+        <div style={{ ...cardStyle, width: "100%", maxWidth: 520 }}>
+          <div style={logoWrap}>
+            <AppLogo priority width={260} height={110} />
+          </div>
+          <p style={{ margin: 0, textAlign: "center" }}>Loading...</p>
         </div>
       </main>
     );
@@ -232,8 +241,18 @@ export default function Home() {
       <div style={{ maxWidth: 520, margin: "40px auto" }}>
         {!session ? (
           <div style={cardStyle}>
-            <h1 style={{ marginTop: 0, marginBottom: 8 }}>4Play</h1>
-            <p style={{ marginTop: 0, marginBottom: 20, color: "#444" }}>
+            <div style={logoWrap}>
+              <AppLogo priority width={260} height={110} />
+            </div>
+
+            <p
+              style={{
+                marginTop: 0,
+                marginBottom: 20,
+                color: "#444",
+                textAlign: "center",
+              }}
+            >
               Sign in to access your pool, picks, and leaderboard.
             </p>
 
@@ -321,13 +340,13 @@ export default function Home() {
         ) : (
           <div style={{ display: "grid", gap: 16 }}>
             <div style={cardStyle}>
-              <h1 style={{ marginTop: 0, marginBottom: 8 }}>4Play</h1>
+              <div style={logoWrap}>
+                <AppLogo priority width={240} height={100} />
+              </div>
               <p style={{ marginTop: 0, marginBottom: 8 }}>
                 Logged in as <strong>{session.user.email}</strong>
               </p>
-              <p style={{ margin: 0, color: "#444" }}>
-                Welcome to the pool.
-              </p>
+              <p style={{ margin: 0, color: "#444" }}>Welcome to the pool.</p>
             </div>
 
             <div style={cardStyle}>

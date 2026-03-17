@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import AppLogo from "../components/AppLogo";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -106,7 +107,10 @@ export default function PicksPage() {
     return tournaments.find((t) => t.id === selectedTournament) ?? null;
   }, [tournaments, selectedTournament]);
 
-  const lockIso = useMemo(() => getRoundLock(currentTournament, round), [currentTournament, round]);
+  const lockIso = useMemo(
+    () => getRoundLock(currentTournament, round),
+    [currentTournament, round]
+  );
 
   const lockMs = useMemo(() => {
     if (!lockIso) return null;
@@ -346,7 +350,9 @@ export default function PicksPage() {
         setMyPicksAllRounds(picks);
       }
     } catch (e: any) {
-      setMessage(e?.name === "AbortError" ? "Save timed out" : e?.message || "Save error");
+      setMessage(
+        e?.name === "AbortError" ? "Save timed out" : e?.message || "Save error"
+      );
     } finally {
       setSaving(false);
     }
@@ -355,7 +361,9 @@ export default function PicksPage() {
   const lockLine = useMemo(() => {
     if (!lockMs) return { status: "OPEN", detail: "No lock time set" };
     const dt = new Date(lockMs);
-    if (isLocked) return { status: "LOCKED", detail: `Locked since ${dt.toLocaleString()}` };
+    if (isLocked) {
+      return { status: "LOCKED", detail: `Locked since ${dt.toLocaleString()}` };
+    }
     return {
       status: "OPEN",
       detail: `Locks at ${dt.toLocaleString()} (in ${formatMs(timeToLock ?? 0)})`,
@@ -464,20 +472,6 @@ export default function PicksPage() {
       display: "flex",
       flexDirection: "column" as const,
       gap: 6,
-    } as React.CSSProperties,
-
-    badge: {
-      display: "inline-block",
-      width: "fit-content",
-      padding: "5px 10px",
-      borderRadius: 999,
-      background: "rgba(34,197,94,0.14)",
-      color: "#86efac",
-      border: "1px solid rgba(34,197,94,0.28)",
-      fontWeight: 800,
-      fontSize: 12,
-      textTransform: "uppercase" as const,
-      letterSpacing: 0.5,
     } as React.CSSProperties,
 
     title: {
@@ -674,7 +668,11 @@ export default function PicksPage() {
       gap: 10,
     } as React.CSSProperties,
 
-    golferBtn: (opts: { selected: boolean; disabled: boolean; used: boolean }): React.CSSProperties => ({
+    golferBtn: (opts: {
+      selected: boolean;
+      disabled: boolean;
+      used: boolean;
+    }): React.CSSProperties => ({
       width: "100%",
       textAlign: "left",
       padding: "15px 15px",
@@ -739,10 +737,13 @@ export default function PicksPage() {
         <div style={styles.shell}>
           <div style={styles.topBar}>
             <div style={styles.brand}>
-              <div style={styles.badge}>4Play</div>
+              <div style={{ marginBottom: 10 }}>
+                <AppLogo width={220} height={90} />
+              </div>
               <h1 style={styles.title}>Make your picks</h1>
               <p style={styles.subtitle}>
-                Lock in 4 golfers each round. Used golfers from earlier rounds stay off the board.
+                Lock in 4 golfers each round. Used golfers from earlier rounds stay off
+                the board.
               </p>
             </div>
 
@@ -771,12 +772,27 @@ export default function PicksPage() {
             <div style={{ fontWeight: 900, fontSize: 15 }}>
               Round {round}: {lockLine.status}
             </div>
-            <div style={{ opacity: 0.9, marginTop: 4, fontSize: 14, color: "#cbd5e1" }}>
+            <div
+              style={{
+                opacity: 0.9,
+                marginTop: 4,
+                fontSize: 14,
+                color: "#cbd5e1",
+              }}
+            >
               {lockLine.detail}
             </div>
             {isLocked ? (
-              <div style={{ marginTop: 8, fontWeight: 700, fontSize: 14, color: "#fecaca" }}>
-                Picks are locked for this round. You can review your saved picks, but not change them.
+              <div
+                style={{
+                  marginTop: 8,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  color: "#fecaca",
+                }}
+              >
+                Picks are locked for this round. You can review your saved picks, but
+                not change them.
               </div>
             ) : null}
           </div>
@@ -833,7 +849,9 @@ export default function PicksPage() {
 
             <div style={styles.chipRow}>
               {selectedGolfers.length === 0 ? (
-                <div style={{ fontSize: 14, color: "#94a3b8" }}>No golfers selected yet.</div>
+                <div style={{ fontSize: 14, color: "#94a3b8" }}>
+                  No golfers selected yet.
+                </div>
               ) : (
                 selectedGolfers.map((g) => (
                   <button
@@ -876,7 +894,14 @@ export default function PicksPage() {
               </button>
             </div>
 
-            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+              }}
+            >
               <button onClick={() => setShowUsed(false)} style={styles.pill(!showUsed)}>
                 Available ({availableCount})
               </button>
@@ -886,14 +911,25 @@ export default function PicksPage() {
             </div>
 
             <div style={{ marginTop: 10, fontSize: 13, color: "#94a3b8" }}>
-              {q ? `Search filter: “${query.trim()}”` : "Sorted by last name and grouped by initial"}
+              {q
+                ? `Search filter: “${query.trim()}”`
+                : "Sorted by last name and grouped by initial"}
             </div>
 
-            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
               {initialLoading ? (
                 <div style={{ fontSize: 14, color: "#94a3b8" }}>Loading golfers…</div>
               ) : groupedGolfers.length === 0 ? (
-                <div style={{ fontSize: 14, color: "#94a3b8" }}>No golfers match this filter.</div>
+                <div style={{ fontSize: 14, color: "#94a3b8" }}>
+                  No golfers match this filter.
+                </div>
               ) : (
                 groupedGolfers.map((group) => (
                   <div key={group.letter}>

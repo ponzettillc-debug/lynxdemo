@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import AppLogo from "../components/AppLogo";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,22 +193,12 @@ export default function LeaderboardPage() {
     boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
   };
 
-  const badge: React.CSSProperties = {
-    display: "inline-block",
-    marginBottom: 8,
-    padding: "5px 10px",
-    borderRadius: 999,
-    background: "#f3f4f6",
-    border: "1px solid #e5e7eb",
-    fontWeight: 800,
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  };
-
   return (
     <main style={shell}>
-      <div style={badge}>4Play</div>
+      <div style={{ marginBottom: 10 }}>
+        <AppLogo width={220} height={90} />
+      </div>
+
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
 
       {tournament?.name ? (
