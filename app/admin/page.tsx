@@ -24,6 +24,15 @@ type Tournament = {
 
 type Golfer = { id: string; name: string };
 
+type AdminUser = {
+  id: string;
+  email: string;
+  display_name: string;
+  created_at: string | null;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+};
+
 type ScoreMap = Record<
   string,
   {
@@ -56,6 +65,12 @@ function emptyScoreRow() {
   return { 1: "", 2: "", 3: "", 4: "" };
 }
 
+function fmtDate(v?: string | null) {
+  if (!v) return "—";
+  const d = new Date(v);
+  return Number.isFinite(d.getTime()) ? d.toLocaleString() : "—";
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -68,10 +83,20 @@ export default function AdminPage() {
   const [status, setStatus] = useState("");
 
   const [bootstrapping, setBootstrapping] = useState(false);
-  const [creatingUser, setCreatingUser] = useState(false);
 
+  // user management
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userBusyId, setUserBusyId] = useState("");
+  const [creatingUser, setCreatingUser] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserDisplayName, setNewUserDisplayName] = useState("");
+  const [editingUserId, setEditingUserId] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserDisplayName, setEditUserDisplayName] = useState("");
+  const [editUserPassword, setEditUserPassword] = useState("");
+  const [userQuery, setUserQuery] = useState("");
 
   // Create tournament
   const [tName, setTName] = useState("Demo Tournament");
@@ -150,6 +175,16 @@ export default function AdminPage() {
     });
   }, [golfers]);
 
+  const filteredUsers = useMemo(() => {
+    const q = userQuery.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(q) ||
+        u.display_name.toLowerCase().includes(q)
+    );
+  }, [users, userQuery]);
+
   useEffect(() => {
     if (!session || !isAdmin) return;
 
@@ -166,11 +201,12 @@ export default function AdminPage() {
 
       if (pErr || !poolRow) {
         setStatus(`Pool not found. Go back and click Setup Pool. Looking for "${poolName}".`);
-        return;
+      } else {
+        setPool(poolRow);
+        await refresh(poolRow.id);
       }
 
-      setPool(poolRow);
-      await refresh(poolRow.id);
+      await loadUsers();
       setStatus("");
     })();
   }, [session, isAdmin]);
@@ -182,6 +218,137 @@ export default function AdminPage() {
     }
     loadScoresForTournament(scoreTournamentId);
   }, [scoreTournamentId, golfers, pool]);
+
+  async function getAccessToken() {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || "";
+  }
+
+  async function loadUsers() {
+    try {
+      setUsersLoading(true);
+      const token = await getAccessToken();
+
+      const r = await fetch("/api/admin/users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "Failed to load users.");
+        return;
+      }
+
+      setUsers((j?.users ?? []) as AdminUser[]);
+    } catch (err: any) {
+      setStatus(err?.message || "Failed to load users.");
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  function startEditUser(u: AdminUser) {
+    setEditingUserId(u.id);
+    setEditUserEmail(u.email);
+    setEditUserDisplayName(u.display_name || "");
+    setEditUserPassword("");
+  }
+
+  function cancelEditUser() {
+    setEditingUserId("");
+    setEditUserEmail("");
+    setEditUserDisplayName("");
+    setEditUserPassword("");
+  }
+
+  async function saveUserEdits(userId: string) {
+    if (!editUserEmail.trim()) {
+      setStatus("User email is required.");
+      return;
+    }
+
+    if (editUserPassword && editUserPassword.length < 8) {
+      setStatus("New password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      setUserBusyId(userId);
+      setStatus("Saving user...");
+
+      const token = await getAccessToken();
+
+      const body: Record<string, string> = {
+        email: editUserEmail.trim().toLowerCase(),
+        display_name: editUserDisplayName.trim(),
+      };
+
+      if (editUserPassword.trim()) {
+        body.password = editUserPassword;
+      }
+
+      const r = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "User update failed.");
+        return;
+      }
+
+      setStatus("User updated ✅");
+      cancelEditUser();
+      await loadUsers();
+    } catch (err: any) {
+      setStatus(err?.message || "User update failed.");
+    } finally {
+      setUserBusyId("");
+    }
+  }
+
+  async function deleteUser(userId: string, email: string) {
+    const ok = window.confirm(`Delete user "${email}"?`);
+    if (!ok) return;
+
+    try {
+      setUserBusyId(userId);
+      setStatus(`Deleting user "${email}"...`);
+
+      const token = await getAccessToken();
+
+      const r = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "User deletion failed.");
+        return;
+      }
+
+      setStatus("User deleted ✅");
+      if (editingUserId === userId) cancelEditUser();
+      await loadUsers();
+    } catch (err: any) {
+      setStatus(err?.message || "User deletion failed.");
+    } finally {
+      setUserBusyId("");
+    }
+  }
 
   async function refresh(poolId?: string) {
     const activePoolId = poolId || pool?.id;
@@ -271,8 +438,7 @@ export default function AdminPage() {
       setBootstrapping(true);
       setStatus("Setting up 4Play...");
 
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      const token = await getAccessToken();
 
       if (!token) {
         setStatus("You must be signed in.");
@@ -335,13 +501,7 @@ export default function AdminPage() {
       setCreatingUser(true);
       setStatus("Creating user...");
 
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-
-      if (!token) {
-        setStatus("You must be signed in.");
-        return;
-      }
+      const token = await getAccessToken();
 
       const r = await fetch("/api/admin/create-user", {
         method: "POST",
@@ -352,6 +512,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           email: finalEmail,
           password: newUserPassword,
+          display_name: newUserDisplayName.trim(),
         }),
       });
 
@@ -365,6 +526,8 @@ export default function AdminPage() {
       setStatus(`User created: ${finalEmail}`);
       setNewUserEmail("");
       setNewUserPassword("");
+      setNewUserDisplayName("");
+      await loadUsers();
     } catch (err: any) {
       setStatus(err?.message || "User creation failed.");
     } finally {
@@ -946,6 +1109,12 @@ export default function AdminPage() {
       fontWeight: 700,
       fontSize: 14,
     } as React.CSSProperties,
+
+    tableCell: {
+      padding: 10,
+      borderBottom: "1px solid rgba(148,163,184,0.12)",
+      verticalAlign: "top" as const,
+    } as React.CSSProperties,
   };
 
   if (loading) {
@@ -1043,7 +1212,10 @@ export default function AdminPage() {
               {bootstrapping ? "Setting Up Pool..." : "Setup Pool"}
             </button>
             <button onClick={() => refresh()} disabled={!pool} style={styles.secondaryButton}>
-              Refresh Data
+              Refresh Pool Data
+            </button>
+            <button onClick={loadUsers} disabled={usersLoading} style={styles.secondaryButton}>
+              {usersLoading ? "Refreshing Users..." : "Refresh User List"}
             </button>
             <button onClick={signOut} style={styles.ghostButton}>
               Sign Out
@@ -1052,29 +1224,41 @@ export default function AdminPage() {
         </div>
 
         <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>Create password user</h2>
+          <h2 style={styles.sectionTitle}>User Management</h2>
           <p style={styles.sectionText}>
-            Create a player account with email and password so they can sign in
-            directly without requesting a magic link.
+            Create users, view who is set up, edit email/display name, reset passwords, and delete users.
           </p>
 
-          <input
-            type="email"
-            placeholder="Player email"
-            value={newUserEmail}
-            onChange={(e) => setNewUserEmail(e.target.value)}
-            autoComplete="off"
-            style={styles.input}
-          />
-
-          <input
-            type="password"
-            placeholder="Temporary or permanent password"
-            value={newUserPassword}
-            onChange={(e) => setNewUserPassword(e.target.value)}
-            autoComplete="new-password"
-            style={styles.input}
-          />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr 1fr",
+              gap: 10,
+              marginBottom: 12,
+            }}
+          >
+            <input
+              type="email"
+              placeholder="Player email"
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
+              style={{ ...styles.input, marginBottom: 0 }}
+            />
+            <input
+              type="text"
+              placeholder="Display name"
+              value={newUserDisplayName}
+              onChange={(e) => setNewUserDisplayName(e.target.value)}
+              style={{ ...styles.input, marginBottom: 0 }}
+            />
+            <input
+              type="password"
+              placeholder="Temporary or permanent password"
+              value={newUserPassword}
+              onChange={(e) => setNewUserPassword(e.target.value)}
+              style={{ ...styles.input, marginBottom: 0 }}
+            />
+          </div>
 
           <button
             onClick={createPasswordUser}
@@ -1088,9 +1272,142 @@ export default function AdminPage() {
             {creatingUser ? "Creating User..." : "Create User"}
           </button>
 
-          <p style={{ ...styles.sectionText, marginTop: 12, marginBottom: 0 }}>
-            Password must be at least 8 characters.
+          <p style={{ ...styles.sectionText, marginTop: 12, marginBottom: 12 }}>
+            Existing passwords cannot be viewed. You can only set a new password. :contentReference[oaicite:1]{index=1}
           </p>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <input
+              value={userQuery}
+              onChange={(e) => setUserQuery(e.target.value)}
+              placeholder="Search users by email or display name..."
+              style={{ ...styles.input, flex: 1, marginBottom: 0 }}
+            />
+            <button
+              onClick={() => setUserQuery("")}
+              style={styles.secondaryButton}
+              disabled={!userQuery}
+            >
+              Clear
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 10, fontSize: 13, color: "#94a3b8" }}>
+            Showing {filteredUsers.length} of {users.length} users
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
+              <thead>
+                <tr>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Email</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Display Name</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Created</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Last Sign In</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Confirmed</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersLoading ? (
+                  <tr>
+                    <td colSpan={6} style={styles.tableCell}>Loading users...</td>
+                  </tr>
+                ) : filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={styles.tableCell}>No users found.</td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const editing = editingUserId === u.id;
+                    const busy = userBusyId === u.id;
+
+                    return (
+                      <tr key={u.id}>
+                        <td style={styles.tableCell}>
+                          {!editing ? (
+                            u.email
+                          ) : (
+                            <input
+                              value={editUserEmail}
+                              onChange={(e) => setEditUserEmail(e.target.value)}
+                              style={{ ...styles.input, marginBottom: 0 }}
+                            />
+                          )}
+                        </td>
+
+                        <td style={styles.tableCell}>
+                          {!editing ? (
+                            u.display_name || "—"
+                          ) : (
+                            <input
+                              value={editUserDisplayName}
+                              onChange={(e) => setEditUserDisplayName(e.target.value)}
+                              placeholder="Display name"
+                              style={{ ...styles.input, marginBottom: 8 }}
+                            />
+                          )}
+                          {editing ? (
+                            <input
+                              type="password"
+                              value={editUserPassword}
+                              onChange={(e) => setEditUserPassword(e.target.value)}
+                              placeholder="New password (optional)"
+                              style={{ ...styles.input, marginBottom: 0 }}
+                            />
+                          ) : null}
+                        </td>
+
+                        <td style={styles.tableCell}>{fmtDate(u.created_at)}</td>
+                        <td style={styles.tableCell}>{fmtDate(u.last_sign_in_at)}</td>
+                        <td style={styles.tableCell}>
+                          {u.email_confirmed_at ? "Yes" : "No"}
+                        </td>
+
+                        <td style={styles.tableCell}>
+                          {!editing ? (
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => startEditUser(u)}
+                                style={styles.secondaryButton}
+                                disabled={busy}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => deleteUser(u.id, u.email)}
+                                style={styles.dangerButton}
+                                disabled={busy}
+                              >
+                                {busy ? "Working..." : "Delete"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => saveUserEdits(u.id)}
+                                style={styles.secondaryButton}
+                                disabled={busy}
+                              >
+                                {busy ? "Saving..." : "Save"}
+                              </button>
+                              <button
+                                onClick={cancelEditUser}
+                                style={styles.secondaryButton}
+                                disabled={busy}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {loading || !isReady ? (
@@ -1116,36 +1433,13 @@ export default function AdminPage() {
               </p>
 
               <label>Round 1 Lock</label>
-              <input
-                type="datetime-local"
-                value={r1}
-                onChange={(e) => setR1(e.target.value)}
-                style={styles.input}
-              />
-
+              <input type="datetime-local" value={r1} onChange={(e) => setR1(e.target.value)} style={styles.input} />
               <label>Round 2 Lock</label>
-              <input
-                type="datetime-local"
-                value={r2}
-                onChange={(e) => setR2(e.target.value)}
-                style={styles.input}
-              />
-
+              <input type="datetime-local" value={r2} onChange={(e) => setR2(e.target.value)} style={styles.input} />
               <label>Round 3 Lock</label>
-              <input
-                type="datetime-local"
-                value={r3}
-                onChange={(e) => setR3(e.target.value)}
-                style={styles.input}
-              />
-
+              <input type="datetime-local" value={r3} onChange={(e) => setR3(e.target.value)} style={styles.input} />
               <label>Round 4 Lock</label>
-              <input
-                type="datetime-local"
-                value={r4}
-                onChange={(e) => setR4(e.target.value)}
-                style={styles.input}
-              />
+              <input type="datetime-local" value={r4} onChange={(e) => setR4(e.target.value)} style={styles.input} />
 
               <button onClick={createTournament} style={styles.primaryButton}>
                 Create Tournament
@@ -1162,10 +1456,7 @@ export default function AdminPage() {
                   placeholder="Golfer name"
                   style={{ ...styles.input, flex: 1, marginBottom: 0 }}
                 />
-                <button
-                  onClick={addGolfer}
-                  style={{ ...styles.secondaryButton, minWidth: 84 }}
-                >
+                <button onClick={addGolfer} style={{ ...styles.secondaryButton, minWidth: 84 }}>
                   Add
                 </button>
               </div>
@@ -1192,19 +1483,11 @@ export default function AdminPage() {
                   ))}
                 </select>
 
-                <button
-                  onClick={saveScores}
-                  style={styles.secondaryButton}
-                  disabled={!scoreTournamentId || scoresBusy}
-                >
+                <button onClick={saveScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoresBusy}>
                   {scoresBusy ? "Saving…" : "Save Scores"}
                 </button>
 
-                <button
-                  onClick={clearScores}
-                  style={styles.dangerButton}
-                  disabled={!scoreTournamentId || scoresBusy}
-                >
+                <button onClick={clearScores} style={styles.dangerButton} disabled={!scoreTournamentId || scoresBusy}>
                   Clear Scores
                 </button>
               </div>
@@ -1238,11 +1521,7 @@ export default function AdminPage() {
                               <input
                                 value={row[round as 1 | 2 | 3 | 4]}
                                 onChange={(e) =>
-                                  updateScoreCell(
-                                    g.id,
-                                    round as 1 | 2 | 3 | 4,
-                                    e.target.value
-                                  )
+                                  updateScoreCell(g.id, round as 1 | 2 | 3 | 4, e.target.value)
                                 }
                                 inputMode="numeric"
                                 placeholder="—"
@@ -1337,19 +1616,11 @@ export default function AdminPage() {
                             </div>
 
                             <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                              <button
-                                onClick={() => startEditTournament(t)}
-                                style={styles.secondaryButton}
-                                disabled={busy}
-                              >
+                              <button onClick={() => startEditTournament(t)} style={styles.secondaryButton} disabled={busy}>
                                 Edit
                               </button>
 
-                              <button
-                                onClick={() => deleteTournament(t.id, t.name)}
-                                disabled={busy}
-                                style={styles.dangerButton}
-                              >
+                              <button onClick={() => deleteTournament(t.id, t.name)} disabled={busy} style={styles.dangerButton}>
                                 {busy ? "Working…" : "Delete"}
                               </button>
                             </div>
@@ -1359,57 +1630,21 @@ export default function AdminPage() {
                             <div style={{ fontWeight: 800 }}>Edit Tournament</div>
 
                             <label>Name</label>
-                            <input
-                              value={editTName}
-                              onChange={(e) => setEditTName(e.target.value)}
-                              style={styles.input}
-                            />
-
+                            <input value={editTName} onChange={(e) => setEditTName(e.target.value)} style={styles.input} />
                             <label>Round 1 Lock</label>
-                            <input
-                              type="datetime-local"
-                              value={editR1}
-                              onChange={(e) => setEditR1(e.target.value)}
-                              style={styles.input}
-                            />
-
+                            <input type="datetime-local" value={editR1} onChange={(e) => setEditR1(e.target.value)} style={styles.input} />
                             <label>Round 2 Lock</label>
-                            <input
-                              type="datetime-local"
-                              value={editR2}
-                              onChange={(e) => setEditR2(e.target.value)}
-                              style={styles.input}
-                            />
-
+                            <input type="datetime-local" value={editR2} onChange={(e) => setEditR2(e.target.value)} style={styles.input} />
                             <label>Round 3 Lock</label>
-                            <input
-                              type="datetime-local"
-                              value={editR3}
-                              onChange={(e) => setEditR3(e.target.value)}
-                              style={styles.input}
-                            />
-
+                            <input type="datetime-local" value={editR3} onChange={(e) => setEditR3(e.target.value)} style={styles.input} />
                             <label>Round 4 Lock</label>
-                            <input
-                              type="datetime-local"
-                              value={editR4}
-                              onChange={(e) => setEditR4(e.target.value)}
-                              style={styles.input}
-                            />
+                            <input type="datetime-local" value={editR4} onChange={(e) => setEditR4(e.target.value)} style={styles.input} />
 
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button
-                                onClick={() => saveTournamentEdits(t.id)}
-                                style={{ ...styles.secondaryButton, flex: 1 }}
-                                disabled={busy}
-                              >
+                              <button onClick={() => saveTournamentEdits(t.id)} style={{ ...styles.secondaryButton, flex: 1 }} disabled={busy}>
                                 {busy ? "Saving…" : "Save"}
                               </button>
-                              <button
-                                onClick={cancelEditTournament}
-                                style={{ ...styles.secondaryButton, flex: 1 }}
-                                disabled={busy}
-                              >
+                              <button onClick={cancelEditTournament} style={{ ...styles.secondaryButton, flex: 1 }} disabled={busy}>
                                 Cancel
                               </button>
                             </div>
@@ -1430,11 +1665,7 @@ export default function AdminPage() {
                   placeholder="Search golfers..."
                   style={{ ...styles.input, flex: 1, marginBottom: 0 }}
                 />
-                <button
-                  onClick={() => setGolferQuery("")}
-                  style={styles.secondaryButton}
-                  disabled={!golferQuery}
-                >
+                <button onClick={() => setGolferQuery("")} style={styles.secondaryButton} disabled={!golferQuery}>
                   Clear
                 </button>
               </div>
@@ -1476,19 +1707,11 @@ export default function AdminPage() {
                             <span style={{ fontWeight: 700 }}>{g.name}</span>
 
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button
-                                onClick={() => startEditGolfer(g)}
-                                style={styles.secondaryButton}
-                                disabled={busy}
-                              >
+                              <button onClick={() => startEditGolfer(g)} style={styles.secondaryButton} disabled={busy}>
                                 Edit
                               </button>
 
-                              <button
-                                onClick={() => deleteGolfer(g.id, g.name)}
-                                disabled={busy}
-                                style={styles.dangerButton}
-                              >
+                              <button onClick={() => deleteGolfer(g.id, g.name)} disabled={busy} style={styles.dangerButton}>
                                 {busy ? "Working…" : "Delete"}
                               </button>
                             </div>
@@ -1496,24 +1719,12 @@ export default function AdminPage() {
                         ) : (
                           <>
                             <div style={{ fontWeight: 700 }}>Edit Golfer</div>
-                            <input
-                              value={editGolferName}
-                              onChange={(e) => setEditGolferName(e.target.value)}
-                              style={styles.input}
-                            />
+                            <input value={editGolferName} onChange={(e) => setEditGolferName(e.target.value)} style={styles.input} />
                             <div style={{ display: "flex", gap: 8 }}>
-                              <button
-                                onClick={() => saveGolferEdit(g.id)}
-                                style={{ ...styles.secondaryButton, flex: 1 }}
-                                disabled={busy}
-                              >
+                              <button onClick={() => saveGolferEdit(g.id)} style={{ ...styles.secondaryButton, flex: 1 }} disabled={busy}>
                                 {busy ? "Saving…" : "Save"}
                               </button>
-                              <button
-                                onClick={cancelEditGolfer}
-                                style={{ ...styles.secondaryButton, flex: 1 }}
-                                disabled={busy}
-                              >
+                              <button onClick={cancelEditGolfer} style={{ ...styles.secondaryButton, flex: 1 }} disabled={busy}>
                                 Cancel
                               </button>
                             </div>

@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const email = String(body?.email || "").trim().toLowerCase();
     const password = String(body?.password || "");
+    const displayName = String(body?.display_name || "").trim();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
       email,
       password,
       email_confirm: true,
+      user_metadata: {
+        display_name: displayName,
+      },
     });
 
     if (error) {
@@ -69,6 +73,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       email,
       userId: data.user?.id ?? null,
+      display_name: data.user?.user_metadata?.display_name ?? "",
     });
   } catch (err: any) {
     return NextResponse.json(
