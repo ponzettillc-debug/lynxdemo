@@ -233,17 +233,37 @@ export default function AdminPage() {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token || "";
   }
+async function getAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || "";
+}
 
-  async function loadUsers() {
-    try {
-      setUsersLoading(true);
-      const token = await getAccessToken();
+async function loadUsers() {
+  try {
+    setUsersLoading(true);
+    const token = await getAccessToken();
 
-      const r = await fetch("/api/admin/users", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    const r = await fetch("/api/admin/users", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const j = await r.json().catch(() => ({}));
+
+    if (!r.ok) {
+      setStatus(j?.error || "Failed to load users.");
+      return;
+    }
+
+    setUsers((j?.users ?? []) as AdminUser[]);
+  } catch (err: any) {
+    setStatus(err?.message || "Failed to load users.");
+  } finally {
+    setUsersLoading(false);
+  }
+}
+ 
 
       const j = await r.json().catch(() => ({}));
 
