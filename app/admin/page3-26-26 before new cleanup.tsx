@@ -71,16 +71,6 @@ function fmtDate(v?: string | null) {
   return Number.isFinite(d.getTime()) ? d.toLocaleString() : "—";
 }
 
-function getSetupStatus(user: AdminUser) {
-  if (user.email_confirmed_at) return "Active";
-  return "Pending";
-}
-
-function getMaskedPasswordCell(user: AdminUser) {
-  if (!user.created_at) return "—";
-  return "••••••••";
-}
-
 export default function AdminPage() {
   const router = useRouter();
 
@@ -191,7 +181,7 @@ export default function AdminPage() {
     return users.filter(
       (u) =>
         u.email.toLowerCase().includes(q) ||
-        (u.display_name || "").toLowerCase().includes(q)
+        u.display_name.toLowerCase().includes(q)
     );
   }, [users, userQuery]);
 
@@ -928,7 +918,7 @@ export default function AdminPage() {
     } as React.CSSProperties,
 
     shell: {
-      maxWidth: 1180,
+      maxWidth: 1100,
       margin: "0 auto",
     } as React.CSSProperties,
 
@@ -1090,6 +1080,12 @@ export default function AdminPage() {
       wordBreak: "break-word" as const,
     } as React.CSSProperties,
 
+    divider: {
+      border: "none",
+      borderTop: "1px solid rgba(148,163,184,0.14)",
+      margin: "18px 0",
+    } as React.CSSProperties,
+
     quickGrid: {
       display: "grid",
       gap: 10,
@@ -1243,7 +1239,7 @@ export default function AdminPage() {
           >
             <input
               type="email"
-              placeholder="Username / email"
+              placeholder="Player email"
               value={newUserEmail}
               onChange={(e) => setNewUserEmail(e.target.value)}
               style={{ ...styles.input, marginBottom: 0 }}
@@ -1277,14 +1273,14 @@ export default function AdminPage() {
           </button>
 
           <p style={{ ...styles.sectionText, marginTop: 12, marginBottom: 12 }}>
-            Passwords are never shown after creation. Admins can reset them, but existing passwords cannot be viewed.
+  Existing passwords cannot be viewed. You can only set a new password.
           </p>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <input
               value={userQuery}
               onChange={(e) => setUserQuery(e.target.value)}
-              placeholder="Search users by username/email or display name..."
+              placeholder="Search users by email or display name..."
               style={{ ...styles.input, flex: 1, marginBottom: 0 }}
             />
             <button
@@ -1301,13 +1297,11 @@ export default function AdminPage() {
           </div>
 
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1120 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 920 }}>
               <thead>
                 <tr>
-                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Username</th>
+                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Email</th>
                   <th style={{ ...styles.tableCell, textAlign: "left" }}>Display Name</th>
-                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Password</th>
-                  <th style={{ ...styles.tableCell, textAlign: "left" }}>Setup Status</th>
                   <th style={{ ...styles.tableCell, textAlign: "left" }}>Created</th>
                   <th style={{ ...styles.tableCell, textAlign: "left" }}>Last Sign In</th>
                   <th style={{ ...styles.tableCell, textAlign: "left" }}>Confirmed</th>
@@ -1317,11 +1311,11 @@ export default function AdminPage() {
               <tbody>
                 {usersLoading ? (
                   <tr>
-                    <td colSpan={8} style={styles.tableCell}>Loading users...</td>
+                    <td colSpan={6} style={styles.tableCell}>Loading users...</td>
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={styles.tableCell}>No users found.</td>
+                    <td colSpan={6} style={styles.tableCell}>No users found.</td>
                   </tr>
                 ) : (
                   filteredUsers.map((u) => {
@@ -1332,12 +1326,7 @@ export default function AdminPage() {
                       <tr key={u.id}>
                         <td style={styles.tableCell}>
                           {!editing ? (
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{u.email}</div>
-                              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                                Login ID
-                              </div>
-                            </div>
+                            u.email
                           ) : (
                             <input
                               value={editUserEmail}
@@ -1351,56 +1340,22 @@ export default function AdminPage() {
                           {!editing ? (
                             u.display_name || "—"
                           ) : (
-                            <>
-                              <input
-                                value={editUserDisplayName}
-                                onChange={(e) => setEditUserDisplayName(e.target.value)}
-                                placeholder="Display name"
-                                style={{ ...styles.input, marginBottom: 8 }}
-                              />
-                              <input
-                                type="password"
-                                value={editUserPassword}
-                                onChange={(e) => setEditUserPassword(e.target.value)}
-                                placeholder="New password (optional)"
-                                style={{ ...styles.input, marginBottom: 0 }}
-                              />
-                            </>
+                            <input
+                              value={editUserDisplayName}
+                              onChange={(e) => setEditUserDisplayName(e.target.value)}
+                              placeholder="Display name"
+                              style={{ ...styles.input, marginBottom: 8 }}
+                            />
                           )}
-                        </td>
-
-                        <td style={styles.tableCell}>
-                          {!editing ? (
-                            <span style={{ letterSpacing: 2 }}>{getMaskedPasswordCell(u)}</span>
-                          ) : (
-                            <span style={{ color: "#94a3b8", fontSize: 13 }}>
-                              Existing password hidden
-                            </span>
-                          )}
-                        </td>
-
-                        <td style={styles.tableCell}>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              padding: "6px 10px",
-                              borderRadius: 999,
-                              fontSize: 12,
-                              fontWeight: 800,
-                              background:
-                                getSetupStatus(u) === "Active"
-                                  ? "rgba(34,197,94,0.14)"
-                                  : "rgba(250,204,21,0.14)",
-                              color:
-                                getSetupStatus(u) === "Active" ? "#86efac" : "#fde68a",
-                              border:
-                                getSetupStatus(u) === "Active"
-                                  ? "1px solid rgba(34,197,94,0.25)"
-                                  : "1px solid rgba(250,204,21,0.25)",
-                            }}
-                          >
-                            {getSetupStatus(u)}
-                          </span>
+                          {editing ? (
+                            <input
+                              type="password"
+                              value={editUserPassword}
+                              onChange={(e) => setEditUserPassword(e.target.value)}
+                              placeholder="New password (optional)"
+                              style={{ ...styles.input, marginBottom: 0 }}
+                            />
+                          ) : null}
                         </td>
 
                         <td style={styles.tableCell}>{fmtDate(u.created_at)}</td>
