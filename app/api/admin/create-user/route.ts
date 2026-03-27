@@ -11,23 +11,11 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
-function isValidEmail(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    if (!supabaseUrl) {
-      return jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500);
-    }
-
-    if (!supabaseAnonKey) {
-      return jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500);
-    }
-
-    if (!supabaseServiceRoleKey) {
-      return jsonError("Missing SUPABASE_SERVICE_ROLE_KEY.", 500);
-    }
+    if (!supabaseUrl) return jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500);
+    if (!supabaseAnonKey) return jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500);
+    if (!supabaseServiceRoleKey) return jsonError("Missing SUPABASE_SERVICE_ROLE_KEY.", 500);
 
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -54,59 +42,29 @@ export async function POST(req: NextRequest) {
       return jsonError("Admin access required.", 403);
     }
 
-    const body = await req.json().catch(() => null);
-
-    if (!body) {
-      return jsonError("Invalid JSON body.", 400);
-    }
-
-    const email = String(body?.email || "").trim().toLowerCase();
-    const password = String(body?.password || "");
-    const displayName = String(body?.display_name || "").trim();
-
-    if (!email || !password) {
-      return jsonError("Email and password are required.", 400);
-    }
-
-    if (!isValidEmail(email)) {
-      return jsonError("Please enter a valid email address.", 400);
-    }
-
-    if (password.length < 8) {
-      return jsonError("Password must be at least 8 characters.", 400);
-    }
-
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        display_name: displayName,
-      },
-    });
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
 
     if (error) {
-      const msg = error.message || "User creation failed.";
-
-      if (
-        msg.toLowerCase().includes("already") ||
-        msg.toLowerCase().includes("exists") ||
-        msg.toLowerCase().includes("registered")
-      ) {
-        return jsonError("A user with that email already exists.", 409);
-      }
-
-      return jsonError(msg, 400);
+      return jsonError(error.message || "Failed to list users.", 400);
     }
+
+    const users = (data?.users || []).map((u) => ({
+      id: u.id,
+      email: u.email || "",
+      display_name: String(u.user_metadata?.display_name || ""),
+      created_at: u.created_at || null,
+      last_sign_in_at: u.last_sign_in_at || null,
+      email_confirmed_at: u.email_confirmed_at || null,
+    }));
+
+    users.sort((a, b) => a.email.localeCompare(b.email));
 
     return NextResponse.json({
       ok: true,
-      email,
-      userId: data.user?.id ?? null,
-      display_name: data.user?.user_metadata?.display_name ?? "",
+      users,
     });
   } catch (err: any) {
-    console.error("create-user route error:", err);
+    console.error("users route error:", err);
     return jsonError(err?.message || "Unexpected error.", 500);
   }
 }
