@@ -44,14 +44,12 @@ export default function Home() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const userEmail = session?.user?.email?.toLowerCase() ?? "";
@@ -75,7 +73,7 @@ export default function Home() {
       });
 
       if (error) {
-        setMessage(error.message);
+        setMessage(error.message || "Unable to sign in.");
         return;
       }
 
@@ -87,7 +85,7 @@ export default function Home() {
       setPassword("");
       setMessage("Signed in successfully.");
     } catch (err: any) {
-      setMessage(err?.message || "Unable to sign in with password.");
+      setMessage(err?.message || "Unable to sign in.");
     } finally {
       setSigningInPassword(false);
     }
@@ -113,7 +111,7 @@ export default function Home() {
       });
 
       if (error) {
-        setMessage(error.message);
+        setMessage(error.message || "Unable to send magic link.");
         return;
       }
 
@@ -123,7 +121,7 @@ export default function Home() {
 
       setSavedEmail(finalEmail);
       setEmail(finalEmail);
-      setMessage(`Magic link sent to ${finalEmail}. Check your email for the login link.`);
+      setMessage(`Magic link sent to ${finalEmail}.`);
     } catch (err: any) {
       setMessage(err?.message || "Unable to send magic link.");
     } finally {
@@ -145,6 +143,11 @@ export default function Home() {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
 
+      if (!token) {
+        setMessage("You must be signed in.");
+        return;
+      }
+
       const r = await fetch("/api/bootstrap", {
         method: "POST",
         headers: {
@@ -152,16 +155,16 @@ export default function Home() {
         },
       });
 
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
 
       if (!r.ok) {
-        setMessage(j.error || "Bootstrap failed");
+        setMessage(j?.error || "Bootstrap failed.");
         return;
       }
 
       setMessage("Pool ready ✅");
     } catch (err: any) {
-      setMessage(err?.message || "Bootstrap failed");
+      setMessage(err?.message || "Bootstrap failed.");
     } finally {
       setBootstrapping(false);
     }
@@ -253,7 +256,7 @@ export default function Home() {
                 textAlign: "center",
               }}
             >
-              Sign in to access your pool, picks, and leaderboard.
+              Sign in with the email and password set up by the admin.
             </p>
 
             {savedEmail ? (
@@ -287,6 +290,9 @@ export default function Home() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") signInWithPassword();
+              }}
               style={inputStyle}
             />
 
@@ -300,7 +306,7 @@ export default function Home() {
                   cursor: signingInPassword ? "default" : "pointer",
                 }}
               >
-                {signingInPassword ? "Signing In..." : "Sign In With Password"}
+                {signingInPassword ? "Signing In..." : "Sign In"}
               </button>
 
               <button
@@ -312,7 +318,7 @@ export default function Home() {
                   cursor: sendingLink ? "default" : "pointer",
                 }}
               >
-                {sendingLink ? "Sending..." : "Send Magic Link"}
+                {sendingLink ? "Sending..." : "Send Magic Link Instead"}
               </button>
 
               {savedEmail &&
