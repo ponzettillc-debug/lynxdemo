@@ -6,6 +6,7 @@ const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const defaultPoolName = process.env.NEXT_PUBLIC_POOL_NAME || "LynxDemo";
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
@@ -42,6 +43,26 @@ async function requireAdmin(req: NextRequest) {
   }
 
   return { supabaseAdmin };
+}
+
+async function getDefaultPoolId(supabaseAdmin: ReturnType<typeof createClient>) {
+  const { data: poolRow, error: poolError } = await supabaseAdmin
+    .from("pools")
+    .select("id,name")
+    .eq("name", defaultPoolName)
+    .maybeSingle();
+
+  if (poolError) {
+    throw new Error(`Failed to load default pool "${defaultPoolName}": ${poolError.message}`);
+  }
+
+  if (!poolRow?.id) {
+    throw new Error(
+      `Default pool "${defaultPoolName}" was not found. Run Setup Pool first from the admin page.`
+    );
+  }
+
+  return poolRow.id as string;
 }
 
 export async function GET(req: NextRequest) {
@@ -102,6 +123,8 @@ export async function POST(req: NextRequest) {
       return jsonError("Password must be at least 8 characters.", 400);
     }
 
+    const poolId = await getDefaultPoolId(supabaseAdmin);
+
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -115,6 +138,32 @@ export async function POST(req: NextRequest) {
       return jsonError(error.message || "Failed to create user.", 400);
     }
 
+    const userId = data.user?.id;
+    if (!userId) {
+      return jsonError("User was created but no user id was returned.", 500);
+    }
+
+    const { error: memberError } = await supabaseAdmin
+      .from("pool_members")
+      .upsert(
+        {
+          pool_id: poolId,
+          user_id: userId,
+          role: "member",
+        },
+        {
+          onConflict: "pool_id,user_id",
+        }
+      );
+
+    if (memberError) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return jsonError(
+        `User creation succeeded but pool assignment failed: ${memberError.message}`,
+        400
+      );
+    }
+
     return NextResponse.json({
       ok: true,
       user: {
@@ -125,6 +174,8 @@ export async function POST(req: NextRequest) {
         last_sign_in_at: data.user?.last_sign_in_at || null,
         email_confirmed_at: data.user?.email_confirmed_at || null,
       },
+      assigned_pool_id: poolId,
+      assigned_pool_name: defaultPoolName,
     });
   } catch (err: any) {
     console.error("users POST route error:", err);
