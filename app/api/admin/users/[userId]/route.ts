@@ -102,9 +102,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
         id: data.user?.id || "",
         email: data.user?.email || "",
         display_name: String(data.user?.user_metadata?.display_name || ""),
-        created_at: data.user?.created_at || null,
-        last_sign_in_at: data.user?.last_sign_in_at || null,
-        email_confirmed_at: data.user?.email_confirmed_at || null,
       },
     });
   } catch (err: any) {
