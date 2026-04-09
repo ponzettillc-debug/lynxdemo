@@ -162,7 +162,7 @@ export default function AdminPage() {
     return golfers.filter((g) => g.name.toLowerCase().includes(q));
   }, [golfers, golferQuery]);
 
- const golfersByLastName = useMemo(() => {
+const golfersByLastName = useMemo(() => {
   return [...golfers].sort((a, b) => {
     const lastA = getLastName(a.name);
     const lastB = getLastName(b.name);
