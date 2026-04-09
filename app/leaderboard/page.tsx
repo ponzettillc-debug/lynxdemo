@@ -40,8 +40,11 @@ export default function LeaderboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
-  const [tournament, setTournament] = useState<Tournament | null>(null);
   const [session, setSession] = useState<any>(null);
+
+  const [poolId, setPoolId] = useState<string>("");
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -70,7 +73,7 @@ export default function LeaderboardPage() {
   const userEmail = session?.user?.email?.toLowerCase() ?? "";
   const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
 
-  async function loadLeaderboard() {
+  async function loadSetup() {
     try {
       setLoading(true);
       setMessage("");
@@ -96,42 +99,66 @@ export default function LeaderboardPage() {
         return;
       }
 
-      const poolId: string | undefined = membership?.pool_id;
-      if (!poolId) {
+      const nextPoolId: string | undefined = membership?.pool_id;
+      if (!nextPoolId) {
         setMessage("You are not assigned to a pool yet.");
         setLoading(false);
         return;
       }
 
+      setPoolId(nextPoolId);
+
       const { data: tData, error: tErr } = await supabase
         .from("tournaments")
         .select("id,name")
-        .eq("pool_id", poolId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .eq("pool_id", nextPoolId)
+        .order("created_at", { ascending: false });
 
       if (tErr) {
-        setMessage(`Error loading tournament: ${tErr.message}`);
+        setMessage(`Error loading tournaments: ${tErr.message}`);
         setLoading(false);
         return;
       }
 
-      const t = (tData?.[0] ?? null) as Tournament | null;
-      if (!t) {
+      const nextTournaments = (tData ?? []) as Tournament[];
+      setTournaments(nextTournaments);
+
+      if (nextTournaments.length === 0) {
         setMessage("No tournament found.");
+        setRows([]);
         setLoading(false);
         return;
       }
 
-      setTournament(t);
+      setSelectedTournamentId((prev) =>
+        prev && nextTournaments.some((t) => t.id === prev)
+          ? prev
+          : nextTournaments[0].id
+      );
+    } catch (e: any) {
+      setMessage(e?.message || "Unexpected error loading leaderboard setup.");
+      setLoading(false);
+    }
+  }
+
+  async function loadLeaderboard(tournamentId: string, activePoolId: string) {
+    try {
+      setLoading(true);
+      setMessage("");
+
+      if (!tournamentId || !activePoolId) {
+        setRows([]);
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from("v_leaderboard")
         .select(
           "user_id,display_name,r1_strokes,r2_strokes,r3_strokes,r4_strokes,total_strokes,scored_picks"
         )
-        .eq("pool_id", poolId)
-        .eq("tournament_id", t.id)
+        .eq("pool_id", activePoolId)
+        .eq("tournament_id", tournamentId)
         .order("total_strokes", { ascending: true });
 
       if (error) {
@@ -150,11 +177,19 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     if (!session) return;
-
-    loadLeaderboard();
-    const interval = setInterval(loadLeaderboard, 30000);
-    return () => clearInterval(interval);
+    loadSetup();
   }, [session]);
+
+  useEffect(() => {
+    if (!session || !poolId || !selectedTournamentId) return;
+
+    loadLeaderboard(selectedTournamentId, poolId);
+    const interval = setInterval(
+      () => loadLeaderboard(selectedTournamentId, poolId),
+      30000
+    );
+    return () => clearInterval(interval);
+  }, [session, poolId, selectedTournamentId]);
 
   const rankedRows = useMemo<RankedRow[]>(() => {
     if (rows.length === 0) return [];
@@ -176,6 +211,8 @@ export default function LeaderboardPage() {
   }, [rows]);
 
   const leader = rankedRows[0] ?? null;
+  const selectedTournament =
+    tournaments.find((t) => t.id === selectedTournamentId) ?? null;
 
   const shell: React.CSSProperties = {
     maxWidth: 900,
@@ -201,8 +238,8 @@ export default function LeaderboardPage() {
 
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
 
-      {tournament?.name ? (
-        <p style={{ marginTop: 0, opacity: 0.7 }}>{tournament.name}</p>
+      {selectedTournament?.name ? (
+        <p style={{ marginTop: 0, opacity: 0.7 }}>{selectedTournament.name}</p>
       ) : null}
 
       <div style={{ marginBottom: 14 }}>
@@ -221,6 +258,35 @@ export default function LeaderboardPage() {
         <a href="/" style={{ textDecoration: "none" }}>
           Home
         </a>
+      </div>
+
+      <div style={{ ...card, marginBottom: 14 }}>
+        <label
+          htmlFor="tournament-select"
+          style={{ display: "block", fontWeight: 700, marginBottom: 8 }}
+        >
+          Tournament
+        </label>
+        <select
+          id="tournament-select"
+          value={selectedTournamentId}
+          onChange={(e) => setSelectedTournamentId(e.target.value)}
+          style={{
+            width: "100%",
+            maxWidth: 420,
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid #d4d4d4",
+            background: "#fff",
+          }}
+        >
+          <option value="">Select tournament</option>
+          {tournaments.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {!loading && !message && leader ? (
@@ -249,155 +315,40 @@ export default function LeaderboardPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
             <thead>
               <tr>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  Rank
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  Player
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  Behind
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  R1
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  R2
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  R3
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  R4
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  Total
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid #ddd",
-                    padding: 8,
-                  }}
-                >
-                  Scored
-                </th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Rank</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Player</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Behind</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R1</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R2</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R3</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R4</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Total</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Scored</th>
               </tr>
             </thead>
-
             <tbody>
               {rankedRows.map((r) => {
                 const isLeader = r.rank === 1;
 
                 return (
-                  <tr
-                    key={r.user_id}
-                    style={{
-                      background: isLeader ? "#fafcff" : "transparent",
-                    }}
-                  >
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid #f0f0f0",
-                        fontWeight: isLeader ? 800 : 500,
-                      }}
-                    >
+                  <tr key={r.user_id} style={{ background: isLeader ? "#fafcff" : "transparent" }}>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: isLeader ? 800 : 500 }}>
                       {r.rank}
                     </td>
-
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid #f0f0f0",
-                        fontWeight: isLeader ? 800 : 500,
-                      }}
-                    >
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: isLeader ? 800 : 500 }}>
                       {r.display_name || r.user_id.slice(0, 8) + "…"}
                     </td>
-
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid #f0f0f0",
-                        fontWeight: 700,
-                      }}
-                    >
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 700 }}>
                       {r.behind === 0 ? "Leader" : `+${r.behind}`}
                     </td>
-
-                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                      {fmtRound(r.r1_strokes)}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                      {fmtRound(r.r2_strokes)}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                      {fmtRound(r.r3_strokes)}
-                    </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                      {fmtRound(r.r4_strokes)}
-                    </td>
-                    <td
-                      style={{
-                        padding: 8,
-                        borderBottom: "1px solid #f0f0f0",
-                        fontWeight: 800,
-                      }}
-                    >
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r1_strokes)}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r2_strokes)}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r3_strokes)}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r4_strokes)}</td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 800 }}>
                       {r.total_strokes}
                     </td>
-                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                      {r.scored_picks}
-                    </td>
+                    <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{r.scored_picks}</td>
                   </tr>
                 );
               })}
