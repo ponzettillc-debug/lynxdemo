@@ -791,6 +791,7 @@ export default function AdminPage() {
 
   function updateScoreCell(golferId: string, round: 1 | 2 | 3 | 4, value: string) {
     if (!/^\d*$/.test(value)) return;
+
     setScoreEdits((prev) => ({
       ...prev,
       [golferId]: {
@@ -822,18 +823,18 @@ export default function AdminPage() {
         const row = scoreEdits[g.id] || emptyScoreRow();
 
         ([1, 2, 3, 4] as const).forEach((round) => {
-          const raw = row[round];
-          if (raw !== "") {
-            const n = Number(raw);
-            if (!Number.isNaN(n)) {
-              rows.push({
-                pool_id: pool.id,
-                tournament_id: scoreTournamentId,
-                round,
-                golfer_id: g.id,
-                strokes: n,
-              });
-            }
+          const raw = row[round].trim();
+          if (raw === "") return;
+
+          const n = Number(raw);
+          if (!Number.isNaN(n)) {
+            rows.push({
+              pool_id: pool.id,
+              tournament_id: scoreTournamentId,
+              round,
+              golfer_id: g.id,
+              strokes: n,
+            });
           }
         });
       }
@@ -858,9 +859,20 @@ export default function AdminPage() {
         }
       }
 
+      const { count, error: verifyErr } = await supabase
+        .from("scores")
+        .select("*", { count: "exact", head: true })
+        .eq("pool_id", pool.id)
+        .eq("tournament_id", scoreTournamentId);
+
+      if (verifyErr) {
+        setStatus(`Scores saved, but verification failed: ${verifyErr.message}`);
+      } else {
+        setStatus(`Scores saved ✅ (${rows.length} rows submitted, ${count ?? 0} rows now stored)`);
+      }
+
       await refresh(pool.id);
       await loadScoresForTournament(scoreTournamentId);
-      setStatus(`Scores saved ✅ (${rows.length} round scores written)`);
     } catch (err: any) {
       setStatus(err?.message || "Unexpected error saving scores.");
     } finally {
