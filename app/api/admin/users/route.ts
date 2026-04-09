@@ -47,7 +47,7 @@ async function requireAdmin(req: NextRequest) {
 async function getDefaultPoolId(supabaseAdmin: ReturnType<typeof createClient>) {
   const defaultPoolName = process.env.NEXT_PUBLIC_POOL_NAME || "LynxDemo";
 
-  const { data: poolRows, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("pools")
     .select("id")
     .eq("name", defaultPoolName)
@@ -57,7 +57,8 @@ async function getDefaultPoolId(supabaseAdmin: ReturnType<typeof createClient>) 
     throw new Error(`Failed to load default pool: ${error.message}`);
   }
 
-  const poolId = poolRows?.[0]?.id;
+  const poolRows = (data ?? []) as Array<{ id: string }>;
+  const poolId = poolRows[0]?.id;
 
   if (!poolId) {
     throw new Error(
@@ -65,7 +66,7 @@ async function getDefaultPoolId(supabaseAdmin: ReturnType<typeof createClient>) 
     );
   }
 
-  return poolId as string;
+  return poolId;
 }
 
 export async function GET(req: NextRequest) {
