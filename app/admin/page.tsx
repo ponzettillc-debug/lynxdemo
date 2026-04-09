@@ -162,14 +162,14 @@ export default function AdminPage() {
     return golfers.filter((g) => g.name.toLowerCase().includes(q));
   }, [golfers, golferQuery]);
 
-const golfersByLastName = useMemo(() => {
-  return [...golfers].sort((a, b) => {
-    const lastA = getLastName(a.name);
-    const lastB = getLastName(b.name);
-    if (lastA !== lastB) return lastA.localeCompare(lastB);
-    return a.name.localeCompare(b.name);
-  });
-}, [golfers]);
+  const golfersByLastName = useMemo(() => {
+    return [...golfers].sort((a, b) => {
+      const lastA = getLastName(a.name);
+      const lastB = getLastName(b.name);
+      if (lastA !== lastB) return lastA.localeCompare(lastB);
+      return a.name.localeCompare(b.name);
+    });
+  }, [golfers]);
 
   const filteredUsers = useMemo(() => {
     const q = userQuery.trim().toLowerCase();
@@ -397,30 +397,42 @@ const golfersByLastName = useMemo(() => {
       base[g.id] = emptyScoreRow();
     }
 
-    const { data, error } = await supabase
-      .from("scores")
-      .select("golfer_id,round,strokes")
-      .eq("pool_id", pool.id)
-      .eq("tournament_id", tournamentId);
+    try {
+      const token = await getAccessToken();
 
-    if (error) {
-      setStatus(`Error loading scores: ${error.message}`);
-      setScoreEdits(base);
-      return;
-    }
+      const r = await fetch(
+        `/api/admin/scores?pool_id=${encodeURIComponent(pool.id)}&tournament_id=${encodeURIComponent(tournamentId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    for (const row of data ?? []) {
-      const gid = row.golfer_id as string;
-      const round = row.round as 1 | 2 | 3 | 4;
-      const strokes = row.strokes as number;
+      const j = await r.json().catch(() => ({}));
 
-      if (!base[gid]) base[gid] = emptyScoreRow();
-      if ([1, 2, 3, 4].includes(round)) {
-        base[gid][round] = String(strokes);
+      if (!r.ok) {
+        setStatus(j?.error || "Error loading scores.");
+        setScoreEdits(base);
+        return;
       }
-    }
 
-    setScoreEdits(base);
+      for (const row of j?.scores ?? []) {
+        const gid = row.golfer_id as string;
+        const round = row.round as 1 | 2 | 3 | 4;
+        const strokes = row.strokes as number;
+
+        if (!base[gid]) base[gid] = emptyScoreRow();
+        if ([1, 2, 3, 4].includes(round)) {
+          base[gid][round] = String(strokes);
+        }
+      }
+
+      setScoreEdits(base);
+    } catch (err: any) {
+      setStatus(err?.message || "Error loading scores.");
+      setScoreEdits(base);
+    }
   }
 
   async function signOut() {
@@ -839,40 +851,33 @@ const golfersByLastName = useMemo(() => {
         });
       }
 
-      const { error: deleteErr } = await supabase
-        .from("scores")
-        .delete()
-        .eq("pool_id", pool.id)
-        .eq("tournament_id", scoreTournamentId);
+      const token = await getAccessToken();
 
-      if (deleteErr) {
-        setStatus(`Clear existing scores failed: ${deleteErr.message}`);
+      const r = await fetch("/api/admin/scores", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pool_id: pool.id,
+          tournament_id: scoreTournamentId,
+          rows,
+        }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "Save scores failed.");
         return;
-      }
-
-      if (rows.length > 0) {
-        const { error: insertErr } = await supabase.from("scores").insert(rows);
-
-        if (insertErr) {
-          setStatus(`Save scores failed: ${insertErr.message}`);
-          return;
-        }
-      }
-
-      const { count, error: verifyErr } = await supabase
-        .from("scores")
-        .select("*", { count: "exact", head: true })
-        .eq("pool_id", pool.id)
-        .eq("tournament_id", scoreTournamentId);
-
-      if (verifyErr) {
-        setStatus(`Scores saved, but verification failed: ${verifyErr.message}`);
-      } else {
-        setStatus(`Scores saved ✅ (${rows.length} rows submitted, ${count ?? 0} rows now stored)`);
       }
 
       await refresh(pool.id);
       await loadScoresForTournament(scoreTournamentId);
+      setStatus(
+        `Scores saved ✅ (${j?.submitted_count ?? rows.length} rows submitted, ${j?.stored_count ?? 0} rows now stored)`
+      );
     } catch (err: any) {
       setStatus(err?.message || "Unexpected error saving scores.");
     } finally {
