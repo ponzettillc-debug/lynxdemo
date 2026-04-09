@@ -1,7 +1,7 @@
 // /app/leaderboard/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import AppLogo from "../components/AppLogo";
 
@@ -19,32 +19,6 @@ type Tournament = {
   round2_lock?: string | null;
   round3_lock?: string | null;
   round4_lock?: string | null;
-};
-
-type LeaderboardViewRow = {
-  user_id: string;
-  display_name: string | null;
-};
-
-type PickRow = {
-  user_id: string;
-  golfer_id: string;
-  round: number;
-};
-
-type ScoreRow = {
-  golfer_id: string;
-  round: number;
-  strokes: number;
-};
-
-type Golfer = {
-  id: string;
-  name: string;
-};
-
-type PoolMember = {
-  user_id: string;
 };
 
 type Row = {
@@ -215,197 +189,38 @@ export default function LeaderboardPage() {
         return;
       }
 
-      const [
-        poolMembersRes,
-        golfersRes,
-        picksRes,
-        scoresRes,
-        leaderboardNamesRes,
-      ] = await Promise.all([
-        supabase
-          .from("pool_members")
-          .select("user_id")
-          .eq("pool_id", activePoolId),
-        supabase
-          .from("golfers")
-          .select("id,name")
-          .eq("pool_id", activePoolId),
-        supabase
-          .from("picks")
-          .select("user_id,golfer_id,round")
-          .eq("pool_id", activePoolId)
-          .eq("tournament_id", tournamentId),
-        supabase
-          .from("scores")
-          .select("golfer_id,round,strokes")
-          .eq("pool_id", activePoolId)
-          .eq("tournament_id", tournamentId),
-        supabase
-          .from("v_leaderboard")
-          .select("user_id,display_name")
-          .eq("pool_id", activePoolId)
-          .eq("tournament_id", tournamentId),
-      ]);
+      const token = await supabase.auth
+        .getSession()
+        .then(({ data }) => data.session?.access_token || "");
 
-      if (poolMembersRes.error) {
-        setMessage(`Error loading pool members: ${poolMembersRes.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (golfersRes.error) {
-        setMessage(`Error loading golfers: ${golfersRes.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (picksRes.error) {
-        setMessage(`Error loading picks: ${picksRes.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (scoresRes.error) {
-        setMessage(`Error loading scores: ${scoresRes.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (leaderboardNamesRes.error) {
-        setMessage(`Error loading player names: ${leaderboardNamesRes.error.message}`);
-        setLoading(false);
-        return;
-      }
-
-      const poolMembers = (poolMembersRes.data ?? []) as PoolMember[];
-      const golfers = (golfersRes.data ?? []) as Golfer[];
-      const picks = (picksRes.data ?? []) as PickRow[];
-      const scores = (scoresRes.data ?? []) as ScoreRow[];
-      const leaderboardNames = (leaderboardNamesRes.data ?? []) as LeaderboardViewRow[];
-
-      const golferNameById = new Map<string, string>();
-      golfers.forEach((g) => golferNameById.set(g.id, g.name));
-
-      const displayNameByUserId = new Map<string, string | null>();
-      leaderboardNames.forEach((r) => displayNameByUserId.set(r.user_id, r.display_name ?? null));
-
-      if (session?.user?.id) {
-        const currentDisplay =
-          session.user.user_metadata?.display_name ||
-          session.user.user_metadata?.name ||
-          null;
-
-        if (!displayNameByUserId.has(session.user.id) && currentDisplay) {
-          displayNameByUserId.set(session.user.id, currentDisplay);
+      const r = await fetch(
+        `/api/leaderboard?pool_id=${encodeURIComponent(activePoolId)}&tournament_id=${encodeURIComponent(tournamentId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
+      );
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setMessage(j?.error || "Error loading leaderboard.");
+        setRows([]);
+        setLockedRoundPicks({});
+        setLoading(false);
+        return;
       }
 
-      const scoreByGolferRound = new Map<string, number>();
-      for (const s of scores) {
-        scoreByGolferRound.set(`${s.golfer_id}:${s.round}`, Number(s.strokes) || 0);
-      }
-
-      const pickedGolfersByUser = new Map<string, Set<string>>();
-      const roundPickNamesByUser: Record<string, string[]> = {};
-
-      const selectedTournament =
-        tournaments.find((t) => t.id === tournamentId) ?? null;
-      const lockedRound = getLockedRound(selectedTournament);
-
-      const allUserIds = new Set<string>();
-      poolMembers.forEach((m) => allUserIds.add(m.user_id));
-      picks.forEach((p) => allUserIds.add(p.user_id));
-      leaderboardNames.forEach((r) => allUserIds.add(r.user_id));
-      if (session?.user?.id) allUserIds.add(session.user.id);
-
-      const rowMap = new Map<string, Row>();
-      for (const userId of allUserIds) {
-        rowMap.set(userId, {
-          user_id: userId,
-          display_name: displayNameByUserId.get(userId) ?? null,
-          r1_strokes: 0,
-          r2_strokes: 0,
-          r3_strokes: 0,
-          r4_strokes: 0,
-          total_strokes: 0,
-          scored_picks: 0,
-        });
-        pickedGolfersByUser.set(userId, new Set<string>());
-      }
-
-      for (const pick of picks) {
-        const row = rowMap.get(pick.user_id);
-        if (!row) continue;
-
-        const strokes = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
-        if (typeof strokes === "number") {
-          if (pick.round === 1) row.r1_strokes += strokes;
-          if (pick.round === 2) row.r2_strokes += strokes;
-          if (pick.round === 3) row.r3_strokes += strokes;
-          if (pick.round === 4) row.r4_strokes += strokes;
-        }
-
-        pickedGolfersByUser.get(pick.user_id)?.add(pick.golfer_id);
-
-        if (lockedRound && pick.round === lockedRound) {
-          const golferName = golferNameById.get(pick.golfer_id);
-          if (!roundPickNamesByUser[pick.user_id]) roundPickNamesByUser[pick.user_id] = [];
-          if (golferName) roundPickNamesByUser[pick.user_id].push(golferName);
-        }
-      }
-
-      const nextRows = Array.from(rowMap.values())
-        .map((row) => {
-          const pickedGolfers = pickedGolfersByUser.get(row.user_id) ?? new Set<string>();
-
-          let scoredPicks = 0;
-          pickedGolfers.forEach((golferId) => {
-            const hasAnyScore =
-              scoreByGolferRound.has(`${golferId}:1`) ||
-              scoreByGolferRound.has(`${golferId}:2`) ||
-              scoreByGolferRound.has(`${golferId}:3`) ||
-              scoreByGolferRound.has(`${golferId}:4`);
-
-            if (hasAnyScore) scoredPicks += 1;
-          });
-
-          const total =
-            row.r1_strokes +
-            row.r2_strokes +
-            row.r3_strokes +
-            row.r4_strokes;
-
-          return {
-            ...row,
-            scored_picks: scoredPicks,
-            total_strokes: total,
-          };
-        })
-        .filter((row) => {
-          const hasAnyPicks = (pickedGolfersByUser.get(row.user_id)?.size ?? 0) > 0;
-          const hasAnyScores = row.scored_picks > 0 || row.total_strokes > 0;
-          return hasAnyPicks || hasAnyScores;
-        })
-        .sort((a, b) => {
-          if (a.total_strokes !== b.total_strokes) {
-            return a.total_strokes - b.total_strokes;
-          }
-          return userLabel(a.display_name, a.user_id).localeCompare(
-            userLabel(b.display_name, b.user_id)
-          );
-        });
-
-      Object.keys(roundPickNamesByUser).forEach((userId) => {
-        roundPickNamesByUser[userId] = [...roundPickNamesByUser[userId]].sort((a, b) =>
-          a.localeCompare(b)
-        );
-      });
-
-      setRows(nextRows);
-      setLockedRoundPicks(roundPickNamesByUser);
+      setRows((j?.rows ?? []) as Row[]);
+      setLockedRoundPicks(
+        (j?.lockedRoundPicks ?? {}) as Record<string, string[]>
+      );
       setLoading(false);
     } catch (e: any) {
       setMessage(e?.message || "Unexpected error loading leaderboard.");
+      setRows([]);
+      setLockedRoundPicks({});
       setLoading(false);
     }
   }
@@ -424,7 +239,7 @@ export default function LeaderboardPage() {
       30000
     );
     return () => clearInterval(interval);
-  }, [session, poolId, selectedTournamentId, tournaments]);
+  }, [session, poolId, selectedTournamentId]);
 
   const rankedRows = useMemo<RankedRow[]>(() => {
     if (rows.length === 0) return [];
@@ -597,11 +412,8 @@ export default function LeaderboardPage() {
                 const canExpand = !!lockedRound && roundPicks.length > 0;
 
                 return (
-                  <>
-                    <tr
-                      key={r.user_id}
-                      style={{ background: isLeader ? "#fafcff" : "transparent" }}
-                    >
+                  <Fragment key={r.user_id}>
+                    <tr style={{ background: isLeader ? "#fafcff" : "transparent" }}>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: isLeader ? 800 : 500 }}>
                         {r.rank}
                       </td>
@@ -641,7 +453,7 @@ export default function LeaderboardPage() {
                     </tr>
 
                     {isExpanded ? (
-                      <tr key={`${r.user_id}-expanded`}>
+                      <tr>
                         <td colSpan={10} style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}>
                           <div style={picksCard}>
                             <div style={{ fontWeight: 800, marginBottom: 6 }}>
@@ -679,7 +491,7 @@ export default function LeaderboardPage() {
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
