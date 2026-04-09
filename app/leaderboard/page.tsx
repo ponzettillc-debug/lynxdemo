@@ -1,4 +1,3 @@
-// /app/leaderboard/page.tsx
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -19,6 +18,11 @@ type Tournament = {
   round2_lock?: string | null;
   round3_lock?: string | null;
   round4_lock?: string | null;
+};
+
+type LockedPick = {
+  name: string;
+  score: number | null;
 };
 
 type Row = {
@@ -87,7 +91,9 @@ export default function LeaderboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
 
-  const [lockedRoundPicks, setLockedRoundPicks] = useState<Record<string, string[]>>({});
+  const [lockedRoundPicks, setLockedRoundPicks] = useState<
+    Record<string, LockedPick[]>
+  >({});
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -222,7 +228,7 @@ export default function LeaderboardPage() {
 
       setRows((j?.rows ?? []) as Row[]);
       setLockedRoundPicks(
-        (j?.lockedRoundPicks ?? {}) as Record<string, string[]>
+        (j?.lockedRoundPicks ?? {}) as Record<string, LockedPick[]>
       );
       setLoading(false);
     } catch (e: any) {
@@ -546,9 +552,9 @@ export default function LeaderboardPage() {
                                   gap: 8,
                                 }}
                               >
-                                {roundPicks.map((name) => (
+                                {roundPicks.map((pick) => (
                                   <span
-                                    key={`${r.user_id}-${name}`}
+                                    key={`${r.user_id}-${pick.name}`}
                                     style={{
                                       display: "inline-block",
                                       padding: "6px 10px",
@@ -557,9 +563,16 @@ export default function LeaderboardPage() {
                                       border: "1px solid #d6e7fb",
                                       fontSize: 13,
                                       fontWeight: 600,
+                                      color:
+                                        typeof pick.score === "number"
+                                          ? scoreColor(pick.score)
+                                          : "#111",
                                     }}
                                   >
-                                    {name}
+                                    {pick.name}{" "}
+                                    {typeof pick.score === "number"
+                                      ? `(${fmtScore(pick.score)})`
+                                      : "(—)"}
                                   </span>
                                 ))}
                               </div>

@@ -149,7 +149,9 @@ export async function GET(req: NextRequest) {
     golfers.forEach((g: any) => golferNameById.set(g.id, g.name));
 
     const displayNameByUserId = new Map<string, string | null>();
-    leaderboardNames.forEach((r: any) => displayNameByUserId.set(r.user_id, r.display_name ?? null));
+    leaderboardNames.forEach((r: any) => {
+      displayNameByUserId.set(r.user_id, r.display_name ?? null);
+    });
 
     const scoreByGolferRound = new Map<string, number>();
     scores.forEach((s: any) => {
@@ -157,7 +159,10 @@ export async function GET(req: NextRequest) {
     });
 
     const pickedGolfersByUser = new Map<string, Set<string>>();
-    const roundPickNamesByUser: Record<string, string[]> = {};
+    const roundPickDataByUser: Record<
+      string,
+      Array<{ name: string; score: number | null }>
+    > = {};
     const allUserIds = new Set<string>();
 
     poolMembers.forEach((m: any) => allUserIds.add(m.user_id));
@@ -185,20 +190,32 @@ export async function GET(req: NextRequest) {
       const row = rowMap.get(pick.user_id);
       if (!row) return;
 
-      const strokes = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
-      if (typeof strokes === "number") {
-        if (pick.round === 1) row.r1_strokes += strokes;
-        if (pick.round === 2) row.r2_strokes += strokes;
-        if (pick.round === 3) row.r3_strokes += strokes;
-        if (pick.round === 4) row.r4_strokes += strokes;
+      const score = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
+      if (typeof score === "number") {
+        if (pick.round === 1) row.r1_strokes += score;
+        if (pick.round === 2) row.r2_strokes += score;
+        if (pick.round === 3) row.r3_strokes += score;
+        if (pick.round === 4) row.r4_strokes += score;
       }
 
       pickedGolfersByUser.get(pick.user_id)?.add(pick.golfer_id);
 
       if (lockedRound && pick.round === lockedRound) {
         const golferName = golferNameById.get(pick.golfer_id);
-        if (!roundPickNamesByUser[pick.user_id]) roundPickNamesByUser[pick.user_id] = [];
-        if (golferName) roundPickNamesByUser[pick.user_id].push(golferName);
+        const lockedScore = scoreByGolferRound.has(`${pick.golfer_id}:${pick.round}`)
+          ? scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`) ?? null
+          : null;
+
+        if (!roundPickDataByUser[pick.user_id]) {
+          roundPickDataByUser[pick.user_id] = [];
+        }
+
+        if (golferName) {
+          roundPickDataByUser[pick.user_id].push({
+            name: golferName,
+            score: lockedScore,
+          });
+        }
       }
     });
 
@@ -226,14 +243,14 @@ export async function GET(req: NextRequest) {
       })
       .filter((row: any) => {
         const hasAnyPicks = (pickedGolfersByUser.get(row.user_id)?.size ?? 0) > 0;
-        const hasAnyScores = row.scored_picks > 0 || row.total_strokes > 0;
+        const hasAnyScores = row.scored_picks > 0 || row.total_strokes !== 0;
         return hasAnyPicks || hasAnyScores;
       })
       .sort((a: any, b: any) => a.total_strokes - b.total_strokes);
 
-    Object.keys(roundPickNamesByUser).forEach((userId) => {
-      roundPickNamesByUser[userId] = [...roundPickNamesByUser[userId]].sort((a, b) =>
-        a.localeCompare(b)
+    Object.keys(roundPickDataByUser).forEach((userId) => {
+      roundPickDataByUser[userId] = [...roundPickDataByUser[userId]].sort((a, b) =>
+        a.name.localeCompare(b.name)
       );
     });
 
@@ -241,7 +258,7 @@ export async function GET(req: NextRequest) {
       ok: true,
       rows,
       lockedRound,
-      lockedRoundPicks: roundPickNamesByUser,
+      lockedRoundPicks: roundPickDataByUser,
     });
   } catch (err: any) {
     console.error("leaderboard GET route error:", err);
