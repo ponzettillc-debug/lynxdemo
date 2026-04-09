@@ -162,15 +162,14 @@ export default function AdminPage() {
     return golfers.filter((g) => g.name.toLowerCase().includes(q));
   }, [golfers, golferQuery]);
 
-  const golfersByLastName = useMemo(() => {
-    const golfersByLastName = useMemo(() => {
+ const golfersByLastName = useMemo(() => {
   return [...golfers].sort((a, b) => {
-      const lastA = getLastName(a.name);
-      const lastB = getLastName(b.name);
-      if (lastA !== lastB) return lastA.localeCompare(lastB);
-      return a.name.localeCompare(b.name);
-    });
-  }, [golfers]);
+    const lastA = getLastName(a.name);
+    const lastB = getLastName(b.name);
+    if (lastA !== lastB) return lastA.localeCompare(lastB);
+    return a.name.localeCompare(b.name);
+  });
+}, [golfers]);
 
   const filteredUsers = useMemo(() => {
     const q = userQuery.trim().toLowerCase();
