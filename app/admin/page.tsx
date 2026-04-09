@@ -858,8 +858,11 @@ export default function AdminPage() {
         }
       }
 
-      setStatus("Scores saved ✅");
+      await refresh(pool.id);
       await loadScoresForTournament(scoreTournamentId);
+      setStatus(`Scores saved ✅ (${rows.length} round scores written)`);
+    } catch (err: any) {
+      setStatus(err?.message || "Unexpected error saving scores.");
     } finally {
       setScoresBusy(false);
     }
