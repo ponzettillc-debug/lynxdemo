@@ -44,7 +44,7 @@ async function requireAdmin(req: NextRequest) {
   return { supabaseAdmin };
 }
 
-async function getDefaultPoolId(supabaseAdmin: ReturnType<typeof createClient>) {
+async function getDefaultPoolId(supabaseAdmin: any) {
   const defaultPoolName = process.env.NEXT_PUBLIC_POOL_NAME || "LynxDemo";
 
   const { data, error } = await supabaseAdmin
