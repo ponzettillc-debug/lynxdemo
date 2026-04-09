@@ -37,12 +37,10 @@ type RankedRow = Row & {
   behind: number;
 };
 
-function fmtRound(v: number | null | undefined) {
+function fmtScore(v: number | null | undefined) {
   if (typeof v !== "number") return "—";
   if (v === 0) return "E";
   return v > 0 ? `+${v}` : String(v);
-}
-  return typeof v === "number" && v > 0 ? String(v) : "—";
 }
 
 function userLabel(displayName: string | null | undefined, userId: string) {
@@ -71,6 +69,12 @@ function getLockedRound(tournament: Tournament | null) {
   }
 
   return latestLocked;
+}
+
+function scoreColor(v: number) {
+  if (v < 0) return "#15803d";
+  if (v > 0) return "#b91c1c";
+  return "#111";
 }
 
 export default function LeaderboardPage() {
@@ -371,7 +375,10 @@ export default function LeaderboardPage() {
           <div style={{ fontWeight: 900, fontSize: 15 }}>Current Leader</div>
           <div style={{ marginTop: 6 }}>
             <strong>{userLabel(leader.display_name, leader.user_id)}</strong>{" "}
-            at <strong>{leader.total_strokes}</strong>
+            at{" "}
+            <strong style={{ color: scoreColor(leader.total_strokes) }}>
+              {fmtScore(leader.total_strokes)}
+            </strong>
           </div>
         </div>
       ) : null}
@@ -418,31 +425,91 @@ export default function LeaderboardPage() {
                 return (
                   <Fragment key={r.user_id}>
                     <tr style={{ background: isLeader ? "#fafcff" : "transparent" }}>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: isLeader ? 800 : 500 }}>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          fontWeight: isLeader ? 800 : 500,
+                        }}
+                      >
                         {r.rank}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: isLeader ? 800 : 500 }}>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          fontWeight: isLeader ? 800 : 500,
+                        }}
+                      >
                         {userLabel(r.display_name, r.user_id)}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 700 }}>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          fontWeight: 700,
+                          color: scoreColor(r.behind),
+                        }}
+                      >
                         {r.behind === 0
-  ? "Leader"
-  : r.behind > 0
-  ? `+${r.behind}`
-  : r.behind}
+                          ? "Leader"
+                          : r.behind > 0
+                          ? `+${r.behind}`
+                          : r.behind}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r1_strokes)}</td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r2_strokes)}</td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r3_strokes)}</td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r4_strokes)}</td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 800 }}>
-                        {r.total_strokes === 0
-  ? "E"
-  : r.total_strokes > 0
-  ? `+${r.total_strokes}`
-  : r.total_strokes}
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          color: scoreColor(r.r1_strokes),
+                          fontWeight: r.r1_strokes < 0 ? 700 : 400,
+                        }}
+                      >
+                        {fmtScore(r.r1_strokes)}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{r.scored_picks}</td>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          color: scoreColor(r.r2_strokes),
+                          fontWeight: r.r2_strokes < 0 ? 700 : 400,
+                        }}
+                      >
+                        {fmtScore(r.r2_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          color: scoreColor(r.r3_strokes),
+                          fontWeight: r.r3_strokes < 0 ? 700 : 400,
+                        }}
+                      >
+                        {fmtScore(r.r3_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          color: scoreColor(r.r4_strokes),
+                          fontWeight: r.r4_strokes < 0 ? 700 : 400,
+                        }}
+                      >
+                        {fmtScore(r.r4_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid #f0f0f0",
+                          fontWeight: 800,
+                          color: scoreColor(r.total_strokes),
+                        }}
+                      >
+                        {fmtScore(r.total_strokes)}
+                      </td>
+                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
+                        {r.scored_picks}
+                      </td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
                         {canExpand ? (
                           <button
