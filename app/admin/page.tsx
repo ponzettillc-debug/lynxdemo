@@ -163,7 +163,8 @@ export default function AdminPage() {
   }, [golfers, golferQuery]);
 
   const golfersByLastName = useMemo(() => {
-    return [...golfers].sort((a, b) => {
+    const golfersByLastName = useMemo(() => {
+  return [...golfers].sort((a, b) => {
       const lastA = getLastName(a.name);
       const lastB = getLastName(b.name);
       if (lastA !== lastB) return lastA.localeCompare(lastB);
