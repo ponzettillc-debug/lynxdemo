@@ -38,6 +38,10 @@ type RankedRow = Row & {
 };
 
 function fmtRound(v: number | null | undefined) {
+  if (typeof v !== "number") return "—";
+  if (v === 0) return "E";
+  return v > 0 ? `+${v}` : String(v);
+}
   return typeof v === "number" && v > 0 ? String(v) : "—";
 }
 
@@ -421,14 +425,22 @@ export default function LeaderboardPage() {
                         {userLabel(r.display_name, r.user_id)}
                       </td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 700 }}>
-                        {r.behind === 0 ? "Leader" : `+${r.behind}`}
+                        {r.behind === 0
+  ? "Leader"
+  : r.behind > 0
+  ? `+${r.behind}`
+  : r.behind}
                       </td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r1_strokes)}</td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r2_strokes)}</td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r3_strokes)}</td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{fmtRound(r.r4_strokes)}</td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0", fontWeight: 800 }}>
-                        {r.total_strokes}
+                        {r.total_strokes === 0
+  ? "E"
+  : r.total_strokes > 0
+  ? `+${r.total_strokes}`
+  : r.total_strokes}
                       </td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>{r.scored_picks}</td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>

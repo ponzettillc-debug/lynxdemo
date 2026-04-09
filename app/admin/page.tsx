@@ -802,7 +802,7 @@ export default function AdminPage() {
   }
 
   function updateScoreCell(golferId: string, round: 1 | 2 | 3 | 4, value: string) {
-    if (!/^\d*$/.test(value)) return;
+    if (!/^-?\d*$/.test(value)) return;
 
     setScoreEdits((prev) => ({
       ...prev,
@@ -839,8 +839,13 @@ export default function AdminPage() {
           if (raw === "") return;
 
           const n = Number(raw);
-          if (!Number.isNaN(n)) {
-            rows.push({
+         if (!Number.isNaN(n)) {
+  if (n < -20 || n > 30) {
+    setStatus(`Invalid score for ${g.name} (R${round}): ${n}. Must be between -20 and +30.`);
+    throw new Error("Invalid score range");
+  }
+
+  rows.push({
               pool_id: pool.id,
               tournament_id: scoreTournamentId,
               round,
@@ -1562,7 +1567,7 @@ export default function AdminPage() {
               </div>
 
               <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 10 }}>
-                Sorted by golfer last name. Leave a cell blank if that round has no score yet.
+                Sorted by golfer last name. Enter scores relative to par (e.g., -2, 0, +3). Leave blank if no score yet.
               </div>
 
               <div style={{ overflowX: "auto" }}>
