@@ -13,11 +13,11 @@ const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
 // CHANGE THESE FILENAMES TO MATCH YOUR /public FILES EXACTLY
 const ROUND_BANNERS: Record<string, string> = {
-  default: "/masters-banner-default.png",
-  round1: "/masters-banner-round1.png",
-  round2: "/masters-banner-round2.png",
-  round3: "/masters-banner-round3.png",
-  round4: "/masters-banner-round4.png",
+  default: "/4play-logo.png",
+  round1: "/4play_golf_thursday.png",
+  round2: "/4play_golf_friday.png",
+  round3: "/4play_golf_saturday.png",
+  round4: "/4play_golf_sunday.png",
 };
 
 type Tournament = {
