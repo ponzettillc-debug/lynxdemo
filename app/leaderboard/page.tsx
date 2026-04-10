@@ -11,7 +11,6 @@ const supabase = createClient(
 
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
-// CHANGE THESE FILENAMES TO MATCH YOUR /public FILES EXACTLY
 const ROUND_BANNERS: Record<string, string> = {
   default: "/4play-logo.png",
   round1: "/4play_golf_thursday.png",
@@ -120,8 +119,12 @@ export default function LeaderboardPage() {
   const [allUsedPicks, setAllUsedPicks] = useState<
     Record<string, UsedPick[]>
   >({});
-  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
-  const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<Record<string, boolean>>({});
+  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<
+    Record<string, boolean>
+  >({});
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -236,7 +239,9 @@ export default function LeaderboardPage() {
         .then(({ data }) => data.session?.access_token || "");
 
       const r = await fetch(
-        `/api/leaderboard?pool_id=${encodeURIComponent(activePoolId)}&tournament_id=${encodeURIComponent(tournamentId)}`,
+        `/api/leaderboard?pool_id=${encodeURIComponent(
+          activePoolId
+        )}&tournament_id=${encodeURIComponent(tournamentId)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -259,9 +264,7 @@ export default function LeaderboardPage() {
       setLockedRoundPicks(
         (j?.lockedRoundPicks ?? {}) as Record<string, LockedPick[]>
       );
-      setAllUsedPicks(
-        (j?.allUsedPicks ?? {}) as Record<string, UsedPick[]>
-      );
+      setAllUsedPicks((j?.allUsedPicks ?? {}) as Record<string, UsedPick[]>);
       setLoading(false);
     } catch (e: any) {
       setMessage(e?.message || "Unexpected error loading leaderboard.");
@@ -359,24 +362,30 @@ export default function LeaderboardPage() {
     background: "#fbfffc",
   };
 
+  const footerWrap: React.CSSProperties = {
+    marginTop: 28,
+    paddingTop: 18,
+    borderTop: "1px solid #e5e7eb",
+    textAlign: "center",
+  };
+
+  const footerText: React.CSSProperties = {
+    margin: 0,
+    fontSize: 12,
+    letterSpacing: 0.2,
+    color: "#6b7280",
+  };
+
+  const footerSubtext: React.CSSProperties = {
+    marginTop: 6,
+    fontSize: 11,
+    color: "#9ca3af",
+  };
+
   return (
     <main style={shell}>
       <div style={{ marginBottom: 10 }}>
         <AppLogo width={220} height={90} />
-      </div>
-
-      <div style={{ marginBottom: 14 }}>
-        <img
-          src={bannerSrc}
-          alt="Tournament round banner"
-          style={{
-            width: "100%",
-            maxWidth: 520,
-            display: "block",
-            borderRadius: 14,
-            boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
-          }}
-        />
       </div>
 
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
@@ -465,23 +474,107 @@ export default function LeaderboardPage() {
 
       {loading ? <p>Loading leaderboard…</p> : null}
       {!loading && message ? <p>{message}</p> : null}
-      {!loading && !message && rankedRows.length === 0 ? <p>No scored picks yet.</p> : null}
+      {!loading && !message && rankedRows.length === 0 ? (
+        <p>No scored picks yet.</p>
+      ) : null}
 
       {!loading && !message && rankedRows.length > 0 ? (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
+          <table
+            style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}
+          >
             <thead>
               <tr>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Rank</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Player</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Behind</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R1</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R2</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R3</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R4</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Total</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Scored</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Views</th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Rank
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Player
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Behind
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  R1
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  R2
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  R3
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  R4
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Total
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Scored
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid #ddd",
+                    padding: 8,
+                  }}
+                >
+                  Views
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -579,10 +672,14 @@ export default function LeaderboardPage() {
                       >
                         {fmtScore(r.total_strokes)}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
+                      <td
+                        style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}
+                      >
                         {r.scored_picks}
                       </td>
-                      <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
+                      <td
+                        style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}
+                      >
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {canExpandCurrent ? (
                             <button
@@ -596,7 +693,9 @@ export default function LeaderboardPage() {
                                 fontWeight: 600,
                               }}
                             >
-                              {isExpanded ? `Hide R${lockedRound}` : `Show R${lockedRound}`}
+                              {isExpanded
+                                ? `Hide R${lockedRound}`
+                                : `Show R${lockedRound}`}
                             </button>
                           ) : (
                             <span style={{ opacity: 0.6 }}>—</span>
@@ -614,7 +713,9 @@ export default function LeaderboardPage() {
                                 fontWeight: 600,
                               }}
                             >
-                              {isAllUsedExpanded ? "Hide All Used" : "Show All Used"}
+                              {isAllUsedExpanded
+                                ? "Hide All Used"
+                                : "Show All Used"}
                             </button>
                           ) : null}
                         </div>
@@ -623,7 +724,10 @@ export default function LeaderboardPage() {
 
                     {isExpanded ? (
                       <tr>
-                        <td colSpan={10} style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}>
+                        <td
+                          colSpan={10}
+                          style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}
+                        >
                           <div style={picksCard}>
                             <div style={{ fontWeight: 800, marginBottom: 6 }}>
                               Round {lockedRound} locked picks
@@ -661,7 +765,9 @@ export default function LeaderboardPage() {
                                 ))}
                               </div>
                             ) : (
-                              <div style={{ opacity: 0.7 }}>No locked picks available.</div>
+                              <div style={{ opacity: 0.7 }}>
+                                No locked picks available.
+                              </div>
                             )}
                           </div>
                         </td>
@@ -670,7 +776,10 @@ export default function LeaderboardPage() {
 
                     {isAllUsedExpanded ? (
                       <tr>
-                        <td colSpan={10} style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}>
+                        <td
+                          colSpan={10}
+                          style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}
+                        >
                           <div style={usedCard}>
                             <div style={{ fontWeight: 800, marginBottom: 6 }}>
                               All golfers used through Round {lockedRound}
@@ -703,7 +812,9 @@ export default function LeaderboardPage() {
                                 ))}
                               </div>
                             ) : (
-                              <div style={{ opacity: 0.7 }}>No used golfers available.</div>
+                              <div style={{ opacity: 0.7 }}>
+                                No used golfers available.
+                              </div>
                             )}
                           </div>
                         </td>
@@ -718,8 +829,29 @@ export default function LeaderboardPage() {
       ) : null}
 
       {!loading && !message ? (
-        <p style={{ marginTop: 12, opacity: 0.7 }}>Auto-refreshes every 30 seconds.</p>
+        <p style={{ marginTop: 12, opacity: 0.7 }}>
+          Auto-refreshes every 30 seconds.
+        </p>
       ) : null}
+
+      <div style={{ marginTop: 28 }}>
+        <img
+          src={bannerSrc}
+          alt="Tournament round banner"
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            display: "block",
+            borderRadius: 14,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
+          }}
+        />
+      </div>
+
+      <div style={footerWrap}>
+        <p style={footerText}>© 2026 4Play Golf</p>
+        <div style={footerSubtext}>A Buxton, Maine company (pending)</div>
+      </div>
     </main>
   );
 }
