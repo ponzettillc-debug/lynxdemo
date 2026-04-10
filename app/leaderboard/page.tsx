@@ -25,6 +25,12 @@ type LockedPick = {
   score: number | null;
 };
 
+type UsedPick = {
+  name: string;
+  roundsUsed: number[];
+  totalScore: number;
+};
+
 type Row = {
   user_id: string;
   display_name: string | null;
@@ -94,7 +100,11 @@ export default function LeaderboardPage() {
   const [lockedRoundPicks, setLockedRoundPicks] = useState<
     Record<string, LockedPick[]>
   >({});
+  const [allUsedPicks, setAllUsedPicks] = useState<
+    Record<string, UsedPick[]>
+  >({});
   const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>({});
+  const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -199,6 +209,7 @@ export default function LeaderboardPage() {
       if (!tournamentId || !activePoolId) {
         setRows([]);
         setLockedRoundPicks({});
+        setAllUsedPicks({});
         setLoading(false);
         return;
       }
@@ -222,6 +233,7 @@ export default function LeaderboardPage() {
         setMessage(j?.error || "Error loading leaderboard.");
         setRows([]);
         setLockedRoundPicks({});
+        setAllUsedPicks({});
         setLoading(false);
         return;
       }
@@ -230,11 +242,15 @@ export default function LeaderboardPage() {
       setLockedRoundPicks(
         (j?.lockedRoundPicks ?? {}) as Record<string, LockedPick[]>
       );
+      setAllUsedPicks(
+        (j?.allUsedPicks ?? {}) as Record<string, UsedPick[]>
+      );
       setLoading(false);
     } catch (e: any) {
       setMessage(e?.message || "Unexpected error loading leaderboard.");
       setRows([]);
       setLockedRoundPicks({});
+      setAllUsedPicks({});
       setLoading(false);
     }
   }
@@ -286,6 +302,13 @@ export default function LeaderboardPage() {
     }));
   }
 
+  function toggleAllUsedExpanded(userId: string) {
+    setExpandedAllUsedUsers((prev) => ({
+      ...prev,
+      [userId]: !prev[userId],
+    }));
+  }
+
   const shell: React.CSSProperties = {
     maxWidth: 980,
     margin: "20px auto",
@@ -308,6 +331,14 @@ export default function LeaderboardPage() {
     borderRadius: 12,
     padding: 10,
     background: "#f8fbff",
+  };
+
+  const usedCard: React.CSSProperties = {
+    marginTop: 8,
+    border: "1px solid #e7f5ea",
+    borderRadius: 12,
+    padding: 10,
+    background: "#fbfffc",
   };
 
   return (
@@ -391,10 +422,10 @@ export default function LeaderboardPage() {
 
       {!loading && !message && (
         <div style={{ ...card, marginBottom: 14 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Locked picks view</div>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>Pick visibility</div>
           <div style={{ opacity: 0.75 }}>
             {lockedRound
-              ? `Showing locked Round ${lockedRound} picks when expanded.`
+              ? `Current round view shows locked Round ${lockedRound}. "Show All Used" shows all golfers used through Round ${lockedRound}.`
               : "No round lock has passed yet, so locked picks are not shown."}
           </div>
         </div>
@@ -406,7 +437,7 @@ export default function LeaderboardPage() {
 
       {!loading && !message && rankedRows.length > 0 ? (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 820 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
             <thead>
               <tr>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Rank</th>
@@ -418,15 +449,18 @@ export default function LeaderboardPage() {
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>R4</th>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Total</th>
                 <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Scored</th>
-                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Picks</th>
+                <th style={{ textAlign: "left", borderBottom: "1px solid #ddd", padding: 8 }}>Views</th>
               </tr>
             </thead>
             <tbody>
               {rankedRows.map((r) => {
                 const isLeader = r.rank === 1;
                 const isExpanded = !!expandedUsers[r.user_id];
+                const isAllUsedExpanded = !!expandedAllUsedUsers[r.user_id];
                 const roundPicks = lockedRoundPicks[r.user_id] ?? [];
-                const canExpand = !!lockedRound && roundPicks.length > 0;
+                const usedPicks = allUsedPicks[r.user_id] ?? [];
+                const canExpandCurrent = !!lockedRound && roundPicks.length > 0;
+                const canExpandAllUsed = !!lockedRound && usedPicks.length > 0;
 
                 return (
                   <Fragment key={r.user_id}>
@@ -517,23 +551,41 @@ export default function LeaderboardPage() {
                         {r.scored_picks}
                       </td>
                       <td style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}>
-                        {canExpand ? (
-                          <button
-                            onClick={() => toggleExpanded(r.user_id)}
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: 8,
-                              border: "1px solid #cfd8e3",
-                              background: "#fff",
-                              cursor: "pointer",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {isExpanded ? `Hide R${lockedRound}` : `Show R${lockedRound}`}
-                          </button>
-                        ) : (
-                          <span style={{ opacity: 0.6 }}>—</span>
-                        )}
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          {canExpandCurrent ? (
+                            <button
+                              onClick={() => toggleExpanded(r.user_id)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #cfd8e3",
+                                background: "#fff",
+                                cursor: "pointer",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {isExpanded ? `Hide R${lockedRound}` : `Show R${lockedRound}`}
+                            </button>
+                          ) : (
+                            <span style={{ opacity: 0.6 }}>—</span>
+                          )}
+
+                          {canExpandAllUsed ? (
+                            <button
+                              onClick={() => toggleAllUsedExpanded(r.user_id)}
+                              style={{
+                                padding: "6px 10px",
+                                borderRadius: 8,
+                                border: "1px solid #cfe7d5",
+                                background: "#f8fff9",
+                                cursor: "pointer",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {isAllUsedExpanded ? "Hide All Used" : "Show All Used"}
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
 
@@ -578,6 +630,48 @@ export default function LeaderboardPage() {
                               </div>
                             ) : (
                               <div style={{ opacity: 0.7 }}>No locked picks available.</div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+
+                    {isAllUsedExpanded ? (
+                      <tr>
+                        <td colSpan={10} style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}>
+                          <div style={usedCard}>
+                            <div style={{ fontWeight: 800, marginBottom: 6 }}>
+                              All golfers used through Round {lockedRound}
+                            </div>
+                            {usedPicks.length > 0 ? (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: 8,
+                                }}
+                              >
+                                {usedPicks.map((pick) => (
+                                  <span
+                                    key={`${r.user_id}-${pick.name}-used`}
+                                    style={{
+                                      display: "inline-block",
+                                      padding: "6px 10px",
+                                      borderRadius: 999,
+                                      background: "#f2fbf4",
+                                      border: "1px solid #d7eddc",
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: scoreColor(pick.totalScore),
+                                    }}
+                                  >
+                                    {pick.name} ({fmtScore(pick.totalScore)}) — R
+                                    {pick.roundsUsed.join(", R")}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <div style={{ opacity: 0.7 }}>No used golfers available.</div>
                             )}
                           </div>
                         </td>

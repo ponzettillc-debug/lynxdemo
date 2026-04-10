@@ -163,6 +163,16 @@ export async function GET(req: NextRequest) {
       string,
       Array<{ name: string; score: number | null }>
     > = {};
+    const allUsedPicksByUser: Record<
+      string,
+      Array<{ name: string; roundsUsed: number[]; totalScore: number }>
+    > = {};
+
+    const allUsedAccumulator = new Map<
+      string,
+      { userId: string; golferId: string; name: string; roundsUsed: Set<number>; totalScore: number }
+    >();
+
     const allUserIds = new Set<string>();
 
     poolMembers.forEach((m: any) => allUserIds.add(m.user_id));
@@ -217,6 +227,30 @@ export async function GET(req: NextRequest) {
           });
         }
       }
+
+      if (lockedRound && pick.round <= lockedRound) {
+        const golferName = golferNameById.get(pick.golfer_id);
+        if (!golferName) return;
+
+        const key = `${pick.user_id}:${pick.golfer_id}`;
+        if (!allUsedAccumulator.has(key)) {
+          allUsedAccumulator.set(key, {
+            userId: pick.user_id,
+            golferId: pick.golfer_id,
+            name: golferName,
+            roundsUsed: new Set<number>(),
+            totalScore: 0,
+          });
+        }
+
+        const entry = allUsedAccumulator.get(key)!;
+        entry.roundsUsed.add(Number(pick.round));
+
+        const roundScore = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
+        if (typeof roundScore === "number") {
+          entry.totalScore += roundScore;
+        }
+      }
     });
 
     const rows = Array.from(rowMap.values())
@@ -243,13 +277,44 @@ export async function GET(req: NextRequest) {
       })
       .filter((row: any) => {
         const hasAnyPicks = (pickedGolfersByUser.get(row.user_id)?.size ?? 0) > 0;
-        const hasAnyScores = row.scored_picks > 0 || row.total_strokes !== 0;
+        const hasAnyScores =
+          row.scored_picks > 0 ||
+          row.total_strokes !== 0 ||
+          row.r1_strokes !== 0 ||
+          row.r2_strokes !== 0 ||
+          row.r3_strokes !== 0 ||
+          row.r4_strokes !== 0;
         return hasAnyPicks || hasAnyScores;
       })
-      .sort((a: any, b: any) => a.total_strokes - b.total_strokes);
+      .sort((a: any, b: any) => {
+        if (a.total_strokes !== b.total_strokes) {
+          return a.total_strokes - b.total_strokes;
+        }
+        const aName = (a.display_name ?? a.user_id).toLowerCase();
+        const bName = (b.display_name ?? b.user_id).toLowerCase();
+        return aName.localeCompare(bName);
+      });
 
     Object.keys(roundPickDataByUser).forEach((userId) => {
       roundPickDataByUser[userId] = [...roundPickDataByUser[userId]].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
+    });
+
+    allUsedAccumulator.forEach((entry) => {
+      if (!allUsedPicksByUser[entry.userId]) {
+        allUsedPicksByUser[entry.userId] = [];
+      }
+
+      allUsedPicksByUser[entry.userId].push({
+        name: entry.name,
+        roundsUsed: [...entry.roundsUsed].sort((a, b) => a - b),
+        totalScore: entry.totalScore,
+      });
+    });
+
+    Object.keys(allUsedPicksByUser).forEach((userId) => {
+      allUsedPicksByUser[userId] = [...allUsedPicksByUser[userId]].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
     });
@@ -259,6 +324,7 @@ export async function GET(req: NextRequest) {
       rows,
       lockedRound,
       lockedRoundPicks: roundPickDataByUser,
+      allUsedPicks: allUsedPicksByUser,
     });
   } catch (err: any) {
     console.error("leaderboard GET route error:", err);
