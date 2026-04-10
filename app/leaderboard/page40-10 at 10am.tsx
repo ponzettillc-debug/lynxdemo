@@ -11,15 +11,6 @@ const supabase = createClient(
 
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
-// CHANGE THESE FILENAMES TO MATCH YOUR /public FILES EXACTLY
-const ROUND_BANNERS: Record<string, string> = {
-  default: "/masters-banner-default.png",
-  round1: "/masters-banner-round1.png",
-  round2: "/masters-banner-round2.png",
-  round3: "/masters-banner-round3.png",
-  round4: "/masters-banner-round4.png",
-};
-
 type Tournament = {
   id: string;
   name: string;
@@ -94,14 +85,6 @@ function scoreColor(v: number) {
   if (v < 0) return "#15803d";
   if (v > 0) return "#b91c1c";
   return "#111";
-}
-
-function getBannerForLockedRound(lockedRound: 1 | 2 | 3 | 4 | null) {
-  if (lockedRound === 1) return ROUND_BANNERS.round1;
-  if (lockedRound === 2) return ROUND_BANNERS.round2;
-  if (lockedRound === 3) return ROUND_BANNERS.round3;
-  if (lockedRound === 4) return ROUND_BANNERS.round4;
-  return ROUND_BANNERS.default;
 }
 
 export default function LeaderboardPage() {
@@ -311,7 +294,6 @@ export default function LeaderboardPage() {
   const selectedTournament =
     tournaments.find((t) => t.id === selectedTournamentId) ?? null;
   const lockedRound = getLockedRound(selectedTournament);
-  const bannerSrc = getBannerForLockedRound(lockedRound);
 
   function toggleExpanded(userId: string) {
     setExpandedUsers((prev) => ({
@@ -363,20 +345,6 @@ export default function LeaderboardPage() {
     <main style={shell}>
       <div style={{ marginBottom: 10 }}>
         <AppLogo width={220} height={90} />
-      </div>
-
-      <div style={{ marginBottom: 14 }}>
-        <img
-          src={bannerSrc}
-          alt="Tournament round banner"
-          style={{
-            width: "100%",
-            maxWidth: 520,
-            display: "block",
-            borderRadius: 14,
-            boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
-          }}
-        />
       </div>
 
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
