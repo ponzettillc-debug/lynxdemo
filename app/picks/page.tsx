@@ -692,6 +692,27 @@ export default function PicksPage() {
       gap: 10,
     }),
 
+    footerWrap: {
+      marginTop: 18,
+      padding: "22px 18px 8px",
+      textAlign: "center" as const,
+    } as React.CSSProperties,
+
+    footerText: {
+      margin: 0,
+      color: "#cbd5e1",
+      fontSize: 14,
+      fontWeight: 800,
+      letterSpacing: 0.2,
+    } as React.CSSProperties,
+
+    footerSubtext: {
+      marginTop: 6,
+      color: "#64748b",
+      fontSize: 12,
+      fontWeight: 600,
+    } as React.CSSProperties,
+
     stickyBar: {
       position: "fixed" as const,
       left: 0,
@@ -998,6 +1019,11 @@ export default function PicksPage() {
                 ))
               )}
             </div>
+          </div>
+
+          <div style={styles.footerWrap}>
+            <p style={styles.footerText}>© 2026 4Play Golf</p>
+            <div style={styles.footerSubtext}>A Buxton, Maine Company (Pending)</div>
           </div>
         </div>
       </main>

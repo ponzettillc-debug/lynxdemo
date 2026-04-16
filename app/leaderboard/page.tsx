@@ -850,7 +850,7 @@ export default function LeaderboardPage() {
 
       <div style={footerWrap}>
         <p style={footerText}>© 2026 4Play Golf</p>
-        <div style={footerSubtext}>A Buxton, Maine company (pending)</div>
+        <div style={footerSubtext}>A Buxton, Maine Company (Pending)</div>
       </div>
     </main>
   );
