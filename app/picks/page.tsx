@@ -52,6 +52,17 @@ function getLastInitial(name: string) {
   return /^[A-Z]$/.test(firstChar) ? firstChar : "#";
 }
 
+function splitGolferName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) {
+    return { first: name, last: "" };
+  }
+  return {
+    first: parts.slice(0, -1).join(" "),
+    last: parts[parts.length - 1],
+  };
+}
+
 export default function PicksPage() {
   const [poolId, setPoolId] = useState<string>("");
   const [session, setSession] = useState<any>(null);
@@ -674,9 +685,9 @@ export default function PicksPage() {
       used: boolean;
     }): React.CSSProperties => ({
       width: "100%",
-      minHeight: 78,
+      minHeight: 82,
       textAlign: "left",
-      padding: "15px 15px",
+      padding: "14px 14px",
       borderRadius: 18,
       border: opts.selected
         ? "1px solid rgba(34,197,94,0.55)"
@@ -962,6 +973,7 @@ export default function PicksPage() {
                         const isUsed = usedBefore.has(g.id);
                         const isSelected = selectedSet.has(g.id);
                         const disabled = isLocked || (isUsed && !isSelected);
+                        const parts = splitGolferName(g.name);
 
                         return (
                           <button
@@ -974,25 +986,33 @@ export default function PicksPage() {
                               used: isUsed,
                             })}
                           >
-                            <div style={{ minWidth: 0 }}>
+                            <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
                               <div
                                 style={{
-                                  fontWeight: 800,
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: isSelected ? "#dcfce7" : "#cbd5e1",
+                                  lineHeight: 1.1,
+                                  marginBottom: 4,
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
                                 }}
                               >
-                                {g.name}
+                                {parts.first}
                               </div>
                               <div
                                 style={{
-                                  fontSize: 12,
-                                  color: "#94a3b8",
-                                  marginTop: 4,
+                                  fontSize: 16,
+                                  fontWeight: 900,
+                                  color: isSelected ? "#f8fafc" : isUsed ? "#cbd5e1" : "#f8fafc",
+                                  lineHeight: 1.1,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                Last name: {getLastName(g.name)}
+                                {parts.last || parts.first}
                               </div>
                             </div>
 
