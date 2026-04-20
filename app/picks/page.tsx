@@ -664,7 +664,7 @@ export default function PicksPage() {
 
     golferList: {
       display: "grid",
-      gridTemplateColumns: "1fr",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: 10,
     } as React.CSSProperties,
 
@@ -674,6 +674,7 @@ export default function PicksPage() {
       used: boolean;
     }): React.CSSProperties => ({
       width: "100%",
+      minHeight: 78,
       textAlign: "left",
       padding: "15px 15px",
       borderRadius: 18,
