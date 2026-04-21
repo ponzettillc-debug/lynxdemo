@@ -35,8 +35,13 @@ type LockedPick = {
 
 type UsedPick = {
   name: string;
-  roundsUsed: number[];
-  totalScore: number;
+  roundsUsed?: number[];
+  totalScore?: number;
+  roundScores?: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+  roundDetails?: Array<{
+    round: 1 | 2 | 3 | 4;
+    score: number | null;
+  }>;
 };
 
 type Row = {
@@ -53,6 +58,11 @@ type Row = {
 type RankedRow = Row & {
   rank: number;
   behind: number;
+};
+
+type RoundTile = {
+  golferName: string;
+  score: number | null;
 };
 
 function fmtScore(v: number | null | undefined) {
@@ -101,6 +111,36 @@ function getBannerForLockedRound(lockedRound: 1 | 2 | 3 | 4 | null) {
   if (lockedRound === 3) return ROUND_BANNERS.round3;
   if (lockedRound === 4) return ROUND_BANNERS.round4;
   return ROUND_BANNERS.default;
+}
+
+function getRoundTilesForDisplay(
+  usedPicks: UsedPick[],
+  round: 1 | 2 | 3 | 4
+): RoundTile[] {
+  const explicitRoundTiles: RoundTile[] = [];
+
+  usedPicks.forEach((pick) => {
+    const explicitScoreFromMap = pick.roundScores?.[round];
+    const explicitDetail = pick.roundDetails?.find((d) => d.round === round);
+    const isUsedInRound =
+      Array.isArray(pick.roundsUsed) && pick.roundsUsed.includes(round);
+
+    if (
+      explicitDetail ||
+      typeof explicitScoreFromMap !== "undefined" ||
+      isUsedInRound
+    ) {
+      explicitRoundTiles.push({
+        golferName: pick.name,
+        score:
+          explicitDetail?.score ??
+          explicitScoreFromMap ??
+          (isUsedInRound ? (pick.totalScore ?? null) : null),
+      });
+    }
+  });
+
+  return explicitRoundTiles.slice(0, 4);
 }
 
 export default function LeaderboardPage() {
@@ -358,7 +398,7 @@ export default function LeaderboardPage() {
     marginTop: 8,
     border: "1px solid #e7f5ea",
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     background: "#fbfffc",
   };
 
@@ -466,7 +506,7 @@ export default function LeaderboardPage() {
           <div style={{ fontWeight: 800, marginBottom: 6 }}>Pick visibility</div>
           <div style={{ opacity: 0.75 }}>
             {lockedRound
-              ? `Current round view shows locked Round ${lockedRound}. "Show All Used" shows all golfers used through Round ${lockedRound}.`
+              ? `Current round view shows locked Round ${lockedRound}. "Show All Used" shows used picks in a 4-round layout, with future rounds hidden until locked.`
               : "No round lock has passed yet, so locked picks are not shown."}
           </div>
         </div>
@@ -585,7 +625,7 @@ export default function LeaderboardPage() {
                 const roundPicks = lockedRoundPicks[r.user_id] ?? [];
                 const usedPicks = allUsedPicks[r.user_id] ?? [];
                 const canExpandCurrent = !!lockedRound && roundPicks.length > 0;
-                const canExpandAllUsed = !!lockedRound && usedPicks.length > 0;
+                const canExpandAllUsed = usedPicks.length > 0 || !!lockedRound;
 
                 return (
                   <Fragment key={r.user_id}>
@@ -781,41 +821,114 @@ export default function LeaderboardPage() {
                           style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}
                         >
                           <div style={usedCard}>
-                            <div style={{ fontWeight: 800, marginBottom: 6 }}>
-                              All golfers used through Round {lockedRound}
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                marginBottom: 10,
+                                fontSize: 15,
+                              }}
+                            >
+                              {userLabel(r.display_name, r.user_id)} — All Used by Round
                             </div>
-                            {usedPicks.length > 0 ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: 8,
-                                }}
-                              >
-                                {usedPicks.map((pick) => (
-                                  <span
-                                    key={`${r.user_id}-${pick.name}-used`}
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns:
+                                  "repeat(4, minmax(180px, 1fr))",
+                                gap: 12,
+                                overflowX: "auto",
+                              }}
+                            >
+                              {[1, 2, 3, 4].map((roundNum) => {
+                                const round = roundNum as 1 | 2 | 3 | 4;
+                                const roundLocked = !!lockedRound && round <= lockedRound;
+                                const roundTiles = roundLocked
+                                  ? getRoundTilesForDisplay(usedPicks, round)
+                                  : [];
+
+                                return (
+                                  <div
+                                    key={`${r.user_id}-round-${round}`}
                                     style={{
-                                      display: "inline-block",
-                                      padding: "6px 10px",
-                                      borderRadius: 999,
-                                      background: "#f2fbf4",
-                                      border: "1px solid #d7eddc",
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: scoreColor(pick.totalScore),
+                                      minWidth: 180,
+                                      border: "1px solid #dfe9e3",
+                                      borderRadius: 12,
+                                      background: roundLocked ? "#ffffff" : "#f7f7f7",
+                                      padding: 10,
                                     }}
                                   >
-                                    {pick.name} ({fmtScore(pick.totalScore)}) — R
-                                    {pick.roundsUsed.join(", R")}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={{ opacity: 0.7 }}>
-                                No used golfers available.
-                              </div>
-                            )}
+                                    <div
+                                      style={{
+                                        fontWeight: 800,
+                                        marginBottom: 10,
+                                        textAlign: "center",
+                                        fontSize: 14,
+                                      }}
+                                    >
+                                      Round {round}
+                                    </div>
+
+                                    <div
+                                      style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "1fr",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      {Array.from({ length: 4 }).map((_, idx) => {
+                                        const tile = roundTiles[idx];
+                                        const hidden = !roundLocked;
+                                        const title = hidden
+                                          ? "Hidden"
+                                          : tile?.golferName ?? "—";
+                                        const score = hidden
+                                          ? "Hidden"
+                                          : tile
+                                          ? fmtScore(tile.score)
+                                          : "—";
+                                        const tileColor =
+                                          !hidden && typeof tile?.score === "number"
+                                            ? scoreColor(tile.score)
+                                            : "#111";
+
+                                        return (
+                                          <div
+                                            key={`${r.user_id}-round-${round}-tile-${idx}`}
+                                            style={{
+                                              border: "1px solid #e5e7eb",
+                                              borderRadius: 10,
+                                              background: hidden ? "#efefef" : "#f9fafb",
+                                              padding: "10px 12px",
+                                            }}
+                                          >
+                                            <div
+                                              style={{
+                                                fontSize: 13,
+                                                fontWeight: 700,
+                                                marginBottom: 4,
+                                                color: hidden ? "#6b7280" : "#111",
+                                              }}
+                                            >
+                                              {title}
+                                            </div>
+                                            <div
+                                              style={{
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                color: hidden ? "#6b7280" : tileColor,
+                                              }}
+                                            >
+                                              {score}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </td>
                       </tr>
