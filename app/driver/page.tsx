@@ -33,9 +33,8 @@ export default function DriverPage() {
   const [session, setSession] = useState<any>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [power, setPower] = useState(0);
-  const [powerDir, setPowerDir] = useState(1);
-  const [accuracy, setAccuracy] = useState(-100);
-  const [accuracyDir, setAccuracyDir] = useState(1);
+  const [accuracy, setAccuracy] = useState(100);
+  const [accuracyDir, setAccuracyDir] = useState(-1);
   const [wind, setWind] = useState(() => Math.round(Math.random() * 30 - 15));
   const [ballX, setBallX] = useState(4);
   const [ballY, setBallY] = useState(70);
@@ -43,6 +42,7 @@ export default function DriverPage() {
   const [result, setResult] = useState<ScoreRow | null>(null);
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [storageMode, setStorageMode] = useState("local");
+  const [swingNotice, setSwingNotice] = useState("");
   const flightRef = useRef({ started: 0, distance: 0, curve: 0 });
 
   useEffect(() => {
@@ -58,33 +58,22 @@ export default function DriverPage() {
   useEffect(() => {
     if (phase !== "power") return;
     const id = setInterval(() => {
-      setPower((prev) => {
-        let next = prev + powerDir * 3.5;
-        if (next >= 100) {
-          next = 100;
-          setPowerDir(-1);
-        }
-        if (next <= 0) {
-          next = 0;
-          setPowerDir(1);
-        }
-        return next;
-      });
+      setPower((prev) => clamp(prev + 2.8, 0, 100));
     }, 24);
     return () => clearInterval(id);
-  }, [phase, powerDir]);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "accuracy") return;
     const id = setInterval(() => {
       setAccuracy((prev) => {
-        let next = prev + accuracyDir * 6;
+        let next = prev + accuracyDir * 4.8;
         if (next >= 100) {
           next = 100;
           setAccuracyDir(-1);
         }
-        if (next <= -100) {
-          next = -100;
+        if (next <= 0) {
+          next = 0;
           setAccuracyDir(1);
         }
         return next;
@@ -165,38 +154,45 @@ export default function DriverPage() {
   function swingClick() {
     if (phase === "ready" || phase === "result") {
       setPower(0);
-      setPowerDir(1);
-      setAccuracy(-100);
-      setAccuracyDir(1);
+      setAccuracy(100);
+      setAccuracyDir(-1);
       setWind(Math.round(Math.random() * 30 - 15));
       setTail([]);
       setBallX(4);
       setBallY(70);
       setResult(null);
+      setSwingNotice("");
       setPhase("power");
       return;
     }
 
     if (phase === "power") {
+      setAccuracy(100);
+      setAccuracyDir(-1);
+      setSwingNotice(power >= 97 ? "BOMB!" : "POWER LOCKED");
       setPhase("accuracy");
       return;
     }
 
     if (phase === "accuracy") {
-      const straightPenalty = Math.abs(accuracy) * 0.72;
+      const centerMiss = Math.abs(accuracy - 50);
+      const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
+      const straightPenalty = centerMiss * 1.45;
       const windBoost = wind * 1.8;
-      const rawDistance = 145 + power * 2.25 + windBoost - straightPenalty;
+      const bombBonus = power >= 97 ? 14 : 0;
+      const rawDistance = 145 + power * 2.25 + windBoost + bombBonus - straightPenalty;
       const distance = Math.round(clamp(rawDistance, 45, 390));
       const row = {
         distance_yards: distance,
         wind_mph: wind,
         power: Math.round(power),
-        accuracy: Math.round(accuracy),
+        accuracy: accuracyScore,
         created_at: new Date().toISOString(),
       };
       flightRef.current.distance = distance;
-      flightRef.current.curve = accuracy / 3 - wind / 3;
+      flightRef.current.curve = (accuracy - 50) / 1.6 - wind / 3;
       setResult(row);
+      setSwingNotice(power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : "AWAY!");
       saveScore(row);
       setPhase("flight");
     }
@@ -205,7 +201,7 @@ export default function DriverPage() {
   const instruction = useMemo(() => {
     if (phase === "ready") return "CLICK / TAP TO START POWER";
     if (phase === "power") return "CLICK / TAP TO LOCK POWER";
-    if (phase === "accuracy") return "CLICK / TAP TO AIM STRAIGHT";
+    if (phase === "accuracy") return "CLICK / TAP ON THE RETURN AT THE RED LINE";
     if (phase === "flight") return "BALL IN FLIGHT...";
     return "CLICK / TAP TO TEE UP AGAIN";
   }, [phase]);
@@ -227,7 +223,8 @@ export default function DriverPage() {
     padding: 16,
   };
 
-  const meterFill = phase === "accuracy" ? (accuracy + 100) / 2 : power;
+  const accuracyScore = Math.round(clamp(100 - Math.abs(accuracy - 50) * 2, 0, 100));
+  const meterLabel = phase === "accuracy" ? `${accuracyScore}` : `${Math.round(power)}%`;
 
   return (
     <main style={page} onClick={swingClick}>
@@ -249,20 +246,27 @@ export default function DriverPage() {
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{phase === "accuracy" ? "ACCURACY" : "POWER"}</span>
-            <span>{phase === "accuracy" ? `${Math.round(accuracy)}` : `${Math.round(power)}%`}</span>
+            <span>{meterLabel}</span>
           </div>
-          <div style={{ height: 22, border: "2px solid #7cff9b", background: "#020617", marginTop: 6 }}>
-            <div
-              style={{
-                width: `${clamp(meterFill, 0, 100)}%`,
-                height: "100%",
-                background:
-                  phase === "accuracy"
-                    ? "linear-gradient(90deg, #ef4444, #facc15, #22c55e, #facc15, #ef4444)"
-                    : "linear-gradient(90deg, #22c55e, #facc15, #ef4444)",
-              }}
-            />
+          <div style={{ position: "relative", height: 22, border: "2px solid #7cff9b", background: "#020617", marginTop: 6, overflow: "hidden" }}>
+            {phase === "accuracy" ? (
+              <>
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, #ef4444, #facc15, #22c55e 47%, #22c55e 53%, #facc15, #ef4444)", opacity: 0.8 }} />
+                <div style={{ position: "absolute", left: "46%", top: 0, width: "8%", height: "100%", background: "rgba(34,197,94,0.24)" }} />
+                <div style={{ position: "absolute", left: "50%", top: -4, width: 3, height: 30, background: "#ef4444", boxShadow: "0 0 10px #ef4444", transform: "translateX(-50%)" }} />
+                <div style={{ position: "absolute", left: `${clamp(accuracy, 0, 100)}%`, top: -5, width: 5, height: 32, background: "#d9ffe2", boxShadow: "0 0 10px #d9ffe2", transform: "translateX(-50%)" }} />
+              </>
+            ) : (
+              <div
+                style={{
+                  width: `${clamp(power, 0, 100)}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #22c55e, #facc15, #ef4444)",
+                }}
+              />
+            )}
           </div>
+          {swingNotice ? <div style={{ marginTop: 8, color: "#fde047", fontSize: 18 }}>{swingNotice}</div> : null}
         </div>
 
         <div
@@ -313,7 +317,7 @@ export default function DriverPage() {
         </div>
 
         <div style={{ marginTop: 14, color: "#d9ffe2" }}>
-          {result ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}` : "LAST DRIVE: --"}
+          {result ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${result.power >= 97 ? " | BOMB!" : ""}` : "LAST DRIVE: --"}
         </div>
 
         <section style={{ marginTop: 18 }}>
