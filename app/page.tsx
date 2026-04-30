@@ -363,16 +363,13 @@ export default function Home() {
               <p style={{ marginTop: 0, marginBottom: 8 }}>
                 Logged in as <strong>{session.user.email}</strong>
               </p>
-              <p style={{ margin: 0, color: "#94a3b8" }}>Welcome to the pool.</p>
             </div>
 
             <div style={cardStyle}>
-              <h2 style={{ marginTop: 0, marginBottom: 14 }}>Pool Home</h2>
-
               <div style={{ display: "grid", gap: 10 }}>
                 <button
                   onClick={() => router.push("/picks")}
-                  style={buttonStyle}
+                  style={secondaryButtonStyle}
                 >
                   Make Picks
                 </button>
