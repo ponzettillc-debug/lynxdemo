@@ -24,3 +24,46 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.flag-tile-border {
+  position: relative;
+  isolation: isolate;
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.24) inset;
+}
+
+.flag-tile-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 3px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(255, 255, 255, 0.72) 0 1px, transparent 2px),
+    radial-gradient(circle at 42% 62%, rgba(2, 6, 23, 0.26) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 34%, rgba(255, 255, 255, 0.56) 0 1px, transparent 2px),
+    linear-gradient(
+      90deg,
+      #1d4ed8 0 22%,
+      #f8fafc 22% 29%,
+      #b91c1c 29% 46%,
+      #f8fafc 46% 53%,
+      #b91c1c 53% 70%,
+      #f8fafc 70% 77%,
+      #1d4ed8 77% 100%
+    );
+  background-size:
+    28px 24px,
+    34px 31px,
+    39px 29px,
+    100% 100%;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+}

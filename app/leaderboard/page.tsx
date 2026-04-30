@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import AppLogo from "../components/AppLogo";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -370,6 +369,32 @@ export default function LeaderboardPage() {
     background: "#fbfffc",
   };
 
+  const leaderboardTableWrap: React.CSSProperties = {
+    position: "relative",
+    overflowX: "auto",
+    borderRadius: 16,
+    background: "rgba(255,255,255,0.88)",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+  };
+
+  const leaderboardWatermark: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "none",
+    zIndex: 0,
+  };
+
+  const leaderboardWatermarkImage: React.CSSProperties = {
+    width: "min(74%, 620px)",
+    maxHeight: "76%",
+    objectFit: "contain",
+    opacity: 0.08,
+    filter: "grayscale(0.25) blur(0.2px)",
+  };
+
   const footerWrap: React.CSSProperties = {
     marginTop: 28,
     paddingTop: 18,
@@ -392,10 +417,6 @@ export default function LeaderboardPage() {
 
   return (
     <main style={shell}>
-      <div style={{ marginBottom: 10 }}>
-        <AppLogo width={220} height={90} />
-      </div>
-
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
 
       {selectedTournament?.name ? (
@@ -424,7 +445,7 @@ export default function LeaderboardPage() {
         </a>
       </div>
 
-      <div style={{ ...card, marginBottom: 14 }}>
+      <div className="flag-tile-border" style={{ ...card, marginBottom: 14 }}>
         <label
           htmlFor="tournament-select"
           style={{ display: "block", fontWeight: 700, marginBottom: 8 }}
@@ -460,9 +481,23 @@ export default function LeaderboardPage() {
       ) : null}
 
       {!loading && !message && rankedRows.length > 0 ? (
-        <div style={{ overflowX: "auto" }}>
+        <div className="flag-tile-border" style={leaderboardTableWrap}>
+          <div style={leaderboardWatermark} aria-hidden="true">
+            <img
+              src="/4play-logo.png"
+              alt=""
+              style={leaderboardWatermarkImage}
+            />
+          </div>
           <table
-            style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "100%",
+              borderCollapse: "collapse",
+              minWidth: 940,
+              background: "rgba(255,255,255,0.72)",
+            }}
           >
             <thead>
               <tr>
@@ -717,7 +752,7 @@ export default function LeaderboardPage() {
                             background: isCurrentUser ? "#fff7ed" : "transparent",
                           }}
                         >
-                          <div style={usedCard}>
+                          <div className="flag-tile-border" style={usedCard}>
                             <div
                               style={{
                                 fontWeight: 800,
@@ -746,6 +781,7 @@ export default function LeaderboardPage() {
 
                                 return (
                                   <div
+                                    className="flag-tile-border"
                                     key={`${r.user_id}-round-${round}`}
                                     style={{
                                       minWidth: 142,
@@ -791,6 +827,7 @@ export default function LeaderboardPage() {
 
                                         return (
                                           <div
+                                            className="flag-tile-border"
                                             key={`${r.user_id}-round-${round}-tile-${idx}`}
                                             style={{
                                               border: "1px solid #e5e7eb",
