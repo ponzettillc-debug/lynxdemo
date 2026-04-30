@@ -407,6 +407,10 @@ export default function LeaderboardPage() {
           Picks
         </a>{" "}
         {" | "}
+        <a href="/trophy-room" style={{ textDecoration: "none" }}>
+          Trophy Room
+        </a>{" "}
+        {" | "}
         {isAdmin ? (
           <>
             <a href="/admin" style={{ textDecoration: "none" }}>

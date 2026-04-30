@@ -1289,6 +1289,7 @@ export default function AdminPage() {
           <a href="/" style={styles.linkButton}>Home</a>
           <a href="/picks" style={styles.linkButton}>Picks</a>
           <a href="/leaderboard" style={styles.linkButton}>Leaderboard</a>
+          <a href="/trophy-room" style={styles.linkButton}>Trophy Room</a>
         </div>
 
         {!!status && (

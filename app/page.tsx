@@ -373,6 +373,13 @@ export default function Home() {
                   View Leaderboard
                 </button>
 
+                <button
+                  onClick={() => router.push("/trophy-room")}
+                  style={secondaryButtonStyle}
+                >
+                  Trophy Room
+                </button>
+
                 {isAdmin && (
                   <>
                     <hr
