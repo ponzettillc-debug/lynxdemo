@@ -19,6 +19,8 @@ type ScoreRow = {
 };
 
 const LOCAL_KEY = "4play_driver_scores_v1";
+const HOLE_IN_ONE_MIN = 362;
+const HOLE_IN_ONE_MAX = 373;
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -27,6 +29,10 @@ function clamp(v: number, min: number, max: number) {
 function windText(wind: number) {
   if (wind === 0) return "CALM";
   return wind > 0 ? `TAILWIND +${wind}` : `HEADWIND ${wind}`;
+}
+
+function isHoleInOne(score: ScoreRow | null) {
+  return !!score && score.accuracy >= 90 && score.distance_yards >= HOLE_IN_ONE_MIN && score.distance_yards <= HOLE_IN_ONE_MAX;
 }
 
 export default function DriverPage() {
@@ -87,11 +93,12 @@ export default function DriverPage() {
     flightRef.current.started = Date.now();
     const id = setInterval(() => {
       const elapsed = Date.now() - flightRef.current.started;
-      const t = clamp(elapsed / 1500, 0, 1);
-      const x = 4 + t * 90;
-      const arc = Math.sin(t * Math.PI) * 42;
+      const t = clamp(elapsed / 1700, 0, 1);
+      const landingX = clamp(50 + flightRef.current.curve * 0.58, 13, 88);
+      const x = 30 + (landingX - 30) * t;
+      const arc = Math.sin(t * Math.PI) * 18;
       const curve = flightRef.current.curve * t * t;
-      const y = 72 - arc + curve;
+      const y = 82 - t * 63 - arc + Math.abs(curve) * 0.06;
       setBallX(x);
       setBallY(y);
       setTail((prev) => [...prev.slice(-8), { x, y }]);
@@ -158,8 +165,8 @@ export default function DriverPage() {
       setAccuracyDir(-1);
       setWind(Math.round(Math.random() * 30 - 15));
       setTail([]);
-      setBallX(4);
-      setBallY(70);
+      setBallX(30);
+      setBallY(82);
       setResult(null);
       setSwingNotice("");
       setPhase("power");
@@ -192,7 +199,7 @@ export default function DriverPage() {
       flightRef.current.distance = distance;
       flightRef.current.curve = (accuracy - 50) / 1.6 - wind / 3;
       setResult(row);
-      setSwingNotice(power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : "AWAY!");
+      setSwingNotice(isHoleInOne(row) ? "HOLE IN 1!!!" : power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : "AWAY!");
       saveScore(row);
       setPhase("flight");
     }
@@ -225,6 +232,10 @@ export default function DriverPage() {
 
   const accuracyScore = Math.round(clamp(100 - Math.abs(accuracy - 50) * 2, 0, 100));
   const meterLabel = phase === "accuracy" ? `${accuracyScore}` : `${Math.round(power)}%`;
+  const ballSize = clamp(12 - ((82 - ballY) / 63) * 7, 5, 12);
+  const resultLine = result
+    ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${result.power >= 97 ? " | BOMB!" : ""}${isHoleInOne(result) ? " | HOLE IN 1!!!" : ""}`
+    : "LAST DRIVE: --";
 
   return (
     <main style={page} onClick={swingClick}>
@@ -276,17 +287,29 @@ export default function DriverPage() {
             marginTop: 18,
             border: "2px solid #1ee26c",
             background:
-              "linear-gradient(#0f172a 0 58%, #12351f 58% 100%), repeating-linear-gradient(90deg, transparent 0 18px, rgba(124,255,155,0.08) 18px 20px)",
+              "linear-gradient(#0f172a 0 46%, #12351f 46% 100%), repeating-linear-gradient(90deg, transparent 0 18px, rgba(124,255,155,0.08) 18px 20px)",
             overflow: "hidden",
           }}
         >
-          <div style={{ position: "absolute", left: 18, bottom: 42, width: 90, height: 18, background: "#22543d" }} />
-          <div style={{ position: "absolute", left: 44, bottom: 80, width: 12, height: 62, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 37, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 22, bottom: 102, width: 48, height: 4, background: "#d9ffe2", transform: "rotate(-24deg)" }} />
-          <div style={{ position: "absolute", left: 52, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
-          <div style={{ position: "absolute", left: 42, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
-          <div style={{ position: "absolute", left: 74, bottom: 126, width: 3, height: 68, background: "#cbd5e1", transform: "rotate(34deg)" }} />
+          <div style={{ position: "absolute", left: "31%", top: "15%", width: "38%", height: "85%", background: "#1e7b35", clipPath: "polygon(43% 0, 57% 0, 100% 100%, 0 100%)" }} />
+          <div style={{ position: "absolute", left: "40%", top: "17%", width: "20%", height: "83%", background: "repeating-linear-gradient(180deg, rgba(217,255,226,0.11) 0 2px, transparent 2px 24px)", clipPath: "polygon(44% 0, 56% 0, 100% 100%, 0 100%)" }} />
+          <div style={{ position: "absolute", right: 0, top: "38%", width: "19%", height: "62%", background: "repeating-linear-gradient(135deg, #0ea5e9 0 8px, #075985 8px 16px)", clipPath: "polygon(40% 0, 100% 0, 100% 100%, 0 100%)", opacity: 0.85 }} />
+          <div style={{ position: "absolute", right: "3%", top: "44%", color: "#bae6fd", fontSize: 12 }}>~~~~ RIVER ~~~~</div>
+          <div style={{ position: "absolute", left: "49%", top: "18%", width: 3, height: 46, background: "#d9ffe2" }} />
+          <div style={{ position: "absolute", left: "49.5%", top: "18%", width: 28, height: 16, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
+          <div style={{ position: "absolute", left: "47.5%", top: "32%", width: 42, height: 9, border: "1px solid #d9ffe2", borderRadius: 999, opacity: 0.65 }} />
+          <div style={{ position: "absolute", left: 16, bottom: 96, width: 152, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
+            <div>BUXTON-HOLLIS CC</div>
+            <div>HOLE 1</div>
+            <div>365 YARDS</div>
+          </div>
+          <div style={{ position: "absolute", left: 26, bottom: 42, width: 92, height: 18, background: "#22543d" }} />
+          <div style={{ position: "absolute", left: 59, bottom: 80, width: 12, height: 62, background: "#d9ffe2" }} />
+          <div style={{ position: "absolute", left: 52, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
+          <div style={{ position: "absolute", left: 37, bottom: 102, width: 48, height: 4, background: "#d9ffe2", transform: "rotate(-24deg)" }} />
+          <div style={{ position: "absolute", left: 67, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
+          <div style={{ position: "absolute", left: 57, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
+          <div style={{ position: "absolute", left: 89, bottom: 126, width: 3, height: 68, background: "#cbd5e1", transform: "rotate(34deg)" }} />
 
           {tail.map((p, idx) => (
             <div
@@ -295,7 +318,7 @@ export default function DriverPage() {
                 position: "absolute",
                 left: `${p.x}%`,
                 top: `${p.y}%`,
-                width: 10 + idx * 2,
+                width: 8 + idx * 2,
                 height: 3,
                 background: `rgba(125,211,252,${0.08 + idx * 0.06})`,
                 borderRadius: 999,
@@ -307,17 +330,18 @@ export default function DriverPage() {
               position: "absolute",
               left: `${ballX}%`,
               top: `${ballY}%`,
-              width: 10,
-              height: 10,
+              width: ballSize,
+              height: ballSize,
               borderRadius: 999,
               background: "#f8fafc",
               boxShadow: "0 0 12px #bae6fd",
+              transform: "translate(-50%, -50%)",
             }}
           />
         </div>
 
         <div style={{ marginTop: 14, color: "#d9ffe2" }}>
-          {result ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${result.power >= 97 ? " | BOMB!" : ""}` : "LAST DRIVE: --"}
+          {resultLine}
         </div>
 
         <section style={{ marginTop: 18 }}>
@@ -329,6 +353,7 @@ export default function DriverPage() {
               {scores.map((s, idx) => (
                 <li key={`${s.distance_yards}-${idx}`} style={{ marginBottom: 4 }}>
                   {s.distance_yards} YDS | PWR {s.power}% | ACC {s.accuracy} | WIND {s.wind_mph}
+                  {isHoleInOne(s) ? " | HOLE IN 1!!!" : ""}
                 </li>
               ))}
             </ol>
