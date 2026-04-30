@@ -21,6 +21,7 @@ type Hole = {
   par: number;
   dogleg: number;
   water: "left" | "right" | "none";
+  green: string;
 };
 type RoundScore = {
   total_score: number;
@@ -39,15 +40,15 @@ const CLUBS: Club[] = [
   { name: "PUTTER", max: 65, min: 1, putter: true },
 ];
 const COURSE: Hole[] = [
-  { yards: 365, par: 4, dogleg: 0, water: "right" },
-  { yards: 142, par: 3, dogleg: -8, water: "left" },
-  { yards: 506, par: 5, dogleg: 10, water: "right" },
-  { yards: 318, par: 4, dogleg: -12, water: "none" },
-  { yards: 178, par: 3, dogleg: 4, water: "right" },
-  { yards: 437, par: 4, dogleg: 12, water: "left" },
-  { yards: 489, par: 5, dogleg: -10, water: "none" },
-  { yards: 296, par: 4, dogleg: 7, water: "right" },
-  { yards: 391, par: 4, dogleg: 0, water: "left" },
+  { yards: 365, par: 4, dogleg: 0, water: "right", green: "oval" },
+  { yards: 142, par: 3, dogleg: -8, water: "left", green: "kidney" },
+  { yards: 506, par: 5, dogleg: 10, water: "right", green: "long" },
+  { yards: 318, par: 4, dogleg: -12, water: "none", green: "peanut" },
+  { yards: 178, par: 3, dogleg: 4, water: "right", green: "round" },
+  { yards: 437, par: 4, dogleg: 12, water: "left", green: "tilt" },
+  { yards: 489, par: 5, dogleg: -10, water: "none", green: "double" },
+  { yards: 296, par: 4, dogleg: 7, water: "right", green: "wide" },
+  { yards: 391, par: 4, dogleg: 0, water: "left", green: "crown" },
 ];
 
 function clamp(v: number, min: number, max: number) {
@@ -63,18 +64,39 @@ function scoreName(strokes: number, par: number) {
   return `+${rel}`;
 }
 
+function windText(wind: number) {
+  if (wind === 0) return "CALM";
+  return wind > 0 ? `TAIL +${wind}` : `HEAD ${wind}`;
+}
+
+function greenShape(shape: string) {
+  if (shape === "kidney") return "ellipse(42% 34% at 58% 48%)";
+  if (shape === "long") return "ellipse(26% 44% at 50% 50%)";
+  if (shape === "peanut") return "polygon(22% 28%, 42% 18%, 64% 24%, 78% 42%, 70% 66%, 48% 78%, 25% 66%, 16% 46%)";
+  if (shape === "round") return "circle(36% at 50% 50%)";
+  if (shape === "tilt") return "ellipse(34% 45% at 50% 50%)";
+  if (shape === "double") return "polygon(28% 18%, 52% 22%, 72% 34%, 78% 58%, 62% 80%, 38% 76%, 20% 60%, 18% 34%)";
+  if (shape === "wide") return "ellipse(44% 28% at 50% 50%)";
+  if (shape === "crown") return "polygon(20% 34%, 36% 18%, 50% 28%, 64% 18%, 80% 34%, 76% 70%, 50% 84%, 24% 70%)";
+  return "ellipse(36% 30% at 50% 50%)";
+}
+
 export default function TeeOffPage() {
   const [session, setSession] = useState<any>(null);
   const [phase, setPhase] = useState<Phase>("ready");
   const [holeIndex, setHoleIndex] = useState(0);
   const [remaining, setRemaining] = useState(COURSE[0].yards);
   const [clubName, setClubName] = useState(CLUBS[0].name);
+  const [swingMode, setSwingMode] = useState<"full" | "half">("full");
   const [power, setPower] = useState(0);
+  const [powerDir, setPowerDir] = useState(1);
   const [accuracy, setAccuracy] = useState(100);
   const [accuracyDir, setAccuracyDir] = useState(-1);
   const [strokes, setStrokes] = useState(0);
   const [holeScores, setHoleScores] = useState<number[]>([]);
   const [message, setMessage] = useState("SELECT CLUB, CLICK / TAP TO START SWING");
+  const [lastShot, setLastShot] = useState("");
+  const [wind, setWind] = useState(() => Math.round(Math.random() * 25 - 12));
   const [ballX, setBallX] = useState(30);
   const [ballY, setBallY] = useState(82);
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
@@ -84,6 +106,12 @@ export default function TeeOffPage() {
 
   const hole = COURSE[holeIndex];
   const club = CLUBS.find((c) => c.name === clubName) || CLUBS[0];
+  const modeFactor = swingMode === "half" ? 0.5 : 1;
+  const effectiveClub = {
+    ...club,
+    max: Math.round(club.max * modeFactor),
+    min: Math.max(1, Math.round(club.min * modeFactor)),
+  };
   const totalPar = COURSE.reduce((sum, h) => sum + h.par, 0);
   const totalStrokes = holeScores.reduce((sum, s) => sum + s, 0) + (phase === "complete" ? 0 : strokes);
 
@@ -99,9 +127,22 @@ export default function TeeOffPage() {
 
   useEffect(() => {
     if (phase !== "power") return;
-    const id = setInterval(() => setPower((prev) => clamp(prev + 2.6, 0, 100)), 24);
+    const id = setInterval(() => {
+      setPower((prev) => {
+        let next = prev + powerDir * 2.6;
+        if (next >= 100) {
+          next = 100;
+          setPowerDir(-1);
+        }
+        if (next <= 0) {
+          next = 0;
+          setPowerDir(1);
+        }
+        return next;
+      });
+    }, 24);
     return () => clearInterval(id);
-  }, [phase]);
+  }, [phase, powerDir]);
 
   useEffect(() => {
     if (phase !== "accuracy") return;
@@ -192,6 +233,7 @@ export default function TeeOffPage() {
 
   function resetSwing(nextMessage = "SELECT CLUB, CLICK / TAP TO START SWING") {
     setPower(0);
+    setPowerDir(1);
     setAccuracy(100);
     setAccuracyDir(-1);
     setTail([]);
@@ -220,6 +262,9 @@ export default function TeeOffPage() {
     setHoleIndex((idx) => idx + 1);
     setRemaining(nextHole.yards);
     setStrokes(0);
+    setWind(Math.round(Math.random() * 25 - 12));
+    setClubName(CLUBS[0].name);
+    setSwingMode("full");
     resetSwing(`HOLE ${holeIndex + 2} READY`);
   }
 
@@ -229,15 +274,17 @@ export default function TeeOffPage() {
 
     if (club.putter) {
       const remainingFeet = Math.round(remaining * 3);
-      const puttRollFeet = Math.round((power / 100) * club.max);
+      const puttRollFeet = Math.round((power / 100) * effectiveClub.max);
       const missFeet = Math.abs(remainingFeet - puttRollFeet);
       if (missFeet <= 2 || remainingFeet <= 2) {
         setRemaining(0);
+        setLastShot(`${puttRollFeet} FT PUTT | IN THE CUP`);
         setMessage("IN THE CUP");
         completeHole(nextStroke);
         return;
       }
       setRemaining(Math.max(1, Math.round(missFeet)) / 3);
+      setLastShot(`${puttRollFeet} FT PUTT | ${Math.max(1, Math.round(missFeet))} FT LEFT`);
       setMessage(`${puttRollFeet} FT PUTT - ${Math.max(1, Math.round(missFeet))} FT LEFT`);
       resetSwing();
       return;
@@ -245,8 +292,9 @@ export default function TeeOffPage() {
 
     const centerMiss = Math.abs(accuracy - 50);
     const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
-    const carry = Math.round(clamp(club.min + (club.max - club.min) * (power / 100) - centerMiss * 0.45, 1, club.max + 12));
-    const offline = Math.round((accuracy - 50) / 3 + hole.dogleg * 0.35);
+    const windBoost = wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
+    const carry = Math.round(clamp(effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) - centerMiss * 0.45 + windBoost, 1, effectiveClub.max + 18));
+    const offline = Math.round((accuracy - 50) / 3 + hole.dogleg * 0.35 + wind * 0.1 * clamp(effectiveClub.max / 180, 0.1, 1));
     const newRemaining = Math.max(0, Math.round(Math.abs(remaining - carry) + Math.abs(offline) * 0.55));
 
     flightRef.current.curve = offline;
@@ -254,6 +302,7 @@ export default function TeeOffPage() {
 
     if (newRemaining <= 2) {
       setRemaining(0);
+      setLastShot(`${carry} YDS | ACC ${accuracyScore} | HOLED OUT`);
       setMessage(`HOLED OUT! ${carry} YDS | ACC ${accuracyScore}`);
       setPhase("flight");
       setTimeout(() => completeHole(nextStroke), 1320);
@@ -261,7 +310,12 @@ export default function TeeOffPage() {
     }
 
     setRemaining(newRemaining);
-    setMessage(`${carry} YDS | ACC ${accuracyScore} | ${newRemaining} YDS LEFT`);
+    setLastShot(`${carry} YDS | ACC ${accuracyScore} | ${newRemaining <= 10 ? "ON GREEN" : `${newRemaining} YDS LEFT`} | WIND ${windText(wind)}`);
+    if (newRemaining <= 10) {
+      setClubName("PUTTER");
+      setSwingMode("full");
+    }
+    setMessage(`${carry} YDS | ACC ${accuracyScore} | ${newRemaining <= 10 ? `${Math.round(newRemaining * 3)} FT PUTT` : `${newRemaining} YDS LEFT`}`);
     setPhase("flight");
   }
 
@@ -269,6 +323,7 @@ export default function TeeOffPage() {
     if (phase === "complete") return;
     if (phase === "ready" || phase === "result") {
       setPower(0);
+      setPowerDir(1);
       setAccuracy(100);
       setAccuracyDir(-1);
       setTail([]);
@@ -295,6 +350,10 @@ export default function TeeOffPage() {
     setRemaining(COURSE[0].yards);
     setStrokes(0);
     setHoleScores([]);
+    setLastShot("");
+    setWind(Math.round(Math.random() * 25 - 12));
+    setClubName(CLUBS[0].name);
+    setSwingMode("full");
     resetSwing("NEW ROUND READY");
   }
 
@@ -304,7 +363,13 @@ export default function TeeOffPage() {
   const completedPar = holeScores.reduce((sum, _, idx) => sum + COURSE[idx].par, 0);
   const completedStrokes = holeScores.reduce((sum, s) => sum + s, 0);
   const relScore = completedStrokes - completedPar;
-  const remainingLabel = club.putter ? `${Math.round(remaining * 3)} FT` : `${Math.round(remaining)} YDS`;
+  const onGreen = remaining > 0 && remaining <= 10;
+  const puttFeet = Math.max(1, Math.round(remaining * 3));
+  const idealPower = club.putter
+    ? clamp((puttFeet / Math.max(1, effectiveClub.max)) * 100, 0, 100)
+    : clamp(((remaining - effectiveClub.min) / Math.max(1, effectiveClub.max - effectiveClub.min)) * 100, 0, 100);
+  const remainingLabel = onGreen || club.putter ? `${puttFeet} FT` : `${Math.round(remaining)} YDS`;
+  const miniBallY = clamp(92 - (1 - remaining / Math.max(1, hole.yards)) * 76, 12, 92);
   const status = useMemo(() => {
     if (phase === "complete") return `ROUND COMPLETE: ${holeScores.reduce((sum, s) => sum + s, 0)} ON PAR ${totalPar}`;
     if (remaining <= 0) return message;
@@ -343,7 +408,7 @@ export default function TeeOffPage() {
           </nav>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(124px, 1fr))", gap: 8, marginTop: 16 }}>
           {CLUBS.map((c) => (
             <button
               key={c.name}
@@ -357,22 +422,54 @@ export default function TeeOffPage() {
                 color: "#d9ffe2",
                 fontFamily: "inherit",
                 cursor: "pointer",
+                padding: 8,
+                textAlign: "left",
               }}
             >
-              {c.name}
+              <span style={{ display: "block", color: "#d9ffe2" }}>{c.name}</span>
+              <span style={{ display: "block", marginTop: 4, color: "#7cff9b", fontSize: 12 }}>
+                100%: {Math.round(c.max * modeFactor)} {c.putter ? "FT" : "YDS"}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {(["full", "half"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              disabled={phase === "power" || phase === "accuracy" || phase === "flight" || phase === "complete"}
+              onClick={() => setSwingMode(mode)}
+              style={{
+                minHeight: 34,
+                minWidth: 96,
+                border: `2px solid ${swingMode === mode ? "#fde047" : "#7cff9b"}`,
+                background: swingMode === mode ? "#17351f" : "#020617",
+                color: "#d9ffe2",
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {mode.toUpperCase()}
             </button>
           ))}
         </div>
 
         <div style={{ marginTop: 14, color: "#fde68a" }}>
-          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
+          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
         </div>
         <div style={{ marginTop: 8 }}>{status}</div>
+        {lastShot ? (
+          <div style={{ marginTop: 10, border: "2px solid #fde047", background: "#1f2937", color: "#fef3c7", padding: 10, boxShadow: "0 0 16px rgba(250,204,21,0.22)" }}>
+            PREVIOUS SHOT: {lastShot} | NOW: {remainingLabel} LEFT
+          </div>
+        ) : null}
 
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{phase === "accuracy" ? "ACCURACY" : club.putter ? "PUTT DISTANCE" : "POWER"}</span>
-            <span>{meterLabel}</span>
+            <span>{meterLabel} | IDEAL {Math.round(idealPower)}%</span>
           </div>
           <div style={{ position: "relative", height: 22, border: "2px solid #7cff9b", background: "#020617", marginTop: 6, overflow: "hidden" }}>
             {phase === "accuracy" ? (
@@ -382,9 +479,21 @@ export default function TeeOffPage() {
                 <div style={{ position: "absolute", left: `${clamp(accuracy, 0, 100)}%`, top: -5, width: 5, height: 32, background: "#d9ffe2", boxShadow: "0 0 10px #d9ffe2", transform: "translateX(-50%)" }} />
               </>
             ) : (
-              <div style={{ width: `${clamp(power, 0, 100)}%`, height: "100%", background: "linear-gradient(90deg, #22c55e, #facc15, #ef4444)" }} />
+              <>
+                <div style={{ position: "absolute", left: `${clamp(idealPower - 4, 0, 100)}%`, top: 0, width: `${idealPower < 4 || idealPower > 96 ? 4 : 8}%`, height: "100%", background: "rgba(250,204,21,0.45)", boxShadow: "0 0 10px rgba(250,204,21,0.65)" }} />
+                <div style={{ position: "relative", width: `${clamp(power, 0, 100)}%`, height: "100%", background: "linear-gradient(90deg, #22c55e, #facc15, #ef4444)" }} />
+              </>
             )}
           </div>
+          {club.putter ? (
+            <div style={{ position: "relative", height: 18, marginTop: 4, color: "#bae6fd", fontSize: 10 }}>
+              {[5, 10, 15, 20, 25, 30].map((ft) => (
+                <span key={ft} style={{ position: "absolute", left: `${clamp((ft / Math.max(1, effectiveClub.max)) * 100, 0, 100)}%`, transform: "translateX(-50%)" }}>
+                  {ft}'
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -416,8 +525,8 @@ export default function TeeOffPage() {
           ) : null}
           <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: "10%", width: 3, height: 42, background: "#d9ffe2" }} />
           <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: "10%", width: 26, height: 15, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
-          <div style={{ position: "absolute", left: `${47.5 + hole.dogleg * 0.18}%`, top: "24%", width: 44, height: 10, border: "1px solid #d9ffe2", borderRadius: 999, opacity: 0.65 }} />
-          <div style={{ position: "absolute", left: 14, bottom: 94, width: 134, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
+          <div style={{ position: "absolute", left: `${45.2 + hole.dogleg * 0.18}%`, top: "22%", width: 86, height: 28, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82 }} />
+          <div style={{ position: "absolute", left: 14, top: 118, width: 134, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
             <div>BUXTON-HOLLIS CC</div>
             <div>HOLE {holeIndex + 1}</div>
             <div>{hole.yards} YARDS</div>
@@ -456,6 +565,43 @@ export default function TeeOffPage() {
               transform: "translate(-50%, -50%)",
             }}
           />
+
+          {onGreen ? (
+            <div style={{ position: "absolute", inset: 0, zIndex: 4, background: "#082112", overflow: "hidden" }}>
+              <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(0deg, rgba(124,255,155,0.06) 0 2px, transparent 2px 22px), repeating-linear-gradient(90deg, rgba(124,255,155,0.05) 0 2px, transparent 2px 22px)" }} />
+              <div style={{ position: "absolute", left: "18%", top: "8%", width: "64%", height: "82%", background: "#1e7b35", clipPath: greenShape(hole.green), boxShadow: "inset 0 0 0 3px rgba(217,255,226,0.35), 0 0 28px rgba(34,197,94,0.28)" }} />
+              {[5, 10, 15, 20, 25, 30].map((ft) => (
+                <div
+                  key={ft}
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    width: `${ft * 8}px`,
+                    height: `${ft * 5}px`,
+                    border: "1px dashed rgba(217,255,226,0.45)",
+                    borderRadius: "50%",
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              ))}
+              <div style={{ position: "absolute", left: "50%", top: "50%", width: 5, height: 40, background: "#d9ffe2", transform: "translate(-50%, -100%)" }} />
+              <div style={{ position: "absolute", left: "50.4%", top: "39%", width: 30, height: 16, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
+              <div style={{ position: "absolute", left: "50%", top: "50%", width: 12, height: 12, borderRadius: 999, background: "#020617", border: "2px solid #d9ffe2", transform: "translate(-50%, -50%)" }} />
+              <div style={{ position: "absolute", left: `${clamp(50 - puttFeet * 0.65, 18, 82)}%`, top: "64%", width: 12, height: 12, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 12px #bae6fd", transform: "translate(-50%, -50%)" }} />
+              <div style={{ position: "absolute", left: 14, top: 14, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 8, fontSize: 12 }}>
+                ON GREEN | {puttFeet} FT TO CUP
+              </div>
+            </div>
+          ) : null}
+
+          <div style={{ position: "absolute", right: 12, bottom: 12, zIndex: 8, width: 118, height: 138, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", fontSize: 10, padding: 6 }}>
+            <div>MINI MAP</div>
+            <div style={{ position: "relative", margin: "6px auto 0", width: 58, height: 108, background: "#1e7b35", clipPath: "polygon(42% 0, 58% 0, 100% 100%, 0 100%)" }}>
+              <div style={{ position: "absolute", left: "50%", top: "8%", width: 8, height: 8, borderRadius: 999, background: "#020617", border: "1px solid #d9ffe2", transform: "translate(-50%, -50%)" }} />
+              <div style={{ position: "absolute", left: "50%", top: `${miniBallY}%`, width: 7, height: 7, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 8px #bae6fd", transform: "translate(-50%, -50%)" }} />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 18 }}>
