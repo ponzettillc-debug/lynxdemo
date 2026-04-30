@@ -63,141 +63,6 @@ function splitGolferName(name: string) {
   };
 }
 
-function golferImageSlug(name: string) {
-  return name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function GolferPortrait({
-  name,
-  selected,
-  disabled,
-  used,
-}: {
-  name: string;
-  selected: boolean;
-  disabled: boolean;
-  used: boolean;
-}) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const initial = getLastInitial(name);
-  const src = `/golfers/${golferImageSlug(name)}.png`;
-
-  const frameStyle: React.CSSProperties = {
-    position: "relative",
-    flex: "0 0 auto",
-    width: 58,
-    height: 58,
-    borderRadius: 16,
-    overflow: "hidden",
-    border: selected
-      ? "1px solid rgba(134,239,172,0.52)"
-      : "1px solid rgba(148,163,184,0.18)",
-    background: selected
-      ? "linear-gradient(160deg, rgba(34,197,94,0.34), rgba(15,23,42,0.98) 58%, rgba(2,6,23,1))"
-      : used
-      ? "linear-gradient(160deg, rgba(71,85,105,0.62), rgba(15,23,42,0.96))"
-      : "linear-gradient(160deg, rgba(125,211,252,0.24), rgba(30,41,59,0.96) 48%, rgba(22,163,74,0.22))",
-    boxShadow: selected ? "0 0 0 3px rgba(34,197,94,0.10)" : "none",
-    opacity: disabled ? 0.78 : 1,
-  };
-
-  if (!imageFailed) {
-    return (
-      <div style={frameStyle}>
-        <img
-          src={src}
-          alt=""
-          onError={() => setImageFailed(true)}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-            filter: used && !selected ? "grayscale(0.45) saturate(0.75)" : "saturate(1.04)",
-          }}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div aria-hidden="true" style={frameStyle}>
-      <div
-        style={{
-          position: "absolute",
-          right: 8,
-          top: 11,
-          width: 2,
-          height: 40,
-          borderRadius: 999,
-          background: "rgba(226,232,240,0.72)",
-          transform: "rotate(31deg)",
-          transformOrigin: "top center",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 17,
-          top: 11,
-          width: 24,
-          height: 7,
-          borderRadius: "999px 999px 5px 5px",
-          background: "rgba(248,250,252,0.88)",
-          boxShadow: "9px 2px 0 -5px rgba(248,250,252,0.82)",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 21,
-          top: 18,
-          width: 16,
-          height: 16,
-          borderRadius: 999,
-          background: "rgba(226,232,240,0.90)",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: 13,
-          top: 34,
-          width: 32,
-          height: 25,
-          borderRadius: "16px 16px 8px 8px",
-          background: "rgba(15,23,42,0.76)",
-          transform: "skewX(-8deg)",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          right: 5,
-          bottom: 4,
-          minWidth: 17,
-          height: 17,
-          padding: "0 4px",
-          borderRadius: 999,
-          display: "grid",
-          placeItems: "center",
-          background: "rgba(2,6,23,0.78)",
-          color: "#f8fafc",
-          fontSize: 10,
-          fontWeight: 900,
-          lineHeight: 1,
-        }}
-      >
-        {initial}
-      </div>
-    </div>
-  );
-}
-
 export default function PicksPage() {
   const [poolId, setPoolId] = useState<string>("");
   const [session, setSession] = useState<any>(null);
@@ -1124,53 +989,36 @@ export default function PicksPage() {
                             <div
                               style={{
                                 minWidth: 0,
-                                flex: 1,
                                 display: "flex",
-                                alignItems: "center",
-                                gap: 12,
+                                flexDirection: "column",
                               }}
                             >
-                              <GolferPortrait
-                                name={g.name}
-                                selected={isSelected}
-                                disabled={disabled}
-                                used={isUsed}
-                              />
-
                               <div
                                 style={{
-                                  minWidth: 0,
-                                  display: "flex",
-                                  flexDirection: "column",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: isSelected ? "#dcfce7" : "#cbd5e1",
+                                  lineHeight: 1.1,
+                                  marginBottom: 4,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    color: isSelected ? "#dcfce7" : "#cbd5e1",
-                                    lineHeight: 1.1,
-                                    marginBottom: 4,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {parts.first}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 16,
-                                    fontWeight: 900,
-                                    color: isSelected ? "#f8fafc" : isUsed ? "#cbd5e1" : "#f8fafc",
-                                    lineHeight: 1.1,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {parts.last || parts.first}
-                                </div>
+                                {parts.first}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 16,
+                                  fontWeight: 900,
+                                  color: isSelected ? "#f8fafc" : isUsed ? "#cbd5e1" : "#f8fafc",
+                                  lineHeight: 1.1,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {parts.last || parts.first}
                               </div>
                             </div>
 
