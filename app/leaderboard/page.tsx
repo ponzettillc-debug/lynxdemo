@@ -180,6 +180,7 @@ export default function LeaderboardPage() {
   }, []);
 
   const userEmail = session?.user?.email?.toLowerCase() ?? "";
+  const currentUserId = session?.user?.id ?? "";
   const isAdmin = useMemo(() => ADMIN_EMAILS.includes(userEmail), [userEmail]);
 
   async function loadSetup() {
@@ -333,7 +334,6 @@ export default function LeaderboardPage() {
     });
   }, [rows]);
 
-  const leader = rankedRows[0] ?? null;
   const selectedTournament =
     tournaments.find((t) => t.id === selectedTournamentId) ?? null;
   const lockedRound = getLockedRound(selectedTournament);
@@ -449,37 +449,6 @@ export default function LeaderboardPage() {
         </select>
       </div>
 
-      {!loading && !message && leader ? (
-        <div
-          style={{
-            ...card,
-            marginBottom: 14,
-            background: "#f7fbff",
-            borderColor: "#d7e8ff",
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 15 }}>Current Leader</div>
-          <div style={{ marginTop: 6 }}>
-            <strong>{userLabel(leader.display_name, leader.user_id)}</strong>{" "}
-            at{" "}
-            <strong style={{ color: scoreColor(leader.total_strokes) }}>
-              {fmtScore(leader.total_strokes)}
-            </strong>
-          </div>
-        </div>
-      ) : null}
-
-      {!loading && !message && (
-        <div style={{ ...card, marginBottom: 14 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Pick visibility</div>
-          <div style={{ opacity: 0.75 }}>
-            {lockedRound
-              ? `Show Used displays each player's picks by round. Rounds after locked Round ${lockedRound} are masked as *Hidden* until they lock.`
-              : "Show Used displays the 4-round layout, but all rounds are masked as *Hidden* until Round 1 locks."}
-          </div>
-        </div>
-      )}
-
       {loading ? <p>Loading leaderboard…</p> : null}
       {!loading && message ? <p>{message}</p> : null}
       {!loading && !message && rankedRows.length === 0 ? (
@@ -588,13 +557,24 @@ export default function LeaderboardPage() {
             <tbody>
               {rankedRows.map((r) => {
                 const isLeader = r.rank === 1;
+                const isCurrentUser = currentUserId === r.user_id;
                 const isAllUsedExpanded = !!expandedAllUsedUsers[r.user_id];
                 const usedPicks = allUsedPicks[r.user_id] ?? [];
                 const canExpandAllUsed = usedPicks.length > 0 || !!lockedRound;
 
                 return (
                   <Fragment key={r.user_id}>
-                    <tr style={{ background: isLeader ? "#fafcff" : "transparent" }}>
+                    <tr
+                      style={{
+                        background: isCurrentUser
+                          ? "#fff7ed"
+                          : isLeader
+                          ? "#fafcff"
+                          : "transparent",
+                        outline: isCurrentUser ? "2px solid #fb923c" : "none",
+                        outlineOffset: -2,
+                      }}
+                    >
                       <td
                         style={{
                           padding: 8,
@@ -611,7 +591,23 @@ export default function LeaderboardPage() {
                           fontWeight: isLeader ? 800 : 500,
                         }}
                       >
-                        {userLabel(r.display_name, r.user_id)}
+                        <span>{userLabel(r.display_name, r.user_id)}</span>
+                        {isCurrentUser ? (
+                          <span
+                            style={{
+                              marginLeft: 8,
+                              padding: "2px 7px",
+                              borderRadius: 999,
+                              background: "#fed7aa",
+                              color: "#7c2d12",
+                              fontSize: 11,
+                              fontWeight: 900,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            You
+                          </span>
+                        ) : null}
                       </td>
                       <td
                         style={{
@@ -711,7 +707,11 @@ export default function LeaderboardPage() {
                       <tr>
                         <td
                           colSpan={10}
-                          style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}
+                          style={{
+                            padding: 0,
+                            borderBottom: "1px solid #f0f0f0",
+                            background: isCurrentUser ? "#fff7ed" : "transparent",
+                          }}
                         >
                           <div style={usedCard}>
                             <div
@@ -846,9 +846,10 @@ export default function LeaderboardPage() {
           src={bannerSrc}
           alt="Tournament round banner"
           style={{
-            width: "100%",
-            maxWidth: 520,
+            width: "80%",
+            maxWidth: 416,
             display: "block",
+            margin: "0 auto",
             borderRadius: 14,
             boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
           }}
