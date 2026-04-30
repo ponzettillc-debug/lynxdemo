@@ -102,6 +102,7 @@ export default function AdminPage() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserDisplayName, setNewUserDisplayName] = useState("");
+  const [newUserStatus, setNewUserStatus] = useState("");
   const [editingUserId, setEditingUserId] = useState("");
   const [editUserEmail, setEditUserEmail] = useState("");
   const [editUserDisplayName, setEditUserDisplayName] = useState("");
@@ -580,22 +581,26 @@ export default function AdminPage() {
 
     if (!isAdmin) {
       setStatus("Admin access required.");
+      setNewUserStatus("Admin access required.");
       return;
     }
 
     if (!finalEmail || !newUserPassword.trim()) {
       setStatus("Enter a user email and password.");
+      setNewUserStatus("Enter a user email and password.");
       return;
     }
 
     if (newUserPassword.trim().length < 8) {
       setStatus("Password must be at least 8 characters.");
+      setNewUserStatus("Password must be at least 8 characters.");
       return;
     }
 
     try {
       setCreatingUser(true);
       setStatus("Creating user...");
+      setNewUserStatus("Creating user...");
 
       const token = await getAccessToken();
 
@@ -616,16 +621,20 @@ export default function AdminPage() {
 
       if (!r.ok) {
         setStatus(j?.error || "User creation failed.");
+        setNewUserStatus(j?.error || "User creation failed.");
         return;
       }
 
-      setStatus(j?.created ? `User created: ${finalEmail}` : `Pool access repaired for: ${finalEmail}`);
+      const nextStatus = j?.created ? `User created: ${finalEmail}` : `Pool access repaired for: ${finalEmail}`;
+      setStatus(nextStatus);
+      setNewUserStatus(nextStatus);
       setNewUserEmail("");
       setNewUserPassword("");
       setNewUserDisplayName("");
       await loadUsers();
     } catch (err: any) {
       setStatus(err?.message || "User creation failed.");
+      setNewUserStatus(err?.message || "User creation failed.");
     } finally {
       setCreatingUser(false);
     }
@@ -1353,21 +1362,30 @@ export default function AdminPage() {
               type="email"
               placeholder="Player email"
               value={newUserEmail}
-              onChange={(e) => setNewUserEmail(e.target.value)}
+              onChange={(e) => {
+                setNewUserEmail(e.target.value);
+                setNewUserStatus("");
+              }}
               style={{ ...styles.input, marginBottom: 0 }}
             />
             <input
               type="text"
               placeholder="Display name"
               value={newUserDisplayName}
-              onChange={(e) => setNewUserDisplayName(e.target.value)}
+              onChange={(e) => {
+                setNewUserDisplayName(e.target.value);
+                setNewUserStatus("");
+              }}
               style={{ ...styles.input, marginBottom: 0 }}
             />
             <input
               type="password"
               placeholder="Preset password"
               value={newUserPassword}
-              onChange={(e) => setNewUserPassword(e.target.value)}
+              onChange={(e) => {
+                setNewUserPassword(e.target.value);
+                setNewUserStatus("");
+              }}
               style={{ ...styles.input, marginBottom: 0 }}
             />
           </div>
@@ -1383,6 +1401,12 @@ export default function AdminPage() {
           >
             {creatingUser ? "Creating User..." : "Create User"}
           </button>
+
+          {!!newUserStatus && (
+            <div style={{ ...styles.message, marginTop: 12 }}>
+              {newUserStatus}
+            </div>
+          )}
 
           <p style={{ ...styles.sectionText, marginTop: 12, marginBottom: 12 }}>
             Existing passwords cannot be viewed. You can only set a new password.
