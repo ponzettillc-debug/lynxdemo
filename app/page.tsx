@@ -171,37 +171,46 @@ export default function Home() {
   }
 
   const cardStyle: React.CSSProperties = {
-    background: "#ffffff",
-    color: "#111111",
-    border: "1px solid #d0d7de",
-    borderRadius: 12,
+    background: "rgba(15,23,42,0.86)",
+    color: "#f8fafc",
+    border: "1px solid rgba(148,163,184,0.14)",
+    borderRadius: 22,
     padding: 20,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 14px 32px rgba(0,0,0,0.28)",
+    backdropFilter: "blur(10px)",
   };
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    padding: 12,
+    padding: "13px 14px",
     marginBottom: 12,
-    borderRadius: 10,
-    border: "1px solid #d0d7de",
-    fontSize: 16,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.16)",
+    background: "rgba(2,6,23,0.82)",
+    color: "#f8fafc",
+    fontSize: 15,
+    outline: "none",
   };
 
   const buttonStyle: React.CSSProperties = {
     width: "100%",
-    padding: "12px 14px",
-    borderRadius: 10,
-    border: "1px solid #111111",
-    background: "#ffffff",
-    color: "#111111",
-    fontWeight: 600,
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "none",
+    background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+    color: "#03120a",
+    fontWeight: 900,
+    fontSize: 15,
     cursor: "pointer",
+    boxShadow: "0 10px 24px rgba(34,197,94,0.26)",
   };
 
   const secondaryButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    border: "1px solid #d0d7de",
+    border: "1px solid rgba(148,163,184,0.16)",
+    background: "rgba(15,23,42,0.92)",
+    color: "#e2e8f0",
+    boxShadow: "none",
   };
 
   const logoWrap: React.CSSProperties = {
@@ -217,9 +226,10 @@ export default function Home() {
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
-          background: "#f6f8fa",
+          background:
+            "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
           padding: 20,
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: "Inter, system-ui, sans-serif",
         }}
       >
           <div className="flag-tile-border" style={{ ...cardStyle, width: "100%", maxWidth: 520 }}>
@@ -236,9 +246,10 @@ export default function Home() {
     <main
       style={{
         minHeight: "100vh",
-        background: "#f6f8fa",
+        background:
+          "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
         padding: 20,
-        fontFamily: "system-ui, sans-serif",
+        fontFamily: "Inter, system-ui, sans-serif",
       }}
     >
       <div style={{ maxWidth: 520, margin: "40px auto" }}>
@@ -252,7 +263,7 @@ export default function Home() {
               style={{
                 marginTop: 0,
                 marginBottom: 20,
-                color: "#444",
+                color: "#94a3b8",
                 textAlign: "center",
               }}
             >
@@ -265,9 +276,9 @@ export default function Home() {
                   marginBottom: 12,
                   padding: 12,
                   borderRadius: 10,
-                  background: "#f6f8fa",
-                  border: "1px solid #d0d7de",
-                  color: "#444",
+                  background: "rgba(2,6,23,0.62)",
+                  border: "1px solid rgba(148,163,184,0.12)",
+                  color: "#cbd5e1",
                   fontSize: 14,
                 }}
               >
@@ -341,7 +352,7 @@ export default function Home() {
             </div>
 
             {!!message && (
-              <p style={{ marginTop: 14, marginBottom: 0, color: "#444" }}>
+              <p style={{ marginTop: 14, marginBottom: 0, color: "#cbd5e1" }}>
                 {message}
               </p>
             )}
@@ -355,7 +366,7 @@ export default function Home() {
               <p style={{ marginTop: 0, marginBottom: 8 }}>
                 Logged in as <strong>{session.user.email}</strong>
               </p>
-              <p style={{ margin: 0, color: "#444" }}>Welcome to the pool.</p>
+              <p style={{ margin: 0, color: "#94a3b8" }}>Welcome to the pool.</p>
             </div>
 
             <div className="flag-tile-border" style={cardStyle}>
@@ -391,7 +402,7 @@ export default function Home() {
                     <hr
                       style={{
                         border: "none",
-                        borderTop: "1px solid #e5e7eb",
+                        borderTop: "1px solid rgba(148,163,184,0.14)",
                         margin: "8px 0",
                       }}
                     />
@@ -400,7 +411,7 @@ export default function Home() {
                       style={{
                         fontSize: 14,
                         fontWeight: 700,
-                        color: "#444",
+                        color: "#94a3b8",
                         marginBottom: 4,
                       }}
                     >
@@ -433,7 +444,7 @@ export default function Home() {
                 <hr
                   style={{
                     border: "none",
-                    borderTop: "1px solid #e5e7eb",
+                    borderTop: "1px solid rgba(148,163,184,0.14)",
                     margin: "8px 0",
                   }}
                 />
@@ -444,7 +455,7 @@ export default function Home() {
               </div>
 
               {!!message && (
-                <p style={{ marginTop: 14, marginBottom: 0, color: "#444" }}>
+                <p style={{ marginTop: 14, marginBottom: 0, color: "#cbd5e1" }}>
                   {message}
                 </p>
               )}

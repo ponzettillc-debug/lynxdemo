@@ -96,7 +96,7 @@ function getLockedRound(tournament: Tournament | null) {
 function scoreColor(v: number) {
   if (v < 0) return "#15803d";
   if (v > 0) return "#b91c1c";
-  return "#111";
+  return "#f8fafc";
 }
 
 function getBannerForLockedRound(lockedRound: 1 | 2 | 3 | 4 | null) {
@@ -346,35 +346,44 @@ export default function LeaderboardPage() {
   }
 
   const shell: React.CSSProperties = {
+    minHeight: "100vh",
+    background:
+      "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
+    padding: "18px 14px 40px",
+    fontFamily: "Inter, system-ui, sans-serif",
+    color: "#f8fafc",
+  };
+
+  const content: React.CSSProperties = {
     maxWidth: 980,
-    margin: "20px auto",
-    padding: 20,
-    fontFamily: "system-ui",
-    color: "#111",
+    margin: "0 auto",
   };
 
   const card: React.CSSProperties = {
-    border: "1px solid #e5e5e5",
-    borderRadius: 16,
-    padding: 14,
-    background: "#fff",
-    boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+    border: "1px solid rgba(148,163,184,0.14)",
+    borderRadius: 22,
+    padding: 16,
+    background: "rgba(15,23,42,0.86)",
+    boxShadow: "0 14px 32px rgba(0,0,0,0.28)",
+    backdropFilter: "blur(10px)",
   };
 
   const usedCard: React.CSSProperties = {
     marginTop: 8,
-    border: "1px solid #e7f5ea",
-    borderRadius: 12,
+    border: "1px solid rgba(148,163,184,0.14)",
+    borderRadius: 18,
     padding: 12,
-    background: "#fbfffc",
+    background: "rgba(15,23,42,0.92)",
   };
 
   const leaderboardTableWrap: React.CSSProperties = {
     position: "relative",
     overflowX: "auto",
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.88)",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    borderRadius: 22,
+    background: "rgba(15,23,42,0.86)",
+    border: "1px solid rgba(148,163,184,0.14)",
+    boxShadow: "0 14px 32px rgba(0,0,0,0.28)",
+    backdropFilter: "blur(10px)",
   };
 
   const leaderboardWatermark: React.CSSProperties = {
@@ -391,14 +400,14 @@ export default function LeaderboardPage() {
     width: "min(74%, 620px)",
     maxHeight: "76%",
     objectFit: "contain",
-    opacity: 0.08,
-    filter: "grayscale(0.25) blur(0.2px)",
+    opacity: 0.1,
+    filter: "grayscale(0.1) blur(0.2px)",
   };
 
   const footerWrap: React.CSSProperties = {
     marginTop: 28,
     paddingTop: 18,
-    borderTop: "1px solid #e5e7eb",
+    borderTop: "1px solid rgba(148,163,184,0.14)",
     textAlign: "center",
   };
 
@@ -406,41 +415,55 @@ export default function LeaderboardPage() {
     margin: 0,
     fontSize: 12,
     letterSpacing: 0.2,
-    color: "#6b7280",
+    color: "#cbd5e1",
   };
 
   const footerSubtext: React.CSSProperties = {
     marginTop: 6,
     fontSize: 11,
-    color: "#9ca3af",
+    color: "#64748b",
+  };
+
+  const nav: React.CSSProperties = {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  };
+
+  const navLink: React.CSSProperties = {
+    textDecoration: "none",
+    color: "#e2e8f0",
+    fontWeight: 700,
+    fontSize: 14,
+    padding: "10px 14px",
+    borderRadius: 999,
+    background: "rgba(15,23,42,0.88)",
+    border: "1px solid rgba(148,163,184,0.14)",
   };
 
   return (
     <main style={shell}>
+      <div style={content}>
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
 
       {selectedTournament?.name ? (
-        <p style={{ marginTop: 0, opacity: 0.7 }}>{selectedTournament.name}</p>
+        <p style={{ marginTop: 0, color: "#94a3b8" }}>{selectedTournament.name}</p>
       ) : null}
 
-      <div style={{ marginBottom: 14 }}>
-        <a href="/picks" style={{ textDecoration: "none" }}>
+      <div style={nav}>
+        <a href="/picks" style={navLink}>
           Picks
-        </a>{" "}
-        {" | "}
-        <a href="/trophy-room" style={{ textDecoration: "none" }}>
+        </a>
+        <a href="/trophy-room" style={navLink}>
           Trophy Room
-        </a>{" "}
-        {" | "}
+        </a>
         {isAdmin ? (
-          <>
-            <a href="/admin" style={{ textDecoration: "none" }}>
-              Admin
-            </a>{" "}
-            {" | "}
-          </>
+          <a href="/admin" style={navLink}>
+            Admin
+          </a>
         ) : null}
-        <a href="/" style={{ textDecoration: "none" }}>
+        <a href="/" style={navLink}>
           Home
         </a>
       </div>
@@ -448,7 +471,7 @@ export default function LeaderboardPage() {
       <div className="flag-tile-border" style={{ ...card, marginBottom: 14 }}>
         <label
           htmlFor="tournament-select"
-          style={{ display: "block", fontWeight: 700, marginBottom: 8 }}
+          style={{ display: "block", fontWeight: 900, marginBottom: 8 }}
         >
           Tournament
         </label>
@@ -459,10 +482,12 @@ export default function LeaderboardPage() {
           style={{
             width: "100%",
             maxWidth: 420,
-            padding: 10,
-            borderRadius: 10,
-            border: "1px solid #d4d4d4",
-            background: "#fff",
+            padding: "13px 14px",
+            borderRadius: 14,
+            border: "1px solid rgba(148,163,184,0.16)",
+            background: "rgba(2,6,23,0.82)",
+            color: "#f8fafc",
+            outline: "none",
           }}
         >
           <option value="">Select tournament</option>
@@ -474,10 +499,10 @@ export default function LeaderboardPage() {
         </select>
       </div>
 
-      {loading ? <p>Loading leaderboard…</p> : null}
-      {!loading && message ? <p>{message}</p> : null}
+      {loading ? <p style={{ color: "#cbd5e1" }}>Loading leaderboard…</p> : null}
+      {!loading && message ? <p style={{ color: "#cbd5e1" }}>{message}</p> : null}
       {!loading && !message && rankedRows.length === 0 ? (
-        <p>No scored picks yet.</p>
+        <p style={{ color: "#cbd5e1" }}>No scored picks yet.</p>
       ) : null}
 
       {!loading && !message && rankedRows.length > 0 ? (
@@ -496,7 +521,7 @@ export default function LeaderboardPage() {
               width: "100%",
               borderCollapse: "collapse",
               minWidth: 940,
-              background: "rgba(255,255,255,0.72)",
+              background: "rgba(2,6,23,0.70)",
             }}
           >
             <thead>
@@ -504,7 +529,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -513,7 +538,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -522,7 +547,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -531,7 +556,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -540,7 +565,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -549,7 +574,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -558,7 +583,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -567,7 +592,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -576,7 +601,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -585,7 +610,7 @@ export default function LeaderboardPage() {
                 <th
                   style={{
                     textAlign: "left",
-                    borderBottom: "1px solid #ddd",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
                     padding: 8,
                   }}
                 >
@@ -606,9 +631,9 @@ export default function LeaderboardPage() {
                     <tr
                       style={{
                         background: isCurrentUser
-                          ? "#fff7ed"
+                          ? "rgba(251,146,60,0.15)"
                           : isLeader
-                          ? "#fafcff"
+                          ? "rgba(34,197,94,0.08)"
                           : "transparent",
                         outline: isCurrentUser ? "2px solid #fb923c" : "none",
                         outlineOffset: -2,
@@ -617,7 +642,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           fontWeight: isLeader ? 800 : 500,
                         }}
                       >
@@ -626,7 +651,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           fontWeight: isLeader ? 800 : 500,
                         }}
                       >
@@ -651,7 +676,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           fontWeight: 700,
                           color: scoreColor(r.behind),
                         }}
@@ -665,7 +690,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           color: scoreColor(r.r1_strokes),
                           fontWeight: r.r1_strokes < 0 ? 700 : 400,
                         }}
@@ -675,7 +700,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           color: scoreColor(r.r2_strokes),
                           fontWeight: r.r2_strokes < 0 ? 700 : 400,
                         }}
@@ -685,7 +710,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           color: scoreColor(r.r3_strokes),
                           fontWeight: r.r3_strokes < 0 ? 700 : 400,
                         }}
@@ -695,7 +720,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           color: scoreColor(r.r4_strokes),
                           fontWeight: r.r4_strokes < 0 ? 700 : 400,
                         }}
@@ -705,7 +730,7 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           padding: 8,
-                          borderBottom: "1px solid #f0f0f0",
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           fontWeight: 800,
                           color: scoreColor(r.total_strokes),
                         }}
@@ -713,12 +738,12 @@ export default function LeaderboardPage() {
                         {fmtScore(r.total_strokes)}
                       </td>
                       <td
-                        style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}
+                        style={{ padding: 8, borderBottom: "1px solid rgba(148,163,184,0.12)" }}
                       >
                         {r.scored_picks}
                       </td>
                       <td
-                        style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}
+                        style={{ padding: 8, borderBottom: "1px solid rgba(148,163,184,0.12)" }}
                       >
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {canExpandAllUsed ? (
@@ -727,10 +752,11 @@ export default function LeaderboardPage() {
                               style={{
                                 padding: "6px 10px",
                                 borderRadius: 8,
-                                border: "1px solid #cfe7d5",
-                                background: "#f8fff9",
+                                border: "1px solid rgba(148,163,184,0.16)",
+                                background: "rgba(15,23,42,0.92)",
+                                color: "#e2e8f0",
                                 cursor: "pointer",
-                                fontWeight: 600,
+                                fontWeight: 800,
                               }}
                             >
                               {isAllUsedExpanded ? "Hide Used" : "Show Used"}
@@ -748,8 +774,8 @@ export default function LeaderboardPage() {
                           colSpan={10}
                           style={{
                             padding: 0,
-                            borderBottom: "1px solid #f0f0f0",
-                            background: isCurrentUser ? "#fff7ed" : "transparent",
+                            borderBottom: "1px solid rgba(148,163,184,0.12)",
+                            background: isCurrentUser ? "rgba(251,146,60,0.15)" : "transparent",
                           }}
                         >
                           <div className="flag-tile-border" style={usedCard}>
@@ -785,9 +811,9 @@ export default function LeaderboardPage() {
                                     key={`${r.user_id}-round-${round}`}
                                     style={{
                                       minWidth: 142,
-                                      border: "1px solid #dfe9e3",
+                                      border: "1px solid rgba(148,163,184,0.14)",
                                       borderRadius: 12,
-                                      background: roundLocked ? "#ffffff" : "#f7f7f7",
+                                      background: roundLocked ? "rgba(15,23,42,0.78)" : "rgba(51,65,85,0.45)",
                                       padding: 7,
                                     }}
                                   >
@@ -823,16 +849,16 @@ export default function LeaderboardPage() {
                                         const tileColor =
                                           !hidden && typeof tile?.score === "number"
                                             ? scoreColor(tile.score)
-                                            : "#111";
+                                            : "#f8fafc";
 
                                         return (
                                           <div
                                             className="flag-tile-border"
                                             key={`${r.user_id}-round-${round}-tile-${idx}`}
                                             style={{
-                                              border: "1px solid #e5e7eb",
+                                              border: "1px solid rgba(148,163,184,0.12)",
                                               borderRadius: 8,
-                                              background: hidden ? "#efefef" : "#f9fafb",
+                                              background: hidden ? "rgba(51,65,85,0.6)" : "rgba(2,6,23,0.72)",
                                               padding: "7px 8px",
                                             }}
                                           >
@@ -842,7 +868,7 @@ export default function LeaderboardPage() {
                                                 fontWeight: 700,
                                                 marginBottom: 3,
                                                 lineHeight: 1.15,
-                                                color: hidden ? "#6b7280" : "#111",
+                                                color: hidden ? "#94a3b8" : "#f8fafc",
                                               }}
                                             >
                                               {title}
@@ -901,6 +927,9 @@ export default function LeaderboardPage() {
         <p style={footerText}>© 2026 4Play Golf</p>
         <div style={footerSubtext}>A Buxton, Maine Company (Pending)</div>
       </div>
+      </div>
     </main>
   );
 }
+
+
