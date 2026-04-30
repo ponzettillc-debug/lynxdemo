@@ -147,7 +147,7 @@ export default function TrophyRoomPage() {
   return (
     <main style={shell}>
       <div style={content}>
-        <div style={{ marginBottom: 10 }}>
+        <div className="soft-logo-mark" style={{ marginBottom: 10 }}>
           <AppLogo width={220} height={90} />
         </div>
 

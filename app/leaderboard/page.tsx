@@ -400,6 +400,23 @@ export default function LeaderboardPage() {
     width: "min(74%, 620px)",
     maxHeight: "76%",
     objectFit: "contain",
+    filter: "saturate(0.85) contrast(0.9) brightness(1.25) blur(0.35px)",
+  };
+
+  const bottomBannerImage: React.CSSProperties = {
+    width: "80%",
+    maxWidth: 416,
+    display: "block",
+    margin: "0 auto",
+    borderRadius: 14,
+    opacity: 0.24,
+    filter: "saturate(0.5) contrast(0.82) brightness(0.72)",
+    mixBlendMode: "screen",
+    boxShadow: "none",
+    WebkitMaskImage:
+      "radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,0.62) 66%, transparent 100%)",
+    maskImage:
+      "radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,0.62) 66%, transparent 100%)",
   };
 
   const footerWrap: React.CSSProperties = {
@@ -909,14 +926,7 @@ export default function LeaderboardPage() {
         <img
           src={bannerSrc}
           alt="Tournament round banner"
-          style={{
-            width: "80%",
-            maxWidth: 416,
-            display: "block",
-            margin: "0 auto",
-            borderRadius: 14,
-            boxShadow: "0 4px 14px rgba(0,0,0,0.10)",
-          }}
+          style={bottomBannerImage}
         />
       </div>
 
