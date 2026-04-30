@@ -119,29 +119,65 @@ export default function TrophyRoomPage() {
 
   const shell: React.CSSProperties = {
     minHeight: "100vh",
-    background: "#f6f8fa",
-    padding: 20,
-    fontFamily: "system-ui, sans-serif",
-    color: "#111",
+    background:
+      "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
+    padding: "18px 14px 40px",
+    fontFamily: "Inter, system-ui, sans-serif",
+    color: "#f8fafc",
   };
 
   const content: React.CSSProperties = {
     maxWidth: 900,
-    margin: "20px auto",
+    margin: "0 auto",
   };
 
   const card: React.CSSProperties = {
-    background: "#ffffff",
-    border: "1px solid #d0d7de",
-    borderRadius: 12,
+    background: "rgba(15,23,42,0.86)",
+    border: "1px solid rgba(148,163,184,0.14)",
+    borderRadius: 22,
     padding: 18,
-    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    boxShadow: "0 14px 32px rgba(0,0,0,0.28)",
+    backdropFilter: "blur(10px)",
   };
 
   const linkStyle: React.CSSProperties = {
     textDecoration: "none",
-    color: "#0969da",
+    color: "#e2e8f0",
     fontWeight: 700,
+    fontSize: 14,
+    padding: "10px 14px",
+    borderRadius: 999,
+    background: "rgba(15,23,42,0.88)",
+    border: "1px solid rgba(148,163,184,0.14)",
+  };
+
+  const navStyle: React.CSSProperties = {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 16,
+  };
+
+  const trophyBadge: React.CSSProperties = {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    background: "rgba(34,197,94,0.16)",
+    border: "1px solid rgba(34,197,94,0.34)",
+    color: "#dcfce7",
+    padding: "6px 10px",
+    fontSize: 13,
+    fontWeight: 900,
+  };
+
+  const winnerTile: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) auto",
+    gap: 12,
+    alignItems: "center",
+    borderRadius: 16,
+    background: "rgba(2,6,23,0.72)",
+    border: "1px solid rgba(148,163,184,0.12)",
+    padding: 12,
   };
 
   return (
@@ -152,39 +188,34 @@ export default function TrophyRoomPage() {
         </div>
 
         <h1 style={{ marginTop: 0, marginBottom: 4 }}>Trophy Room</h1>
-        <p style={{ marginTop: 0, color: "#57606a" }}>
+        <p style={{ marginTop: 0, color: "#94a3b8" }}>
           Past tournament winners, preserved for bragging rights.
         </p>
 
-        <div style={{ marginBottom: 16 }}>
+        <div style={navStyle}>
           <Link href="/" style={linkStyle}>
             Home
-          </Link>{" "}
-          {" | "}
+          </Link>
           <Link href="/leaderboard" style={linkStyle}>
             Leaderboard
-          </Link>{" "}
-          {" | "}
+          </Link>
           <Link href="/picks" style={linkStyle}>
             Picks
           </Link>
           {isAdmin ? (
-            <>
-              {" | "}
-              <Link href="/admin" style={linkStyle}>
-                Admin
-              </Link>
-            </>
+            <Link href="/admin" style={linkStyle}>
+              Admin
+            </Link>
           ) : null}
         </div>
 
-        {loading ? <p>Loading Trophy Room...</p> : null}
-        {!loading && message ? <p>{message}</p> : null}
+        {loading ? <p style={{ color: "#cbd5e1" }}>Loading Trophy Room...</p> : null}
+        {!loading && message ? <p style={{ color: "#cbd5e1" }}>{message}</p> : null}
 
         {!loading && !message && rows.length === 0 ? (
           <div style={card}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>No trophies yet</h2>
-            <p style={{ margin: 0, color: "#57606a" }}>
+            <p style={{ margin: 0, color: "#94a3b8" }}>
               Winners will appear here after a tournament has Round 4 locked and scored picks.
             </p>
           </div>
@@ -205,22 +236,12 @@ export default function TrophyRoomPage() {
                 >
                   <div>
                     <h2 style={{ margin: 0, fontSize: 22 }}>{row.tournament_name}</h2>
-                    <div style={{ marginTop: 4, color: "#57606a", fontSize: 14 }}>
+                    <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 14 }}>
                       {fmtDate(row.completed_at)}
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      alignSelf: "flex-start",
-                      borderRadius: 999,
-                      background: "#fff8c5",
-                      border: "1px solid #f0d66f",
-                      padding: "6px 10px",
-                      fontSize: 13,
-                      fontWeight: 800,
-                    }}
-                  >
+                  <div style={trophyBadge}>
                     {row.winners.length > 1 ? "Co-Winners" : "Winner"}
                   </div>
                 </div>
@@ -229,16 +250,7 @@ export default function TrophyRoomPage() {
                   {row.winners.map((winner) => (
                     <div
                       key={`${row.tournament_id}-${winner.user_id}`}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) auto",
-                        gap: 12,
-                        alignItems: "center",
-                        borderRadius: 10,
-                        background: "#f6f8fa",
-                        border: "1px solid #eaeef2",
-                        padding: 12,
-                      }}
+                      style={winnerTile}
                     >
                       <div style={{ minWidth: 0 }}>
                         <div
@@ -252,7 +264,7 @@ export default function TrophyRoomPage() {
                         >
                           {winner.user_name}
                         </div>
-                        <div style={{ marginTop: 4, color: "#57606a", fontSize: 13 }}>
+                        <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>
                           {winner.scored_picks} scored pick{winner.scored_picks === 1 ? "" : "s"}
                         </div>
                       </div>
