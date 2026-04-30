@@ -28,11 +28,6 @@ type Tournament = {
   round4_lock?: string | null;
 };
 
-type LockedPick = {
-  name: string;
-  score: number | null;
-};
-
 type UsedPick = {
   name: string;
   roundsUsed?: number[];
@@ -153,15 +148,9 @@ export default function LeaderboardPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
 
-  const [lockedRoundPicks, setLockedRoundPicks] = useState<
-    Record<string, LockedPick[]>
-  >({});
   const [allUsedPicks, setAllUsedPicks] = useState<
     Record<string, UsedPick[]>
   >({});
-  const [expandedUsers, setExpandedUsers] = useState<Record<string, boolean>>(
-    {}
-  );
   const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<
     Record<string, boolean>
   >({});
@@ -268,7 +257,6 @@ export default function LeaderboardPage() {
 
       if (!tournamentId || !activePoolId) {
         setRows([]);
-        setLockedRoundPicks({});
         setAllUsedPicks({});
         setLoading(false);
         return;
@@ -294,22 +282,17 @@ export default function LeaderboardPage() {
       if (!r.ok) {
         setMessage(j?.error || "Error loading leaderboard.");
         setRows([]);
-        setLockedRoundPicks({});
         setAllUsedPicks({});
         setLoading(false);
         return;
       }
 
       setRows((j?.rows ?? []) as Row[]);
-      setLockedRoundPicks(
-        (j?.lockedRoundPicks ?? {}) as Record<string, LockedPick[]>
-      );
       setAllUsedPicks((j?.allUsedPicks ?? {}) as Record<string, UsedPick[]>);
       setLoading(false);
     } catch (e: any) {
       setMessage(e?.message || "Unexpected error loading leaderboard.");
       setRows([]);
-      setLockedRoundPicks({});
       setAllUsedPicks({});
       setLoading(false);
     }
@@ -326,7 +309,7 @@ export default function LeaderboardPage() {
     loadLeaderboard(selectedTournamentId, poolId);
     const interval = setInterval(
       () => loadLeaderboard(selectedTournamentId, poolId),
-      30000
+      120000
     );
     return () => clearInterval(interval);
   }, [session, poolId, selectedTournamentId]);
@@ -356,13 +339,6 @@ export default function LeaderboardPage() {
   const lockedRound = getLockedRound(selectedTournament);
   const bannerSrc = getBannerForLockedRound(lockedRound);
 
-  function toggleExpanded(userId: string) {
-    setExpandedUsers((prev) => ({
-      ...prev,
-      [userId]: !prev[userId],
-    }));
-  }
-
   function toggleAllUsedExpanded(userId: string) {
     setExpandedAllUsedUsers((prev) => ({
       ...prev,
@@ -384,14 +360,6 @@ export default function LeaderboardPage() {
     padding: 14,
     background: "#fff",
     boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
-  };
-
-  const picksCard: React.CSSProperties = {
-    marginTop: 8,
-    border: "1px solid #e6eef8",
-    borderRadius: 12,
-    padding: 10,
-    background: "#f8fbff",
   };
 
   const usedCard: React.CSSProperties = {
@@ -506,8 +474,8 @@ export default function LeaderboardPage() {
           <div style={{ fontWeight: 800, marginBottom: 6 }}>Pick visibility</div>
           <div style={{ opacity: 0.75 }}>
             {lockedRound
-              ? `Current round view shows locked Round ${lockedRound}. "Show All Used" shows used picks in a 4-round layout, with future rounds hidden until locked.`
-              : "No round lock has passed yet, so locked picks are not shown."}
+              ? `Show Used displays each player's picks by round. Rounds after locked Round ${lockedRound} are masked as *Hidden* until they lock.`
+              : "Show Used displays the 4-round layout, but all rounds are masked as *Hidden* until Round 1 locks."}
           </div>
         </div>
       )}
@@ -620,11 +588,8 @@ export default function LeaderboardPage() {
             <tbody>
               {rankedRows.map((r) => {
                 const isLeader = r.rank === 1;
-                const isExpanded = !!expandedUsers[r.user_id];
                 const isAllUsedExpanded = !!expandedAllUsedUsers[r.user_id];
-                const roundPicks = lockedRoundPicks[r.user_id] ?? [];
                 const usedPicks = allUsedPicks[r.user_id] ?? [];
-                const canExpandCurrent = !!lockedRound && roundPicks.length > 0;
                 const canExpandAllUsed = usedPicks.length > 0 || !!lockedRound;
 
                 return (
@@ -721,26 +686,6 @@ export default function LeaderboardPage() {
                         style={{ padding: 8, borderBottom: "1px solid #f0f0f0" }}
                       >
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {canExpandCurrent ? (
-                            <button
-                              onClick={() => toggleExpanded(r.user_id)}
-                              style={{
-                                padding: "6px 10px",
-                                borderRadius: 8,
-                                border: "1px solid #cfd8e3",
-                                background: "#fff",
-                                cursor: "pointer",
-                                fontWeight: 600,
-                              }}
-                            >
-                              {isExpanded
-                                ? `Hide R${lockedRound}`
-                                : `Show R${lockedRound}`}
-                            </button>
-                          ) : (
-                            <span style={{ opacity: 0.6 }}>—</span>
-                          )}
-
                           {canExpandAllUsed ? (
                             <button
                               onClick={() => toggleAllUsedExpanded(r.user_id)}
@@ -753,66 +698,14 @@ export default function LeaderboardPage() {
                                 fontWeight: 600,
                               }}
                             >
-                              {isAllUsedExpanded
-                                ? "Hide All Used"
-                                : "Show All Used"}
+                              {isAllUsedExpanded ? "Hide Used" : "Show Used"}
                             </button>
-                          ) : null}
+                          ) : (
+                            <span style={{ opacity: 0.6 }}>—</span>
+                          )}
                         </div>
                       </td>
                     </tr>
-
-                    {isExpanded ? (
-                      <tr>
-                        <td
-                          colSpan={10}
-                          style={{ padding: 0, borderBottom: "1px solid #f0f0f0" }}
-                        >
-                          <div style={picksCard}>
-                            <div style={{ fontWeight: 800, marginBottom: 6 }}>
-                              Round {lockedRound} locked picks
-                            </div>
-                            {roundPicks.length > 0 ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: 8,
-                                }}
-                              >
-                                {roundPicks.map((pick) => (
-                                  <span
-                                    key={`${r.user_id}-${pick.name}`}
-                                    style={{
-                                      display: "inline-block",
-                                      padding: "6px 10px",
-                                      borderRadius: 999,
-                                      background: "#eef6ff",
-                                      border: "1px solid #d6e7fb",
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color:
-                                        typeof pick.score === "number"
-                                          ? scoreColor(pick.score)
-                                          : "#111",
-                                    }}
-                                  >
-                                    {pick.name}{" "}
-                                    {typeof pick.score === "number"
-                                      ? `(${fmtScore(pick.score)})`
-                                      : "(—)"}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <div style={{ opacity: 0.7 }}>
-                                No locked picks available.
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null}
 
                     {isAllUsedExpanded ? (
                       <tr>
@@ -828,15 +721,15 @@ export default function LeaderboardPage() {
                                 fontSize: 15,
                               }}
                             >
-                              {userLabel(r.display_name, r.user_id)} — All Used by Round
+                              {userLabel(r.display_name, r.user_id)} — Used Picks by Round
                             </div>
 
                             <div
                               style={{
                                 display: "grid",
                                 gridTemplateColumns:
-                                  "repeat(4, minmax(180px, 1fr))",
-                                gap: 12,
+                                  "repeat(4, minmax(142px, 1fr))",
+                                gap: 8,
                                 overflowX: "auto",
                               }}
                             >
@@ -851,19 +744,19 @@ export default function LeaderboardPage() {
                                   <div
                                     key={`${r.user_id}-round-${round}`}
                                     style={{
-                                      minWidth: 180,
+                                      minWidth: 142,
                                       border: "1px solid #dfe9e3",
                                       borderRadius: 12,
                                       background: roundLocked ? "#ffffff" : "#f7f7f7",
-                                      padding: 10,
+                                      padding: 7,
                                     }}
                                   >
                                     <div
                                       style={{
                                         fontWeight: 800,
-                                        marginBottom: 10,
+                                        marginBottom: 7,
                                         textAlign: "center",
-                                        fontSize: 14,
+                                        fontSize: 13,
                                       }}
                                     >
                                       Round {round}
@@ -873,17 +766,17 @@ export default function LeaderboardPage() {
                                       style={{
                                         display: "grid",
                                         gridTemplateColumns: "1fr",
-                                        gap: 8,
+                                        gap: 6,
                                       }}
                                     >
                                       {Array.from({ length: 4 }).map((_, idx) => {
                                         const tile = roundTiles[idx];
                                         const hidden = !roundLocked;
                                         const title = hidden
-                                          ? "Hidden"
+                                          ? "*Hidden*"
                                           : tile?.golferName ?? "—";
                                         const score = hidden
-                                          ? "Hidden"
+                                          ? "*Hidden*"
                                           : tile
                                           ? fmtScore(tile.score)
                                           : "—";
@@ -897,16 +790,17 @@ export default function LeaderboardPage() {
                                             key={`${r.user_id}-round-${round}-tile-${idx}`}
                                             style={{
                                               border: "1px solid #e5e7eb",
-                                              borderRadius: 10,
+                                              borderRadius: 8,
                                               background: hidden ? "#efefef" : "#f9fafb",
-                                              padding: "10px 12px",
+                                              padding: "7px 8px",
                                             }}
                                           >
                                             <div
                                               style={{
-                                                fontSize: 13,
+                                                fontSize: 12,
                                                 fontWeight: 700,
-                                                marginBottom: 4,
+                                                marginBottom: 3,
+                                                lineHeight: 1.15,
                                                 color: hidden ? "#6b7280" : "#111",
                                               }}
                                             >
@@ -914,7 +808,7 @@ export default function LeaderboardPage() {
                                             </div>
                                             <div
                                               style={{
-                                                fontSize: 12,
+                                                fontSize: 11,
                                                 fontWeight: 800,
                                                 color: hidden ? "#6b7280" : tileColor,
                                               }}
@@ -943,7 +837,7 @@ export default function LeaderboardPage() {
 
       {!loading && !message ? (
         <p style={{ marginTop: 12, opacity: 0.7 }}>
-          Auto-refreshes every 30 seconds.
+          Auto-refreshes every 2 minutes.
         </p>
       ) : null}
 
