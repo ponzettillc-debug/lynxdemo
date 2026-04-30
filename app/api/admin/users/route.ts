@@ -69,12 +69,98 @@ async function getDefaultPoolId(supabaseAdmin: any) {
   return poolId;
 }
 
+async function findUserByEmail(supabaseAdmin: any, email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  let page = 1;
+  const perPage = 1000;
+
+  while (page <= 20) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (error) {
+      throw new Error(error.message || "Failed to search users.");
+    }
+
+    const users = data?.users || [];
+    const match = users.find(
+      (u: any) => (u.email || "").toLowerCase() === normalizedEmail
+    );
+
+    if (match) return match;
+    if (users.length < perPage) return null;
+    page += 1;
+  }
+
+  throw new Error("Unable to search all users. Too many users were returned.");
+}
+
+async function getMembershipByUserId(supabaseAdmin: any, poolId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("pool_members")
+    .select("user_id,role")
+    .eq("pool_id", poolId);
+
+  if (error) {
+    throw new Error(`Failed to load pool memberships: ${error.message}`);
+  }
+
+  const map = new Map<string, string | null>();
+  (data ?? []).forEach((row: any) => {
+    map.set(row.user_id, row.role ?? null);
+  });
+
+  return map;
+}
+
+async function ensurePoolMembership(
+  supabaseAdmin: any,
+  poolId: string,
+  userId: string
+) {
+  const { data: existingRows, error: existingError } = await supabaseAdmin
+    .from("pool_members")
+    .select("role")
+    .eq("pool_id", poolId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (existingError) {
+    throw new Error(`Failed to check pool membership: ${existingError.message}`);
+  }
+
+  const existing = (existingRows ?? [])[0];
+  if (existing) {
+    return existing.role ?? null;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("pool_members")
+    .insert({
+      pool_id: poolId,
+      user_id: userId,
+      role: "member",
+    })
+    .select("role")
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to assign user to pool: ${error.message}`);
+  }
+
+  return data?.role ?? "member";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const adminCheck = await requireAdmin(req);
     if ("error" in adminCheck) return adminCheck.error;
 
     const { supabaseAdmin } = adminCheck;
+    const poolId = await getDefaultPoolId(supabaseAdmin);
+    const membershipByUserId = await getMembershipByUserId(supabaseAdmin, poolId);
 
     const { data, error } = await supabaseAdmin.auth.admin.listUsers();
 
@@ -89,6 +175,8 @@ export async function GET(req: NextRequest) {
       created_at: u.created_at || null,
       last_sign_in_at: u.last_sign_in_at || null,
       email_confirmed_at: u.email_confirmed_at || null,
+      pool_member: membershipByUserId.has(u.id),
+      pool_role: membershipByUserId.get(u.id) ?? null,
     }));
 
     users.sort((a, b) => a.email.localeCompare(b.email));
@@ -127,55 +215,64 @@ export async function POST(req: NextRequest) {
       return jsonError("Password must be at least 8 characters.", 400);
     }
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        display_name,
-      },
-    });
+    const poolId = await getDefaultPoolId(supabaseAdmin);
 
-    if (error) {
-      return jsonError(error.message || "Failed to create user.", 400);
+    let authUser = await findUserByEmail(supabaseAdmin, email);
+    let createdNewUser = false;
+
+    if (!authUser) {
+      const { data, error } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          display_name,
+        },
+      });
+
+      if (error) {
+        const existingUser = await findUserByEmail(supabaseAdmin, email);
+        if (!existingUser) {
+          return jsonError(error.message || "Failed to create user.", 400);
+        }
+        authUser = existingUser;
+      } else {
+        authUser = data.user;
+        createdNewUser = true;
+      }
     }
 
-    const userId = data.user?.id;
+    const userId = authUser?.id;
     if (!userId) {
       return jsonError("User was created but no user id was returned.", 500);
     }
 
-    const poolId = await getDefaultPoolId(supabaseAdmin);
+    let poolRole: string | null = null;
 
-    const { error: memberError } = await supabaseAdmin
-      .from("pool_members")
-      .upsert(
-        {
-          pool_id: poolId,
-          user_id: userId,
-          role: "member",
-        },
-        {
-          onConflict: "pool_id,user_id",
-        }
-      );
+    try {
+      poolRole = await ensurePoolMembership(supabaseAdmin, poolId, userId);
+    } catch (memberError: any) {
+      if (createdNewUser) {
+        await supabaseAdmin.auth.admin.deleteUser(userId).catch(() => null);
+      }
 
-    if (memberError) {
-      return jsonError(
-        `User created, but failed to assign to pool: ${memberError.message}`,
-        400
-      );
+      return jsonError(memberError?.message || "Failed to assign user to pool.", 400);
     }
 
     return NextResponse.json({
       ok: true,
+      created: createdNewUser,
+      pool_member: true,
+      pool_role: poolRole,
       user: {
-        id: data.user.id,
-        email: data.user.email || "",
-        display_name: String(data.user.user_metadata?.display_name || ""),
-        created_at: data.user.created_at || null,
-        last_sign_in_at: data.user.last_sign_in_at || null,
-        email_confirmed_at: data.user.email_confirmed_at || null,
+        id: authUser.id,
+        email: authUser.email || "",
+        display_name: String(authUser.user_metadata?.display_name || ""),
+        created_at: authUser.created_at || null,
+        last_sign_in_at: authUser.last_sign_in_at || null,
+        email_confirmed_at: authUser.email_confirmed_at || null,
+        pool_member: true,
+        pool_role: poolRole,
       },
     });
   } catch (err: any) {

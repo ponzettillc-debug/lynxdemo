@@ -31,6 +31,8 @@ type AdminUser = {
   created_at: string | null;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
+  pool_member?: boolean;
+  pool_role?: string | null;
 };
 
 type ScoreMap = Record<
@@ -75,7 +77,9 @@ function fmtDate(v?: string | null) {
 }
 
 function getSetupStatus(user: AdminUser) {
-  return user.email_confirmed_at ? "Active" : "Pending";
+  if (!user.email_confirmed_at) return "Pending Auth";
+  if (!user.pool_member) return "No Pool Access";
+  return "Ready";
 }
 
 export default function AdminPage() {
@@ -615,7 +619,7 @@ export default function AdminPage() {
         return;
       }
 
-      setStatus(`User created: ${finalEmail}`);
+      setStatus(j?.created ? `User created: ${finalEmail}` : `Pool access repaired for: ${finalEmail}`);
       setNewUserEmail("");
       setNewUserPassword("");
       setNewUserDisplayName("");
@@ -1331,11 +1335,11 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>User Management</h2>
-          <p style={styles.sectionText}>
-            Create users, view who is set up, edit email/display name, reset passwords, and delete users.
-          </p>
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>User Management</h2>
+            <p style={styles.sectionText}>
+            Create users, repair pool access for existing emails, edit email/display name, reset passwords, and delete users.
+            </p>
 
           <div
             style={{
@@ -1493,19 +1497,32 @@ export default function AdminPage() {
                               fontSize: 12,
                               fontWeight: 800,
                               background:
-                                setupStatus === "Active"
+                                setupStatus === "Ready"
                                   ? "rgba(34,197,94,0.14)"
+                                  : setupStatus === "No Pool Access"
+                                  ? "rgba(248,113,113,0.14)"
                                   : "rgba(250,204,21,0.14)",
                               color:
-                                setupStatus === "Active" ? "#86efac" : "#fde68a",
+                                setupStatus === "Ready"
+                                  ? "#86efac"
+                                  : setupStatus === "No Pool Access"
+                                  ? "#fecaca"
+                                  : "#fde68a",
                               border:
-                                setupStatus === "Active"
+                                setupStatus === "Ready"
                                   ? "1px solid rgba(34,197,94,0.28)"
+                                  : setupStatus === "No Pool Access"
+                                  ? "1px solid rgba(248,113,113,0.28)"
                                   : "1px solid rgba(250,204,21,0.28)",
                             }}
                           >
                             {setupStatus}
                           </span>
+                          {u.pool_role ? (
+                            <div style={{ marginTop: 5, color: "#94a3b8", fontSize: 12 }}>
+                              Role: {u.pool_role}
+                            </div>
+                          ) : null}
                         </td>
 
                         <td style={styles.tableCell}>{fmtDate(u.created_at)}</td>
