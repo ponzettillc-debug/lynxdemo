@@ -1252,7 +1252,7 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <div className="flag-tile-border" style={styles.card}>
+          <div style={styles.card}>
             <h2 style={styles.sectionTitle}>Access denied</h2>
             <p style={styles.sectionText}>
               Signed in as <strong style={{ color: "#f8fafc" }}>{session.user.email}</strong>
@@ -1293,23 +1293,23 @@ export default function AdminPage() {
         </div>
 
         {!!status && (
-          <div className="flag-tile-border" style={{ ...styles.card, padding: 14 }}>
+          <div style={{ ...styles.card, padding: 14 }}>
             <div style={styles.message}>{status}</div>
           </div>
         )}
 
-        <div className="flag-tile-border" style={styles.card}>
+        <div style={styles.card}>
           <h2 style={styles.sectionTitle}>Admin session</h2>
           <p style={styles.sectionText}>
             Signed in as <strong style={{ color: "#f8fafc" }}>{session.user.email}</strong>
           </p>
 
           <div style={styles.statRow}>
-            <div className="flag-tile-border" style={styles.statCard}>
+            <div style={styles.statCard}>
               <p style={styles.statLabel}>Status</p>
               <p style={styles.statValue}>Live Session</p>
             </div>
-            <div className="flag-tile-border" style={styles.statCard}>
+            <div style={styles.statCard}>
               <p style={styles.statLabel}>Role</p>
               <p style={styles.statValue}>Admin</p>
             </div>
@@ -1331,7 +1331,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="flag-tile-border" style={styles.card}>
+        <div style={styles.card}>
           <h2 style={styles.sectionTitle}>User Management</h2>
           <p style={styles.sectionText}>
             Create users, view who is set up, edit email/display name, reset passwords, and delete users.
@@ -1561,14 +1561,14 @@ export default function AdminPage() {
         </div>
 
         {loading || !isReady ? (
-          <div className="flag-tile-border" style={styles.card}>
+          <div style={styles.card}>
             <p style={styles.sectionText}>
               {status || "Loading pool data..."}
             </p>
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-            <section className="flag-tile-border" style={styles.card}>
+            <section style={styles.card}>
               <h2 style={styles.sectionTitle}>Create Tournament</h2>
 
               <label>Name</label>
@@ -1606,7 +1606,7 @@ export default function AdminPage() {
               </button>
             </section>
 
-            <section className="flag-tile-border" style={styles.card}>
+            <section style={styles.card}>
               <h2 style={styles.sectionTitle}>Add Golfer</h2>
 
               <div style={{ display: "flex", gap: 8 }}>
@@ -1642,7 +1642,7 @@ export default function AdminPage() {
               </p>
             </section>
 
-            <section className="flag-tile-border" style={styles.card}>
+            <section style={styles.card}>
               <h2 style={styles.sectionTitle}>Locked Pick Scoring Table</h2>
               <p style={styles.sectionText}>
                 This table now only shows golfers who are actively selected by at least one user in a locked round.
@@ -1684,7 +1684,6 @@ export default function AdminPage() {
                   const isLocked = lockedRounds.includes(round as RoundNumber);
                   return (
                     <div
-                      className="flag-tile-border"
                       key={round}
                       style={{
                         borderRadius: 14,
@@ -1830,7 +1829,7 @@ export default function AdminPage() {
               </div>
             </section>
 
-            <section className="flag-tile-border" style={styles.card}>
+            <section style={styles.card}>
               <h2 style={styles.sectionTitle}>Current Data</h2>
 
               <div
@@ -1841,15 +1840,15 @@ export default function AdminPage() {
                   marginBottom: 16,
                 }}
               >
-                <div className="flag-tile-border" style={styles.statCard}>
+                <div style={styles.statCard}>
                   <div style={styles.statLabel}>Pool</div>
                   <div style={styles.statValue}>{pool?.name}</div>
                 </div>
-                <div className="flag-tile-border" style={styles.statCard}>
+                <div style={styles.statCard}>
                   <div style={styles.statLabel}>Tournaments</div>
                   <div style={styles.statValue}>{tournaments.length}</div>
                 </div>
-                <div className="flag-tile-border" style={styles.statCard}>
+                <div style={styles.statCard}>
                   <div style={styles.statLabel}>Golfers</div>
                   <div style={styles.statValue}>{golfers.length}</div>
                 </div>
@@ -1867,7 +1866,6 @@ export default function AdminPage() {
 
                     return (
                       <div
-                        className="flag-tile-border"
                         key={t.id}
                         style={{
                           border: "1px solid rgba(148,163,184,0.14)",
@@ -1969,7 +1967,6 @@ export default function AdminPage() {
 
                     return (
                       <div
-                        className="flag-tile-border"
                         key={g.id}
                         style={{
                           border: "1px solid rgba(148,163,184,0.14)",
@@ -2024,3 +2021,4 @@ export default function AdminPage() {
     </main>
   );
 }
+

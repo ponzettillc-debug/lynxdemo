@@ -232,8 +232,8 @@ export default function Home() {
           fontFamily: "Inter, system-ui, sans-serif",
         }}
       >
-          <div className="flag-tile-border" style={{ ...cardStyle, width: "100%", maxWidth: 520 }}>
-          <div style={logoWrap}>
+          <div style={{ ...cardStyle, width: "100%", maxWidth: 520 }}>
+          <div className="soft-logo-mark" style={logoWrap}>
             <AppLogo priority width={260} height={110} />
           </div>
           <p style={{ margin: 0, textAlign: "center" }}>Loading...</p>
@@ -254,8 +254,8 @@ export default function Home() {
     >
       <div style={{ maxWidth: 520, margin: "40px auto" }}>
         {!session ? (
-          <div className="flag-tile-border" style={cardStyle}>
-            <div style={logoWrap}>
+          <div style={cardStyle}>
+            <div className="soft-logo-mark" style={logoWrap}>
               <AppLogo priority width={260} height={110} />
             </div>
 
@@ -309,7 +309,6 @@ export default function Home() {
 
             <div style={{ display: "grid", gap: 10 }}>
                 <button
-                  className="flag-tile-border"
                   onClick={signInWithPassword}
                   disabled={signingInPassword}
                 style={{
@@ -322,7 +321,6 @@ export default function Home() {
               </button>
 
               <button
-                className="flag-tile-border"
                 onClick={() => signInWithMagicLink()}
                 disabled={sendingLink}
                 style={{
@@ -337,7 +335,6 @@ export default function Home() {
               {savedEmail &&
               email.trim().toLowerCase() !== savedEmail.toLowerCase() ? (
                 <button
-                  className="flag-tile-border"
                   onClick={() => signInWithMagicLink(savedEmail)}
                   disabled={sendingLink}
                   style={{
@@ -359,8 +356,8 @@ export default function Home() {
           </div>
         ) : (
           <div style={{ display: "grid", gap: 16 }}>
-            <div className="flag-tile-border" style={cardStyle}>
-              <div style={logoWrap}>
+            <div style={cardStyle}>
+              <div className="soft-logo-mark" style={logoWrap}>
                 <AppLogo priority width={240} height={100} />
               </div>
               <p style={{ marginTop: 0, marginBottom: 8 }}>
@@ -369,12 +366,11 @@ export default function Home() {
               <p style={{ margin: 0, color: "#94a3b8" }}>Welcome to the pool.</p>
             </div>
 
-            <div className="flag-tile-border" style={cardStyle}>
+            <div style={cardStyle}>
               <h2 style={{ marginTop: 0, marginBottom: 14 }}>Pool Home</h2>
 
               <div style={{ display: "grid", gap: 10 }}>
                 <button
-                  className="flag-tile-border"
                   onClick={() => router.push("/picks")}
                   style={buttonStyle}
                 >
@@ -382,7 +378,6 @@ export default function Home() {
                 </button>
 
                 <button
-                  className="flag-tile-border"
                   onClick={() => router.push("/leaderboard")}
                   style={secondaryButtonStyle}
                 >
@@ -390,7 +385,6 @@ export default function Home() {
                 </button>
 
                 <button
-                  className="flag-tile-border"
                   onClick={() => router.push("/trophy-room")}
                   style={secondaryButtonStyle}
                 >
@@ -419,7 +413,6 @@ export default function Home() {
                     </div>
 
                     <button
-                      className="flag-tile-border"
                       onClick={setupPool}
                       disabled={bootstrapping}
                       style={{
@@ -432,7 +425,6 @@ export default function Home() {
                     </button>
 
                     <button
-                      className="flag-tile-border"
                       onClick={() => router.push("/admin")}
                       style={secondaryButtonStyle}
                     >
@@ -449,7 +441,7 @@ export default function Home() {
                   }}
                 />
 
-                <button className="flag-tile-border" onClick={signOut} style={secondaryButtonStyle}>
+                <button onClick={signOut} style={secondaryButtonStyle}>
                   Sign Out
                 </button>
               </div>
@@ -466,3 +458,4 @@ export default function Home() {
     </main>
   );
 }
+

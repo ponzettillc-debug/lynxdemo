@@ -25,45 +25,42 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.flag-tile-border {
-  position: relative;
-  isolation: isolate;
-  box-shadow:
-    0 2px 8px rgba(15, 23, 42, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.24) inset;
+.soft-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(226, 232, 240, 0.08), transparent 68%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.18), rgba(2, 6, 23, 0.02));
+  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.22);
 }
 
-.flag-tile-border::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  z-index: -1;
-  border-radius: inherit;
-  padding: 3px;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 8% 18%, rgba(255, 255, 255, 0.72) 0 1px, transparent 2px),
-    radial-gradient(circle at 42% 62%, rgba(2, 6, 23, 0.26) 0 1px, transparent 2px),
-    radial-gradient(circle at 78% 34%, rgba(255, 255, 255, 0.56) 0 1px, transparent 2px),
-    linear-gradient(
-      90deg,
-      #1d4ed8 0 22%,
-      #f8fafc 22% 29%,
-      #b91c1c 29% 46%,
-      #f8fafc 46% 53%,
-      #b91c1c 53% 70%,
-      #f8fafc 70% 77%,
-      #1d4ed8 77% 100%
-    );
-  background-size:
-    28px 24px,
-    34px 31px,
-    39px 29px,
-    100% 100%;
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+.soft-logo-mark img {
   opacity: 0.9;
+  filter: saturate(0.92) contrast(0.94) brightness(0.96);
+  mix-blend-mode: screen;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  mask-composite: intersect;
+}
+
+.soft-logo-watermark {
+  opacity: 0.11;
+  filter: saturate(0.85) contrast(0.9) blur(0.35px);
+  mix-blend-mode: screen;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 0%, #000 16%, #000 84%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent 0%, #000 16%, #000 84%, transparent 100%),
+    linear-gradient(to bottom, transparent 0%, #000 14%, #000 86%, transparent 100%);
+  mask-composite: intersect;
 }

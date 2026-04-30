@@ -182,7 +182,7 @@ export default function TrophyRoomPage() {
         {!loading && message ? <p>{message}</p> : null}
 
         {!loading && !message && rows.length === 0 ? (
-          <div className="flag-tile-border" style={card}>
+          <div style={card}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>No trophies yet</h2>
             <p style={{ margin: 0, color: "#57606a" }}>
               Winners will appear here after a tournament has Round 4 locked and scored picks.
@@ -193,7 +193,7 @@ export default function TrophyRoomPage() {
         {!loading && !message && rows.length > 0 ? (
           <div style={{ display: "grid", gap: 12 }}>
             {rows.map((row) => (
-              <section className="flag-tile-border" key={row.tournament_id} style={card}>
+              <section key={row.tournament_id} style={card}>
                 <div
                   style={{
                     display: "flex",
@@ -228,7 +228,6 @@ export default function TrophyRoomPage() {
                 <div style={{ display: "grid", gap: 8 }}>
                   {row.winners.map((winner) => (
                     <div
-                      className="flag-tile-border"
                       key={`${row.tournament_id}-${winner.user_id}`}
                       style={{
                         display: "grid",
@@ -272,3 +271,4 @@ export default function TrophyRoomPage() {
     </main>
   );
 }
+

@@ -770,7 +770,7 @@ export default function PicksPage() {
         <div style={styles.shell}>
           <div style={styles.topBar}>
             <div style={styles.brand}>
-              <div style={{ marginBottom: 10 }}>
+              <div className="soft-logo-mark" style={{ marginBottom: 10 }}>
                 <AppLogo width={220} height={90} />
               </div>
               <h1 style={styles.title}>Make your picks</h1>

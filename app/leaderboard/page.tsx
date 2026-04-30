@@ -400,8 +400,6 @@ export default function LeaderboardPage() {
     width: "min(74%, 620px)",
     maxHeight: "76%",
     objectFit: "contain",
-    opacity: 0.1,
-    filter: "grayscale(0.1) blur(0.2px)",
   };
 
   const footerWrap: React.CSSProperties = {
@@ -468,7 +466,7 @@ export default function LeaderboardPage() {
         </a>
       </div>
 
-      <div className="flag-tile-border" style={{ ...card, marginBottom: 14 }}>
+      <div style={{ ...card, marginBottom: 14 }}>
         <label
           htmlFor="tournament-select"
           style={{ display: "block", fontWeight: 900, marginBottom: 8 }}
@@ -506,9 +504,10 @@ export default function LeaderboardPage() {
       ) : null}
 
       {!loading && !message && rankedRows.length > 0 ? (
-        <div className="flag-tile-border" style={leaderboardTableWrap}>
+        <div style={leaderboardTableWrap}>
           <div style={leaderboardWatermark} aria-hidden="true">
             <img
+              className="soft-logo-watermark"
               src="/4play-logo.png"
               alt=""
               style={leaderboardWatermarkImage}
@@ -778,7 +777,7 @@ export default function LeaderboardPage() {
                             background: isCurrentUser ? "rgba(251,146,60,0.15)" : "transparent",
                           }}
                         >
-                          <div className="flag-tile-border" style={usedCard}>
+                          <div style={usedCard}>
                             <div
                               style={{
                                 fontWeight: 800,
@@ -807,7 +806,6 @@ export default function LeaderboardPage() {
 
                                 return (
                                   <div
-                                    className="flag-tile-border"
                                     key={`${r.user_id}-round-${round}`}
                                     style={{
                                       minWidth: 142,
@@ -853,7 +851,6 @@ export default function LeaderboardPage() {
 
                                         return (
                                           <div
-                                            className="flag-tile-border"
                                             key={`${r.user_id}-round-${round}-tile-${idx}`}
                                             style={{
                                               border: "1px solid rgba(148,163,184,0.12)",
@@ -931,5 +928,6 @@ export default function LeaderboardPage() {
     </main>
   );
 }
+
 
 
