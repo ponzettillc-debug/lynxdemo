@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
@@ -89,7 +90,9 @@ export async function GET(req: NextRequest) {
       return jsonError(`Failed to verify membership: ${membershipError.message}`, 400);
     }
 
-    if (!membership) {
+    const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase() ?? "");
+
+    if (!membership && !isAdmin) {
       return jsonError("You are not a member of this pool.", 403);
     }
 

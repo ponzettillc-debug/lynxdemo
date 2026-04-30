@@ -194,13 +194,34 @@ export default function LeaderboardPage() {
       }
 
       const userId = sess.session.user.id;
+      const token = sess.session.access_token;
 
-      const { data: membership, error: memberErr } = await supabase
+      let { data: membership, error: memberErr } = await supabase
         .from("pool_members")
         .select("pool_id")
         .eq("user_id", userId)
         .limit(1)
         .maybeSingle();
+
+      if (!membership?.pool_id && isAdmin && token) {
+        const bootstrapRes = await fetch("/api/bootstrap", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (bootstrapRes.ok) {
+          const retry = await supabase
+            .from("pool_members")
+            .select("pool_id")
+            .eq("user_id", userId)
+            .limit(1)
+            .maybeSingle();
+          membership = retry.data;
+          memberErr = retry.error;
+        }
+      }
 
       if (memberErr) {
         setMessage(`Error loading pool membership: ${memberErr.message}`);
@@ -472,6 +493,9 @@ export default function LeaderboardPage() {
         </a>
         <a href="/trophy-room" style={navLink}>
           Trophy Room
+        </a>
+        <a href="/driver" style={navLink}>
+          4Play Driver
         </a>
         {isAdmin ? (
           <a href="/admin" style={navLink}>

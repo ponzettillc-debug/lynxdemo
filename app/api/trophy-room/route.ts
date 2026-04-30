@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
 type TournamentRow = {
   id: string;
@@ -76,6 +77,22 @@ function userLabel(displayName: string | null | undefined, userId: string) {
   return displayName?.trim() || `${userId.slice(0, 8)}...`;
 }
 
+async function getDefaultPoolId(supabaseAdmin: any) {
+  const poolName = process.env.NEXT_PUBLIC_POOL_NAME || "LynxDemo";
+  const { data, error } = await supabaseAdmin
+    .from("pools")
+    .select("id")
+    .eq("name", poolName)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load default pool: ${error.message}`);
+  }
+
+  return data?.id ?? "";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authCheck = await requireUser(req);
@@ -103,7 +120,8 @@ export async function GET(req: NextRequest) {
       return jsonError(`Failed to verify membership: ${membershipError.message}`, 400);
     }
 
-    const poolId = membership?.pool_id;
+    const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase() ?? "");
+    const poolId = membership?.pool_id || (isAdmin ? await getDefaultPoolId(supabaseAdmin) : "");
     if (!poolId) {
       return jsonError(
         requestedPoolId ? "You are not a member of this pool." : "You are not assigned to a pool yet.",
