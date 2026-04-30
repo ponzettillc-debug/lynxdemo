@@ -43,6 +43,18 @@ type ScoreMap = Record<
   }
 >;
 
+type RoundNumber = 1 | 2 | 3 | 4;
+
+type PickUsageMap = Record<
+  string,
+  {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+  }
+>;
+
 function getLastName(name: string) {
   const parts = name.trim().split(/\s+/);
   return parts.length ? parts[parts.length - 1].toLowerCase() : name.toLowerCase();
@@ -50,6 +62,10 @@ function getLastName(name: string) {
 
 function emptyScoreRow() {
   return { 1: "", 2: "", 3: "", 4: "" };
+}
+
+function emptyPickUsageRow() {
+  return { 1: 0, 2: 0, 3: 0, 4: 0 };
 }
 
 function fmtDate(v?: string | null) {
@@ -114,6 +130,8 @@ export default function AdminPage() {
 
   const [scoreTournamentId, setScoreTournamentId] = useState<string>("");
   const [scoreEdits, setScoreEdits] = useState<ScoreMap>({});
+  const [pickUsage, setPickUsage] = useState<PickUsageMap>({});
+  const [pickUsageLoading, setPickUsageLoading] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -158,6 +176,38 @@ export default function AdminPage() {
     });
   }, [golfers]);
 
+  const scoreTournament = useMemo(() => {
+    return tournaments.find((t) => t.id === scoreTournamentId) || null;
+  }, [tournaments, scoreTournamentId]);
+
+  const lockedRounds = useMemo<RoundNumber[]>(() => {
+    if (!scoreTournament) return [];
+    const rounds: RoundNumber[] = [];
+    if (scoreTournament.round1_lock) rounds.push(1);
+    if (scoreTournament.round2_lock) rounds.push(2);
+    if (scoreTournament.round3_lock) rounds.push(3);
+    if (scoreTournament.round4_lock) rounds.push(4);
+    return rounds;
+  }, [scoreTournament]);
+
+  const scoringGolfers = useMemo(() => {
+    if (lockedRounds.length === 0) return [];
+
+    return golfersByLastName.filter((g) => {
+      const usage = pickUsage[g.id];
+      if (!usage) return false;
+      return lockedRounds.some((round) => usage[round] > 0);
+    });
+  }, [golfersByLastName, lockedRounds, pickUsage]);
+
+  const scoringPickCount = useMemo(() => {
+    return scoringGolfers.reduce((total, g) => {
+      const usage = pickUsage[g.id];
+      if (!usage) return total;
+      return total + lockedRounds.reduce((roundTotal, round) => roundTotal + usage[round], 0);
+    }, 0);
+  }, [scoringGolfers, lockedRounds, pickUsage]);
+
   const filteredUsers = useMemo(() => {
     const q = userQuery.trim().toLowerCase();
     if (!q) return users;
@@ -197,10 +247,13 @@ export default function AdminPage() {
   useEffect(() => {
     if (!pool || !scoreTournamentId) {
       setScoreEdits({});
+      setPickUsage({});
       return;
     }
+
     loadScoresForTournament(scoreTournamentId);
-  }, [scoreTournamentId, golfers, pool]);
+    loadPickUsageForTournament(scoreTournamentId);
+  }, [scoreTournamentId, golfers, tournaments, pool]);
 
   async function getAccessToken() {
     const { data } = await supabase.auth.getSession();
@@ -370,6 +423,50 @@ export default function AdminPage() {
       !nextTournaments.some((t) => t.id === scoreTournamentId)
     ) {
       setScoreTournamentId(nextTournaments[0]?.id ?? "");
+    }
+  }
+
+  async function loadPickUsageForTournament(tournamentId: string) {
+    if (!pool || !tournamentId) {
+      setPickUsage({});
+      return;
+    }
+
+    const base: PickUsageMap = {};
+    for (const g of golfers) {
+      base[g.id] = emptyPickUsageRow();
+    }
+
+    try {
+      setPickUsageLoading(true);
+
+      const { data, error } = await supabase
+        .from("picks")
+        .select("golfer_id,round")
+        .eq("pool_id", pool.id)
+        .eq("tournament_id", tournamentId);
+
+      if (error) {
+        setStatus(`Error loading locked pick usage: ${error.message}`);
+        setPickUsage(base);
+        return;
+      }
+
+      for (const row of data ?? []) {
+        const gid = row.golfer_id as string;
+        const round = row.round as RoundNumber;
+
+        if (![1, 2, 3, 4].includes(round)) continue;
+        if (!base[gid]) base[gid] = emptyPickUsageRow();
+        base[gid][round] += 1;
+      }
+
+      setPickUsage(base);
+    } catch (err: any) {
+      setStatus(err?.message || "Error loading locked pick usage.");
+      setPickUsage(base);
+    } finally {
+      setPickUsageLoading(false);
     }
   }
 
@@ -818,21 +915,26 @@ export default function AdminPage() {
         strokes: number;
       }> = [];
 
-      for (const g of golfersByLastName) {
+      if (lockedRounds.length === 0) {
+        setStatus("Lock at least one round before entering or saving scores.");
+        return;
+      }
+
+      for (const g of scoringGolfers) {
         const row = scoreEdits[g.id] || emptyScoreRow();
 
-        ([1, 2, 3, 4] as const).forEach((round) => {
+        lockedRounds.forEach((round) => {
           const raw = row[round].trim();
           if (raw === "") return;
 
           const n = Number(raw);
-         if (!Number.isNaN(n)) {
-  if (n < -20 || n > 30) {
-    setStatus(`Invalid score for ${g.name} (R${round}): ${n}. Must be between -20 and +30.`);
-    throw new Error("Invalid score range");
-  }
+          if (!Number.isNaN(n)) {
+            if (n < -20 || n > 30) {
+              setStatus(`Invalid score for ${g.name} (R${round}): ${n}. Must be between -20 and +30.`);
+              throw new Error("Invalid score range");
+            }
 
-  rows.push({
+            rows.push({
               pool_id: pool.id,
               tournament_id: scoreTournamentId,
               round,
@@ -1540,13 +1642,17 @@ export default function AdminPage() {
             </section>
 
             <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Tournament Score Grid</h2>
+              <h2 style={styles.sectionTitle}>Locked Pick Scoring Table</h2>
+              <p style={styles.sectionText}>
+                This table now only shows golfers who are actively selected by at least one user in a locked round.
+                Lock R1 first and only R1-selected golfers appear. As R2, R3, and R4 are locked, those selected golfers are added automatically.
+              </p>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                 <select
                   value={scoreTournamentId}
                   onChange={(e) => setScoreTournamentId(e.target.value)}
-                  style={{ ...styles.input, flex: 1, marginBottom: 0 }}
+                  style={{ ...styles.input, flex: 1, marginBottom: 0, minWidth: 240 }}
                 >
                   <option value="">Select tournament</option>
                   {tournaments.map((t) => (
@@ -1556,7 +1662,7 @@ export default function AdminPage() {
                   ))}
                 </select>
 
-                <button onClick={saveScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoresBusy}>
+                <button onClick={saveScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoresBusy || lockedRounds.length === 0}>
                   {scoresBusy ? "Saving…" : "Save Scores"}
                 </button>
 
@@ -1565,15 +1671,59 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 10 }}>
-                Sorted by golfer last name. Enter scores relative to par (e.g., -2, 0, +3). Leave blank if no score yet.
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                  gap: 10,
+                  marginBottom: 14,
+                }}
+              >
+                {[1, 2, 3, 4].map((round) => {
+                  const isLocked = lockedRounds.includes(round as RoundNumber);
+                  return (
+                    <div
+                      key={round}
+                      style={{
+                        borderRadius: 14,
+                        padding: 12,
+                        background: isLocked ? "rgba(34,197,94,0.12)" : "rgba(2,6,23,0.45)",
+                        border: isLocked ? "1px solid rgba(34,197,94,0.28)" : "1px solid rgba(148,163,184,0.14)",
+                      }}
+                    >
+                      <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        Round {round}
+                      </div>
+                      <div style={{ marginTop: 5, fontWeight: 900, color: isLocked ? "#86efac" : "#cbd5e1" }}>
+                        {isLocked ? "Locked" : "Unlocked"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 10, lineHeight: 1.5 }}>
+                {pickUsageLoading ? (
+                  "Loading locked pick usage..."
+                ) : scoreTournamentId && lockedRounds.length > 0 ? (
+                  <>
+                    Showing <strong style={{ color: "#f8fafc" }}>{scoringGolfers.length}</strong> golfers selected across locked rounds,
+                    covering <strong style={{ color: "#f8fafc" }}>{scoringPickCount}</strong> total locked-round picks.
+                    Enter scores relative to par. Only locked-round score boxes are editable.
+                  </>
+                ) : scoreTournamentId ? (
+                  "No rounds are locked yet. Lock R1, R2, R3, or R4 in Current Data → Tournaments to generate the scoring table."
+                ) : (
+                  "Select a tournament to score."
+                )}
               </div>
 
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 680 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
                   <thead>
                     <tr>
                       <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid rgba(148,163,184,0.2)" }}>Golfer</th>
+                      <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid rgba(148,163,184,0.2)", minWidth: 160 }}>Selected In Locked Rounds</th>
                       <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid rgba(148,163,184,0.2)", width: 90 }}>R1</th>
                       <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid rgba(148,163,184,0.2)", width: 90 }}>R2</th>
                       <th style={{ textAlign: "left", padding: 10, borderBottom: "1px solid rgba(148,163,184,0.2)", width: 90 }}>R3</th>
@@ -1581,38 +1731,98 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {golfersByLastName.map((g) => {
-                      const row = scoreEdits[g.id] || emptyScoreRow();
+                    {!scoreTournamentId ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 12, color: "#94a3b8" }}>
+                          Select a tournament to build the scoring table.
+                        </td>
+                      </tr>
+                    ) : lockedRounds.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 12, color: "#94a3b8" }}>
+                          No locked rounds yet. Edit the tournament below, check the round you want to lock, and save.
+                        </td>
+                      </tr>
+                    ) : scoringGolfers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 12, color: "#94a3b8" }}>
+                          No user picks found for the currently locked rounds.
+                        </td>
+                      </tr>
+                    ) : (
+                      scoringGolfers.map((g) => {
+                        const row = scoreEdits[g.id] || emptyScoreRow();
+                        const usage = pickUsage[g.id] || emptyPickUsageRow();
 
-                      return (
-                        <tr key={g.id}>
-                          <td style={{ padding: 10, borderBottom: "1px solid rgba(148,163,184,0.12)", fontWeight: 700 }}>
-                            {g.name}
-                          </td>
-                          {[1, 2, 3, 4].map((round) => (
-                            <td key={round} style={{ padding: 10, borderBottom: "1px solid rgba(148,163,184,0.12)" }}>
-                              <input
-                                value={row[round as 1 | 2 | 3 | 4]}
-                                onChange={(e) =>
-                                  updateScoreCell(g.id, round as 1 | 2 | 3 | 4, e.target.value)
-                                }
-                                inputMode="numeric"
-                                placeholder="—"
-                                style={{
-                                  width: "100%",
-                                  padding: 8,
-                                  borderRadius: 8,
-                                  border: "1px solid rgba(148,163,184,0.22)",
-                                  background: "rgba(2,6,23,0.78)",
-                                  color: "#f8fafc",
-                                  fontSize: 14,
-                                }}
-                              />
+                        return (
+                          <tr key={g.id}>
+                            <td style={{ padding: 10, borderBottom: "1px solid rgba(148,163,184,0.12)", fontWeight: 700 }}>
+                              {g.name}
                             </td>
-                          ))}
-                        </tr>
-                      );
-                    })}
+                            <td style={{ padding: 10, borderBottom: "1px solid rgba(148,163,184,0.12)" }}>
+                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                {([1, 2, 3, 4] as const).map((round) => {
+                                  const isLocked = lockedRounds.includes(round);
+                                  const count = usage[round];
+                                  const active = isLocked && count > 0;
+
+                                  return (
+                                    <span
+                                      key={round}
+                                      title={active ? `${count} user pick${count === 1 ? "" : "s"} in Round ${round}` : `Not selected in locked Round ${round}`}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        minWidth: 48,
+                                        padding: "5px 8px",
+                                        borderRadius: 999,
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                        background: active ? "rgba(34,197,94,0.16)" : "rgba(15,23,42,0.75)",
+                                        color: active ? "#86efac" : "#64748b",
+                                        border: active ? "1px solid rgba(34,197,94,0.32)" : "1px solid rgba(148,163,184,0.12)",
+                                      }}
+                                    >
+                                      R{round}{active ? ` ×${count}` : ""}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            {([1, 2, 3, 4] as const).map((round) => {
+                              const isLocked = lockedRounds.includes(round);
+                              const wasPickedThisRound = usage[round] > 0;
+                              const editable = isLocked && wasPickedThisRound;
+
+                              return (
+                                <td key={round} style={{ padding: 10, borderBottom: "1px solid rgba(148,163,184,0.12)" }}>
+                                  <input
+                                    value={row[round]}
+                                    onChange={(e) =>
+                                      updateScoreCell(g.id, round, e.target.value)
+                                    }
+                                    disabled={!editable}
+                                    inputMode="numeric"
+                                    placeholder={editable ? "—" : ""}
+                                    style={{
+                                      width: "100%",
+                                      padding: 8,
+                                      borderRadius: 8,
+                                      border: editable ? "1px solid rgba(148,163,184,0.22)" : "1px solid rgba(148,163,184,0.08)",
+                                      background: editable ? "rgba(2,6,23,0.78)" : "rgba(15,23,42,0.35)",
+                                      color: editable ? "#f8fafc" : "#64748b",
+                                      fontSize: 14,
+                                      opacity: editable ? 1 : 0.65,
+                                    }}
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
