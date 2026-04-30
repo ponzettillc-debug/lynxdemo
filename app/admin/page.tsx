@@ -43,19 +43,6 @@ type ScoreMap = Record<
   }
 >;
 
-function toDatetimeLocal(value?: string | null) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const mm = pad(d.getMonth() + 1);
-  const dd = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-}
-
 function getLastName(name: string) {
   const parts = name.trim().split(/\s+/);
   return parts.length ? parts[parts.length - 1].toLowerCase() : name.toLowerCase();
@@ -102,19 +89,19 @@ export default function AdminPage() {
   const [userQuery, setUserQuery] = useState("");
 
   const [tName, setTName] = useState("Demo Tournament");
-  const [r1, setR1] = useState("");
-  const [r2, setR2] = useState("");
-  const [r3, setR3] = useState("");
-  const [r4, setR4] = useState("");
+  const [r1, setR1] = useState(false);
+  const [r2, setR2] = useState(false);
+  const [r3, setR3] = useState(false);
+  const [r4, setR4] = useState(false);
 
   const [gName, setGName] = useState("");
 
   const [editingTournamentId, setEditingTournamentId] = useState<string>("");
   const [editTName, setEditTName] = useState("");
-  const [editR1, setEditR1] = useState("");
-  const [editR2, setEditR2] = useState("");
-  const [editR3, setEditR3] = useState("");
-  const [editR4, setEditR4] = useState("");
+  const [editR1, setEditR1] = useState(false);
+  const [editR2, setEditR2] = useState(false);
+  const [editR3, setEditR3] = useState(false);
+  const [editR4, setEditR4] = useState(false);
 
   const [editingGolferId, setEditingGolferId] = useState<string>("");
   const [editGolferName, setEditGolferName] = useState("");
@@ -556,10 +543,10 @@ export default function AdminPage() {
     const { error } = await supabase.from("tournaments").insert({
       pool_id: pool.id,
       name: tName.trim(),
-      round1_lock: r1 ? new Date(r1).toISOString() : null,
-      round2_lock: r2 ? new Date(r2).toISOString() : null,
-      round3_lock: r3 ? new Date(r3).toISOString() : null,
-      round4_lock: r4 ? new Date(r4).toISOString() : null,
+      round1_lock: r1 ? new Date().toISOString() : null,
+      round2_lock: r2 ? new Date().toISOString() : null,
+      round3_lock: r3 ? new Date().toISOString() : null,
+      round4_lock: r4 ? new Date().toISOString() : null,
     });
 
     if (error) {
@@ -569,10 +556,10 @@ export default function AdminPage() {
 
     setStatus("Tournament created ✅");
     setTName("Demo Tournament");
-    setR1("");
-    setR2("");
-    setR3("");
-    setR4("");
+    setR1(false);
+    setR2(false);
+    setR3(false);
+    setR4(false);
     await refresh(pool.id);
   }
 
@@ -604,19 +591,19 @@ export default function AdminPage() {
   function startEditTournament(t: Tournament) {
     setEditingTournamentId(t.id);
     setEditTName(t.name);
-    setEditR1(toDatetimeLocal(t.round1_lock));
-    setEditR2(toDatetimeLocal(t.round2_lock));
-    setEditR3(toDatetimeLocal(t.round3_lock));
-    setEditR4(toDatetimeLocal(t.round4_lock));
+    setEditR1(!!t.round1_lock);
+    setEditR2(!!t.round2_lock);
+    setEditR3(!!t.round3_lock);
+    setEditR4(!!t.round4_lock);
   }
 
   function cancelEditTournament() {
     setEditingTournamentId("");
     setEditTName("");
-    setEditR1("");
-    setEditR2("");
-    setEditR3("");
-    setEditR4("");
+    setEditR1(false);
+    setEditR2(false);
+    setEditR3(false);
+    setEditR4(false);
   }
 
   async function saveTournamentEdits(tournamentId: string) {
@@ -635,10 +622,10 @@ export default function AdminPage() {
         .from("tournaments")
         .update({
           name: editTName.trim(),
-          round1_lock: editR1 ? new Date(editR1).toISOString() : null,
-          round2_lock: editR2 ? new Date(editR2).toISOString() : null,
-          round3_lock: editR3 ? new Date(editR3).toISOString() : null,
-          round4_lock: editR4 ? new Date(editR4).toISOString() : null,
+          round1_lock: editR1 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round1_lock) : null,
+          round2_lock: editR2 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round2_lock) : null,
+          round3_lock: editR3 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round3_lock) : null,
+          round4_lock: editR4 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round4_lock) : null,
         })
         .eq("id", tournamentId);
 
@@ -922,10 +909,12 @@ export default function AdminPage() {
     }
   }
 
+  function tLockValue(existing?: string | null) {
+    return existing || new Date().toISOString();
+  }
+
   function fmtLock(v?: string | null) {
-    if (!v) return "—";
-    const d = new Date(v);
-    return Number.isFinite(d.getTime()) ? d.toLocaleString() : String(v);
+    return v ? "Locked" : "Unlocked";
   }
 
   const styles = {
@@ -1486,18 +1475,28 @@ export default function AdminPage() {
                 style={styles.input}
               />
 
-              <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: 14 }}>
-                Lock times are local. Leave blank for no lock during testing.
+              <p style={{ margin: "0 0 10px", color: "#94a3b8", fontSize: 14 }}>
+                Manual round locking. Check a round to lock it now; leave unchecked to keep it unlocked.
               </p>
 
-              <label>Round 1 Lock</label>
-              <input type="datetime-local" value={r1} onChange={(e) => setR1(e.target.value)} style={styles.input} />
-              <label>Round 2 Lock</label>
-              <input type="datetime-local" value={r2} onChange={(e) => setR2(e.target.value)} style={styles.input} />
-              <label>Round 3 Lock</label>
-              <input type="datetime-local" value={r3} onChange={(e) => setR3(e.target.value)} style={styles.input} />
-              <label>Round 4 Lock</label>
-              <input type="datetime-local" value={r4} onChange={(e) => setR4(e.target.value)} style={styles.input} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={r1} onChange={(e) => setR1(e.target.checked)} />
+                  Lock Round 1
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={r2} onChange={(e) => setR2(e.target.checked)} />
+                  Lock Round 2
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={r3} onChange={(e) => setR3(e.target.checked)} />
+                  Lock Round 3
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={r4} onChange={(e) => setR4(e.target.checked)} />
+                  Lock Round 4
+                </label>
+              </div>
 
               <button onClick={createTournament} style={styles.primaryButton}>
                 Create Tournament
@@ -1706,14 +1705,28 @@ export default function AdminPage() {
                               placeholder="Tournament name"
                               style={styles.input}
                             />
-                            <label>Round 1 Lock</label>
-                            <input type="datetime-local" value={editR1} onChange={(e) => setEditR1(e.target.value)} style={styles.input} />
-                            <label>Round 2 Lock</label>
-                            <input type="datetime-local" value={editR2} onChange={(e) => setEditR2(e.target.value)} style={styles.input} />
-                            <label>Round 3 Lock</label>
-                            <input type="datetime-local" value={editR3} onChange={(e) => setEditR3(e.target.value)} style={styles.input} />
-                            <label>Round 4 Lock</label>
-                            <input type="datetime-local" value={editR4} onChange={(e) => setEditR4(e.target.value)} style={styles.input} />
+                            <p style={{ margin: "0 0 10px", color: "#94a3b8", fontSize: 14 }}>
+                              Check a round to lock it. Uncheck to unlock it. Click Save to apply changes.
+                            </p>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input type="checkbox" checked={editR1} onChange={(e) => setEditR1(e.target.checked)} />
+                                Lock Round 1
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input type="checkbox" checked={editR2} onChange={(e) => setEditR2(e.target.checked)} />
+                                Lock Round 2
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input type="checkbox" checked={editR3} onChange={(e) => setEditR3(e.target.checked)} />
+                                Lock Round 3
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input type="checkbox" checked={editR4} onChange={(e) => setEditR4(e.target.checked)} />
+                                Lock Round 4
+                              </label>
+                            </div>
 
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                               <button onClick={() => saveTournamentEdits(t.id)} style={styles.secondaryButton} disabled={busy}>
