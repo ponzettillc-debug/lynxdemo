@@ -359,6 +359,26 @@ export default function DriverPage() {
             </ol>
           )}
         </section>
+
+        <div style={{ marginTop: 20, borderTop: "1px solid rgba(124,255,155,0.35)", paddingTop: 14 }} onClick={(e) => e.stopPropagation()}>
+          <Link
+            href="/tee-off"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: 38,
+              padding: "0 18px",
+              border: "2px solid #7cff9b",
+              background: "#020617",
+              color: "#d9ffe2",
+              textDecoration: "none",
+              boxShadow: "0 0 14px rgba(34,197,94,0.28)",
+            }}
+          >
+            TEE OFF
+          </Link>
+        </div>
       </div>
     </main>
   );
