@@ -143,20 +143,6 @@ function getRoundTilesForDisplay(
   return explicitRoundTiles.slice(0, 4);
 }
 
-function hasUsedPicksForRound(usedPicks: UsedPick[], round: 1 | 2 | 3 | 4) {
-  return usedPicks.some((pick) => {
-    if (Array.isArray(pick.roundsUsed) && pick.roundsUsed.includes(round)) {
-      return true;
-    }
-
-    if (pick.roundDetails?.some((detail) => detail.round === round)) {
-      return true;
-    }
-
-    return typeof pick.roundScores?.[round] !== "undefined";
-  });
-}
-
 export default function LeaderboardPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [message, setMessage] = useState<string>("");
@@ -860,9 +846,7 @@ export default function LeaderboardPage() {
                             >
                               {[1, 2, 3, 4].map((roundNum) => {
                                 const round = roundNum as 1 | 2 | 3 | 4;
-                                const roundVisible =
-                                  (!!lockedRound && round <= lockedRound) ||
-                                  hasUsedPicksForRound(usedPicks, round);
+                                const roundVisible = !!lockedRound && round <= lockedRound;
                                 const roundTiles = roundVisible
                                   ? getRoundTilesForDisplay(usedPicks, round)
                                   : [];

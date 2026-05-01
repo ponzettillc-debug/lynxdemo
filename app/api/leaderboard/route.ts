@@ -237,10 +237,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      const scoredRound = scoreByGolferRound.has(`${pick.golfer_id}:${pick.round}`);
-      const shouldShowUsedPick = lockedRound ? pick.round <= lockedRound : scoredRound;
-
-      if (shouldShowUsedPick) {
+      if (lockedRound && pick.round <= lockedRound) {
         const golferName = golferNameById.get(pick.golfer_id);
         if (!golferName) return;
 
