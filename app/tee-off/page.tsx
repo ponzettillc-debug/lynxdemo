@@ -67,6 +67,12 @@ function scoreName(strokes: number, par: number) {
   return `+${rel}`;
 }
 
+function relativeScore(score: number, par: number) {
+  const rel = score - par;
+  if (rel === 0) return "E";
+  return rel > 0 ? `+${rel}` : `${rel}`;
+}
+
 function windText(wind: number) {
   if (wind === 0) return "CALM";
   return wind > 0 ? `TAIL +${wind}` : `HEAD ${wind}`;
@@ -120,15 +126,22 @@ export default function TeeOffPage() {
   const club = CLUBS.find((c) => c.name === clubName) || CLUBS[0];
   const modeFactor = club.name === "CHIPPER" && swingMode === "half" ? 0.6 : swingMode === "quarter" ? 0.25 : swingMode === "half" ? 0.5 : 1;
   const lieFactor = lie === "sand" && !club.putter ? 0.6 : 1;
+  const offTeeDriverFactor = club.name === "DRIVER" && strokes > 0 ? 0.8 : 1;
   const effectiveClub = {
     ...club,
-    max: Math.round(club.max * modeFactor * lieFactor),
-    min: Math.max(1, Math.round(club.min * modeFactor * lieFactor)),
+    max: Math.round(club.max * modeFactor * lieFactor * offTeeDriverFactor),
+    min: Math.max(1, Math.round(club.min * modeFactor * lieFactor * offTeeDriverFactor)),
   };
   const currentPuttFeet = Math.max(1, Math.round(remaining * 3));
   const currentPuttSettings = puttSettings(currentPuttFeet);
   const totalPar = COURSE.reduce((sum, h) => sum + h.par, 0);
   const totalStrokes = holeScores.reduce((sum, s) => sum + s, 0) + (phase === "complete" ? 0 : strokes);
+  function clubDisplayMax(c: Club) {
+    const displayModeFactor = c.name === "CHIPPER" && swingMode === "half" ? 0.6 : swingMode === "quarter" ? 0.25 : swingMode === "half" ? 0.5 : 1;
+    const displayLieFactor = lie === "sand" && !c.putter ? 0.6 : 1;
+    const displayOffTeeDriverFactor = c.name === "DRIVER" && strokes > 0 ? 0.8 : 1;
+    return Math.round(c.max * displayModeFactor * displayLieFactor * displayOffTeeDriverFactor);
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -485,16 +498,16 @@ export default function TeeOffPage() {
   return (
     <main style={page}>
       <div style={panel}>
+        <nav style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap", marginBottom: 12 }}>
+          <Link href="/driver" style={{ color: "#7dd3fc" }}>DRIVER</Link>
+          <Link href="/leaderboard" style={{ color: "#7dd3fc" }}>LEADERBOARD</Link>
+          <Link href="/" style={{ color: "#7dd3fc" }}>HOME</Link>
+        </nav>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, color: "#d9ffe2", fontSize: 28 }}>4PLAY TEE OFF</h1>
             <div style={{ marginTop: 6 }}>BUXTON-HOLLIS CC - 9 HOLES ONLY</div>
           </div>
-          <nav style={{ display: "flex", gap: 10 }}>
-            <Link href="/driver" style={{ color: "#7dd3fc" }}>DRIVER</Link>
-            <Link href="/leaderboard" style={{ color: "#7dd3fc" }}>LEADERBOARD</Link>
-            <Link href="/" style={{ color: "#7dd3fc" }}>HOME</Link>
-          </nav>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(124px, 1fr))", gap: 8, marginTop: 16 }}>
@@ -517,7 +530,7 @@ export default function TeeOffPage() {
             >
               <span style={{ display: "block", color: "#d9ffe2" }}>{c.name}</span>
               <span style={{ display: "block", marginTop: 4, color: "#7cff9b", fontSize: 12 }}>
-                100%: {Math.round(c.max * modeFactor)} {c.putter ? "FT" : "YDS"}
+                100%: {clubDisplayMax(c)} {c.putter ? "FT" : "YDS"}
               </span>
             </button>
           ))}
@@ -744,40 +757,38 @@ export default function TeeOffPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 18 }}>
-          <section>
-            <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>SCORECARD</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(9, minmax(28px, 1fr))", gap: 4, fontSize: 12 }}>
-              {COURSE.map((h, idx) => (
-                <div key={idx} style={{ border: "1px solid #7cff9b", padding: 5, minHeight: 42, color: idx === holeIndex && phase !== "complete" ? "#fde047" : "#d9ffe2" }}>
-                  <div>H{idx + 1}</div>
-                  <div>P{h.par}</div>
-                  <div>{holeScores[idx] ?? "--"}</div>
-                </div>
-              ))}
-            </div>
-            {phase === "complete" ? (
-              <button type="button" onClick={newRound} style={{ marginTop: 12, minHeight: 36, border: "2px solid #7cff9b", background: "#020617", color: "#d9ffe2", fontFamily: "inherit", cursor: "pointer" }}>
-                NEW ROUND
-              </button>
-            ) : null}
-          </section>
+        <section style={{ marginTop: 18 }}>
+          <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>SCORECARD</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(9, minmax(28px, 1fr))", gap: 4, fontSize: 12 }}>
+            {COURSE.map((h, idx) => (
+              <div key={idx} style={{ border: "1px solid #7cff9b", padding: 5, minHeight: 42, color: idx === holeIndex && phase !== "complete" ? "#fde047" : "#d9ffe2" }}>
+                <div>H{idx + 1}</div>
+                <div>P{h.par}</div>
+                <div>{holeScores[idx] ?? "--"}</div>
+              </div>
+            ))}
+          </div>
+          {phase === "complete" ? (
+            <button type="button" onClick={newRound} style={{ marginTop: 12, minHeight: 36, border: "2px solid #7cff9b", background: "#020617", color: "#d9ffe2", fontFamily: "inherit", cursor: "pointer" }}>
+              NEW ROUND
+            </button>
+          ) : null}
+        </section>
 
-          <section>
-            <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>TOP 10 NINE-HOLE ROUNDS ({storageMode.toUpperCase()})</h2>
-            {scores.length === 0 ? (
-              <div>NO COMPLETED ROUNDS YET.</div>
-            ) : (
-              <ol style={{ margin: 0, paddingLeft: 26 }}>
-                {scores.map((s, idx) => (
-                  <li key={`${s.total_score}-${idx}`} style={{ marginBottom: 4 }}>
-                    {s.display_name ? `${s.display_name}: ` : ""}{s.total_score} ON PAR {s.total_par} | {s.holes.join("-")}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
-        </div>
+        <section style={{ marginTop: 18, borderTop: "1px solid rgba(124,255,155,0.28)", paddingTop: 14 }}>
+          <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>TOP 10 NINE-HOLE ROUNDS ({storageMode.toUpperCase()})</h2>
+          {scores.length === 0 ? (
+            <div>NO COMPLETED ROUNDS YET.</div>
+          ) : (
+            <ol style={{ margin: 0, paddingLeft: 0, listStylePosition: "inside" }}>
+              {scores.map((s, idx) => (
+                <li key={`${s.total_score}-${idx}`} style={{ marginBottom: 6, border: "1px solid rgba(124,255,155,0.35)", padding: "7px 8px", overflowWrap: "anywhere" }}>
+                  {(s.display_name || "PLAYER").toUpperCase()} | {s.total_score} STROKES | {relativeScore(s.total_score, s.total_par)}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </div>
     </main>
   );
