@@ -632,11 +632,6 @@ export default function TeeOffPage() {
           HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | LIE {lie.toUpperCase()} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
         </div>
         <div style={{ marginTop: 8 }}>{status}</div>
-        {lastShot ? (
-          <div style={{ marginTop: 10, border: "2px solid #fde047", background: "#1f2937", color: "#fef3c7", padding: 10, boxShadow: "0 0 16px rgba(250,204,21,0.22)" }}>
-            PREVIOUS SHOT: {lastShot} | NOW: {remainingLabel} LEFT
-          </div>
-        ) : null}
 
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -657,6 +652,11 @@ export default function TeeOffPage() {
               </>
             )}
           </div>
+          {lastShot ? (
+            <div style={{ marginTop: 8, border: "2px solid #fde047", background: "#1f2937", color: "#fef3c7", padding: "8px 10px", boxShadow: "0 0 16px rgba(250,204,21,0.22)", fontSize: 12, lineHeight: 1.45 }}>
+              PREVIOUS SHOT: {lastShot} | NOW: {remainingLabel} LEFT
+            </div>
+          ) : null}
           {club.putter ? (
             <div style={{ position: "relative", height: 18, marginTop: 4, color: "#bae6fd", fontSize: 10 }}>
               {[5, 10, 15, 20, 25, 30, 45, 60].map((ft) => (
