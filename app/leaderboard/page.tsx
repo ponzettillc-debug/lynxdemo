@@ -484,6 +484,16 @@ export default function LeaderboardPage() {
     border: "1px solid rgba(148,163,184,0.14)",
   };
 
+  const gamesNavLink: React.CSSProperties = {
+    ...navLink,
+    marginLeft: "auto",
+    color: "#f8fafc",
+    border: "1px solid rgba(203,213,225,0.28)",
+    background:
+      "radial-gradient(circle at 18% 28%, rgba(203,213,225,0.42) 0 13%, transparent 14%), radial-gradient(circle at 72% 34%, rgba(59,130,246,0.28) 0 16%, transparent 17%), radial-gradient(circle at 42% 74%, rgba(15,23,42,0.64) 0 18%, transparent 19%), linear-gradient(135deg, rgba(30,41,59,0.9), rgba(71,85,105,0.62) 42%, rgba(15,23,42,0.86))",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(2,6,23,0.24)",
+  };
+
   return (
     <main style={shell}>
       <div style={content}>
@@ -500,9 +510,6 @@ export default function LeaderboardPage() {
         <a href="/trophy-room" style={navLink}>
           Trophy Room
         </a>
-        <a href="/driver" style={navLink}>
-          4Play Driver
-        </a>
         {isAdmin ? (
           <a href="/admin" style={navLink}>
             Admin
@@ -510,6 +517,9 @@ export default function LeaderboardPage() {
         ) : null}
         <a href="/" style={navLink}>
           Home
+        </a>
+        <a href="/driver" style={gamesNavLink}>
+          4Play Games
         </a>
       </div>
 
