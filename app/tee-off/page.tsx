@@ -84,6 +84,14 @@ function greenShape(shape: string) {
   return "ellipse(36% 30% at 50% 50%)";
 }
 
+function puttSettings(feet: number) {
+  if (feet <= 10) return { speed: 0.58, makeRange: 3 };
+  if (feet <= 15) return { speed: 0.76, makeRange: 2.5 };
+  if (feet <= 20) return { speed: 0.96, makeRange: 2 };
+  if (feet <= 30) return { speed: 1.18, makeRange: 1.5 };
+  return { speed: 1.42, makeRange: 1 };
+}
+
 export default function TeeOffPage() {
   const [session, setSession] = useState<any>(null);
   const [phase, setPhase] = useState<Phase>("ready");
@@ -117,6 +125,8 @@ export default function TeeOffPage() {
     max: Math.round(club.max * modeFactor * lieFactor),
     min: Math.max(1, Math.round(club.min * modeFactor * lieFactor)),
   };
+  const currentPuttFeet = Math.max(1, Math.round(remaining * 3));
+  const currentPuttSettings = puttSettings(currentPuttFeet);
   const totalPar = COURSE.reduce((sum, h) => sum + h.par, 0);
   const totalStrokes = holeScores.reduce((sum, s) => sum + s, 0) + (phase === "complete" ? 0 : strokes);
 
@@ -134,7 +144,7 @@ export default function TeeOffPage() {
     if (phase !== "power") return;
     const id = setInterval(() => {
       setPower((prev) => {
-        const speed = club.putter ? 0.58 : 2.25;
+        const speed = club.putter ? currentPuttSettings.speed : 2.25;
         let next = prev + powerDir * speed;
         if (next >= 100) {
           next = 100;
@@ -148,7 +158,7 @@ export default function TeeOffPage() {
       });
     }, 24);
     return () => clearInterval(id);
-  }, [phase, powerDir, club.putter]);
+  }, [phase, powerDir, club.putter, currentPuttSettings.speed]);
 
   useEffect(() => {
     if (phase !== "accuracy") return;
@@ -284,9 +294,10 @@ export default function TeeOffPage() {
       const remainingFeet = Math.round(remaining * 3);
       const puttRollFeet = Math.round((power / 100) * effectiveClub.max);
       const missFeet = Math.abs(remainingFeet - puttRollFeet);
-      if (missFeet <= 3 || remainingFeet <= 3) {
+      const { makeRange } = puttSettings(remainingFeet);
+      if (missFeet <= makeRange || remainingFeet <= makeRange) {
         setRemaining(0);
-        setLastShot(`${puttRollFeet} FT PUTT | IN THE CUP`);
+        setLastShot(`${puttRollFeet} FT PUTT | IN THE CUP | MAKE RANGE ${makeRange}'`);
         setMessage("IN THE CUP");
         completeHole(nextStroke);
         return;
@@ -438,12 +449,16 @@ export default function TeeOffPage() {
   const completedStrokes = holeScores.reduce((sum, s) => sum + s, 0);
   const relScore = completedStrokes - completedPar;
   const onGreen = remaining > 0 && (lie === "green" || (remaining <= 20 && lie !== "sand"));
-  const puttFeet = Math.max(1, Math.round(remaining * 3));
+  const puttFeet = currentPuttFeet;
   const idealPower = club.putter
     ? clamp((puttFeet / Math.max(1, effectiveClub.max)) * 100, 0, 100)
     : clamp(((remaining - effectiveClub.min) / Math.max(1, effectiveClub.max - effectiveClub.min)) * 100, 0, 100);
   const remainingLabel = onGreen || club.putter ? `${puttFeet} FT` : `${Math.round(remaining)} YDS`;
   const miniBallY = clamp(92 - (1 - remaining / Math.max(1, hole.yards)) * 76, 12, 92);
+  const fairwayProgress = clamp(1 - remaining / Math.max(1, hole.yards), 0, 0.95);
+  const targetTop = clamp(10 + fairwayProgress * 48, 10, 58);
+  const targetScale = 1 + fairwayProgress * 1.15;
+  const showTeeObstacles = strokes === 0;
   const status = useMemo(() => {
     if (phase === "complete") return `ROUND COMPLETE: ${holeScores.reduce((sum, s) => sum + s, 0)} ON PAR ${totalPar}`;
     if (remaining <= 0) return message;
@@ -568,6 +583,11 @@ export default function TeeOffPage() {
               ))}
             </div>
           ) : null}
+          {club.putter ? (
+            <div style={{ marginTop: 4, color: "#fde68a", fontSize: 12 }}>
+              {puttFeet}' PUTT | MADE IF WITHIN {currentPuttSettings.makeRange}' | METER SPEED {puttFeet <= 10 ? "EASY" : puttFeet <= 20 ? "MED" : "FAST"}
+            </div>
+          ) : null}
         </div>
 
         <div
@@ -623,7 +643,7 @@ export default function TeeOffPage() {
               ))}
             </>
           ) : null}
-          {(holeIndex === 1 || holeIndex === 3 || holeIndex === 4 || holeIndex === 8) ? (
+          {(holeIndex === 1 || holeIndex === 3 || holeIndex === 4 || holeIndex === 8) && showTeeObstacles ? (
             <>
               {holeIndex === 1 ? <div style={{ position: "absolute", left: "10%", top: "42%", width: 32, height: 32, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} /> : null}
               {holeIndex === 3 ? (
@@ -643,9 +663,9 @@ export default function TeeOffPage() {
               ) : null}
             </>
           ) : null}
-          <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: "10%", width: 3, height: 42, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: "10%", width: 26, height: 15, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
-          <div style={{ position: "absolute", left: `${45.2 + hole.dogleg * 0.18}%`, top: "22%", width: 86, height: 28, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82 }} />
+          <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2" }} />
+          <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
+          <div style={{ position: "absolute", left: `${45.2 + hole.dogleg * 0.18 - fairwayProgress * 5}%`, top: `${targetTop + 12}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82 }} />
           <div style={{ position: "absolute", left: 14, top: 118, width: 134, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
             <div>BUXTON-HOLLIS CC</div>
             <div>HOLE {holeIndex + 1}</div>
