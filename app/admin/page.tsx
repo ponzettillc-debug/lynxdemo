@@ -130,6 +130,8 @@ export default function AdminPage() {
   const [busyTournamentId, setBusyTournamentId] = useState<string>("");
   const [busyGolferId, setBusyGolferId] = useState<string>("");
   const [scoresBusy, setScoresBusy] = useState(false);
+  const [scoreSyncBusy, setScoreSyncBusy] = useState(false);
+  const [scoreSyncStatus, setScoreSyncStatus] = useState("");
 
   const [golferQuery, setGolferQuery] = useState("");
 
@@ -1024,6 +1026,49 @@ export default function AdminPage() {
     }
   }
 
+  async function syncPgaTourScores() {
+    if (!pool || !scoreTournamentId) {
+      setStatus("Select a tournament before syncing scores.");
+      return;
+    }
+
+    setScoreSyncBusy(true);
+    setScoreSyncStatus("Syncing public leaderboard scores...");
+
+    try {
+      const token = await getAccessToken();
+
+      const r = await fetch("/api/admin/sync-scores", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pool_id: pool.id,
+          tournament_id: scoreTournamentId,
+        }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setScoreSyncStatus(j?.error || "Score sync failed.");
+        return;
+      }
+
+      await loadScoresForTournament(scoreTournamentId);
+      const unavailableCount = Array.isArray(j?.unavailable) ? j.unavailable.length : 0;
+      setScoreSyncStatus(
+        `Synced ${j?.written_count ?? 0} score${j?.written_count === 1 ? "" : "s"} from ${j?.source ?? "public source"} (${j?.leaderboard_round ?? "leaderboard"}). ${unavailableCount} unavailable.`
+      );
+    } catch (err: any) {
+      setScoreSyncStatus(err?.message || "Unexpected score sync error.");
+    } finally {
+      setScoreSyncBusy(false);
+    }
+  }
+
   function tLockValue(existing?: string | null) {
     return existing || new Date().toISOString();
   }
@@ -1708,10 +1753,20 @@ export default function AdminPage() {
                   {scoresBusy ? "Saving…" : "Save Scores"}
                 </button>
 
+                <button onClick={syncPgaTourScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoreSyncBusy}>
+                  {scoreSyncBusy ? "Syncing..." : "Sync PGA TOUR"}
+                </button>
+
                 <button onClick={clearScores} style={styles.dangerButton} disabled={!scoreTournamentId || scoresBusy}>
                   Clear Scores
                 </button>
               </div>
+
+              {scoreSyncStatus ? (
+                <div style={{ fontSize: 13, color: "#bae6fd", marginBottom: 12, lineHeight: 1.5 }}>
+                  {scoreSyncStatus}
+                </div>
+              ) : null}
 
               <div
                 style={{
