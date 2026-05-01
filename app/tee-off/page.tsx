@@ -102,6 +102,10 @@ function greenShape(shape: string) {
   return "ellipse(36% 30% at 50% 50%)";
 }
 
+function distanceToTarget(afterForwardYards: number, lateralYards: number) {
+  return Math.sqrt(afterForwardYards * afterForwardYards + lateralYards * lateralYards);
+}
+
 function puttSettings(feet: number) {
   if (feet <= 10) return { speed: 0.58, makeRange: 3 };
   if (feet <= 15) return { speed: 1.05, makeRange: 2.5 };
@@ -382,12 +386,45 @@ export default function TeeOffPage() {
     const centerMiss = Math.abs(accuracy - 50);
     const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
     const windBoost = wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
-    const carry = Math.round(clamp(effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) - centerMiss * 0.45 + windBoost, 1, effectiveClub.max + 18));
-    const offline = Math.round((accuracy - 50) / 3 + hole.dogleg * 0.35 + wind * 0.1 * clamp(effectiveClub.max / 180, 0.1, 1));
+    const carry = Math.round(clamp(effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) + windBoost, 1, effectiveClub.max + 18));
+    const missRatio = centerMiss / 50;
+    const lateralYards = Math.round(
+      carry * missRatio * 0.8 * (accuracy < 50 ? -1 : 1) +
+        hole.dogleg * 0.9 +
+        wind * 0.35 * clamp(effectiveClub.max / 180, 0.1, 1)
+    );
+    const forwardYards = Math.round(Math.sqrt(Math.max(0, carry * carry - lateralYards * lateralYards)));
+    const offline = Math.round(lateralYards / 4);
     let adjustedCarry = carry;
-    let newRemaining = Math.max(0, Math.round(Math.abs(remaining - adjustedCarry) + Math.abs(offline) * 0.55));
+    let newRemaining = Math.max(0, Math.round(distanceToTarget(remaining - forwardYards, lateralYards)));
     let nextLie: Lie = newRemaining <= 20 ? "green" : "fairway";
     let note = "";
+
+    if (adjustedCarry > remaining + 50) {
+      const penaltyStroke = nextStroke + 1;
+      setStrokes(penaltyStroke);
+      setRemaining(remaining);
+      setLie(lie);
+      setLastShot(`${adjustedCarry} YDS | ACC ${accuracyScore} | OUT OF BOUNDS LONG | PENALTY | RE-HIT FROM ${Math.round(remaining)} YDS`);
+      setMessage(`OUT OF BOUNDS LONG - PENALTY STROKE - RE-HIT FROM ${Math.round(remaining)} YDS`);
+      prepareFlight(offline, adjustedCarry, 0);
+      setPhase("flight");
+      return;
+    }
+
+    if (adjustedCarry > 200 && accuracyScore < 20) {
+      const penaltyStroke = nextStroke + 1;
+      const dropProgress = Math.round(forwardYards * 0.72);
+      const dropRemaining = Math.max(35, Math.round(distanceToTarget(remaining - dropProgress, Math.abs(lateralYards) * 0.2)));
+      setStrokes(penaltyStroke);
+      setRemaining(dropRemaining);
+      setLie("fairway");
+      setLastShot(`${adjustedCarry} YDS | ACC ${accuracyScore} | BIG MISS | LOST BALL OUT OF BOUNDS | PENALTY DROP | ${dropRemaining} YDS LEFT`);
+      setMessage(`LOST BALL OUT OF BOUNDS - PENALTY DROP - ${dropRemaining} YDS LEFT`);
+      prepareFlight(offline, adjustedCarry, dropRemaining);
+      setPhase("flight");
+      return;
+    }
 
     if (holeIndex === 1 && offline < -11) {
       adjustedCarry = 50;

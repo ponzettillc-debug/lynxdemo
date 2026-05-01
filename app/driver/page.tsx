@@ -42,7 +42,12 @@ function isHoleInOne(score: ScoreRow | null) {
   return !!score && score.accuracy >= 90 && score.distance_yards >= HOLE_IN_ONE_MIN && score.distance_yards <= HOLE_IN_ONE_MAX;
 }
 
+function isOutOfBoundsDrive(score: ScoreRow | null) {
+  return !!score && ((score.distance_yards > 200 && score.accuracy < 20) || score.distance_yards > HOLE_IN_ONE_MAX + 50);
+}
+
 function driveTaunt(score: ScoreRow) {
+  if (isOutOfBoundsDrive(score)) return "LOST BALL. THAT ONE HAS A NEW ZIP CODE.";
   if (score.distance_yards < 140) return "DID THE BALL FILE A RESTRAINING ORDER?";
   if (score.power < 45) return "THAT SWING HAD A CURFEW.";
   if (score.accuracy < 35) return "FORE LEFT, RIGHT, AND MAYBE PARKING LOT.";
@@ -216,10 +221,9 @@ export default function DriverPage() {
     if (phase === "accuracy") {
       const centerMiss = Math.abs(accuracy - 50);
       const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
-      const straightPenalty = centerMiss * 1.45;
       const windBoost = wind * 1.8;
       const bombBonus = power >= 97 ? 14 : 0;
-      const rawDistance = 145 + power * 2.25 + windBoost + bombBonus - straightPenalty;
+      const rawDistance = 145 + power * 2.25 + windBoost + bombBonus;
       const distance = Math.round(clamp(rawDistance, 45, 390));
       const row = {
         distance_yards: distance,
@@ -232,9 +236,13 @@ export default function DriverPage() {
       flightRef.current.distance = distance;
       flightRef.current.curve = curve;
       setResult(row);
-      setSwingNotice(isHoleInOne(row) ? "HOLE IN 1!!!" : power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : driveTaunt(row) || "AWAY!");
-      addDriveFlag(row, curve);
-      saveScore(row);
+      if (isOutOfBoundsDrive(row)) {
+        setSwingNotice("OUT OF BOUNDS - LOST BALL");
+      } else {
+        setSwingNotice(isHoleInOne(row) ? "HOLE IN 1!!!" : power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : driveTaunt(row) || "AWAY!");
+        addDriveFlag(row, curve);
+        saveScore(row);
+      }
       setPhase("flight");
     }
   }
@@ -268,7 +276,7 @@ export default function DriverPage() {
   const meterLabel = phase === "accuracy" ? `${accuracyScore}` : `${Math.round(power)}%`;
   const ballSize = clamp(12 - ((82 - ballY) / 63) * 7, 5, 12);
   const resultLine = result
-    ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${result.power >= 97 ? " | BOMB!" : ""}${isHoleInOne(result) ? " | HOLE IN 1!!!" : ""}`
+    ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${isOutOfBoundsDrive(result) ? " | OUT OF BOUNDS - LOST BALL" : ""}${!isOutOfBoundsDrive(result) && result.power >= 97 ? " | BOMB!" : ""}${isHoleInOne(result) ? " | HOLE IN 1!!!" : ""}`
     : "LAST DRIVE: --";
 
   return (
