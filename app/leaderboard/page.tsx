@@ -69,6 +69,12 @@ function userLabel(displayName: string | null | undefined, userId: string) {
   return displayName?.trim() || `${userId.slice(0, 8)}…`;
 }
 
+function parseLockTime(value?: string | null) {
+  if (!value) return NaN;
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
+}
+
 function getLockedRound(tournament: Tournament | null) {
   if (!tournament) return null;
 
@@ -84,7 +90,7 @@ function getLockedRound(tournament: Tournament | null) {
 
   for (const lock of locks) {
     if (!lock.value) continue;
-    const t = new Date(lock.value).getTime();
+    const t = parseLockTime(lock.value);
     if (Number.isFinite(t) && t <= now) {
       latestLocked = lock.round;
     }
@@ -135,6 +141,20 @@ function getRoundTilesForDisplay(
   });
 
   return explicitRoundTiles.slice(0, 4);
+}
+
+function hasUsedPicksForRound(usedPicks: UsedPick[], round: 1 | 2 | 3 | 4) {
+  return usedPicks.some((pick) => {
+    if (Array.isArray(pick.roundsUsed) && pick.roundsUsed.includes(round)) {
+      return true;
+    }
+
+    if (pick.roundDetails?.some((detail) => detail.round === round)) {
+      return true;
+    }
+
+    return typeof pick.roundScores?.[round] !== "undefined";
+  });
 }
 
 export default function LeaderboardPage() {
@@ -840,8 +860,10 @@ export default function LeaderboardPage() {
                             >
                               {[1, 2, 3, 4].map((roundNum) => {
                                 const round = roundNum as 1 | 2 | 3 | 4;
-                                const roundLocked = !!lockedRound && round <= lockedRound;
-                                const roundTiles = roundLocked
+                                const roundVisible =
+                                  (!!lockedRound && round <= lockedRound) ||
+                                  hasUsedPicksForRound(usedPicks, round);
+                                const roundTiles = roundVisible
                                   ? getRoundTilesForDisplay(usedPicks, round)
                                   : [];
 
@@ -852,7 +874,7 @@ export default function LeaderboardPage() {
                                       minWidth: 142,
                                       border: "1px solid rgba(148,163,184,0.14)",
                                       borderRadius: 12,
-                                      background: roundLocked ? "rgba(15,23,42,0.78)" : "rgba(51,65,85,0.45)",
+                                      background: roundVisible ? "rgba(15,23,42,0.78)" : "rgba(51,65,85,0.45)",
                                       padding: 7,
                                     }}
                                   >
@@ -876,7 +898,7 @@ export default function LeaderboardPage() {
                                     >
                                       {Array.from({ length: 4 }).map((_, idx) => {
                                         const tile = roundTiles[idx];
-                                        const hidden = !roundLocked;
+                                        const hidden = !roundVisible;
                                         const title = hidden
                                           ? "*Hidden*"
                                           : tile?.golferName ?? "—";

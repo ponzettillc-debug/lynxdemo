@@ -10,6 +10,12 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+function parseLockTime(value?: string | null) {
+  if (!value) return NaN;
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
+}
+
 function getLockedRound(tournament: {
   round1_lock?: string | null;
   round2_lock?: string | null;
@@ -28,7 +34,7 @@ function getLockedRound(tournament: {
 
   for (const lock of locks) {
     if (!lock.value) continue;
-    const t = new Date(lock.value).getTime();
+    const t = parseLockTime(lock.value);
     if (Number.isFinite(t) && t <= now) {
       latestLocked = lock.round;
     }
@@ -231,7 +237,10 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      if (lockedRound && pick.round <= lockedRound) {
+      const scoredRound = scoreByGolferRound.has(`${pick.golfer_id}:${pick.round}`);
+      const shouldShowUsedPick = lockedRound ? pick.round <= lockedRound : scoredRound;
+
+      if (shouldShowUsedPick) {
         const golferName = golferNameById.get(pick.golfer_id);
         if (!golferName) return;
 
