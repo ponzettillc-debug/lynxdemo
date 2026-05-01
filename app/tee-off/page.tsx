@@ -32,8 +32,20 @@ type RoundScore = {
   created_at?: string;
   display_name?: string;
 };
+type FlightState = {
+  started: number;
+  curve: number;
+  carryPct: number;
+  startX: number;
+  startY: number;
+  landingX: number;
+  landingY: number;
+};
 
 const LOCAL_KEY = "4play_tee_off_scores_v1";
+const GOLFER_LEFT = 39;
+const BALL_START_X = 47;
+const BALL_START_Y = 82;
 const CLUBS: Club[] = [
   { name: "DRIVER", max: 260, min: 150 },
   { name: "3 WOOD", max: 225, min: 135 },
@@ -125,12 +137,20 @@ export default function TeeOffPage() {
   const [lastShot, setLastShot] = useState("");
   const [wind, setWind] = useState(() => Math.round(Math.random() * 25 - 12));
   const [lie, setLie] = useState<Lie>("fairway");
-  const [ballX, setBallX] = useState(30);
-  const [ballY, setBallY] = useState(82);
+  const [ballX, setBallX] = useState(BALL_START_X);
+  const [ballY, setBallY] = useState(BALL_START_Y);
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
   const [scores, setScores] = useState<RoundScore[]>([]);
   const [storageMode, setStorageMode] = useState("local");
-  const flightRef = useRef({ started: 0, curve: 0, carryPct: 0 });
+  const flightRef = useRef<FlightState>({
+    started: 0,
+    curve: 0,
+    carryPct: 0,
+    startX: BALL_START_X,
+    startY: BALL_START_Y,
+    landingX: BALL_START_X,
+    landingY: BALL_START_Y,
+  });
 
   const hole = COURSE[holeIndex];
   const club = CLUBS.find((c) => c.name === clubName) || CLUBS[0];
@@ -208,9 +228,15 @@ export default function TeeOffPage() {
     const id = setInterval(() => {
       const elapsed = Date.now() - flightRef.current.started;
       const t = clamp(elapsed / 1250, 0, 1);
-      const landingX = clamp(50 + flightRef.current.curve * 0.75 + hole.dogleg, 12, 88);
-      const x = 30 + (landingX - 30) * t;
-      const y = 82 - t * (38 + flightRef.current.carryPct * 35) - Math.sin(t * Math.PI) * 14;
+      const smooth = 1 - Math.pow(1 - t, 2);
+      const x =
+        flightRef.current.startX +
+        (flightRef.current.landingX - flightRef.current.startX) * smooth +
+        Math.sin(t * Math.PI) * flightRef.current.curve * 0.08;
+      const baseY =
+        flightRef.current.startY +
+        (flightRef.current.landingY - flightRef.current.startY) * smooth;
+      const y = baseY - Math.sin(t * Math.PI) * (20 + flightRef.current.carryPct * 24);
       setBallX(x);
       setBallY(y);
       setTail((prev) => [...prev.slice(-8), { x, y }]);
@@ -220,7 +246,7 @@ export default function TeeOffPage() {
       }
     }, 33);
     return () => clearInterval(id);
-  }, [phase, hole.dogleg]);
+  }, [phase]);
 
   async function loadScores() {
     const localScores = JSON.parse(localStorage.getItem(LOCAL_KEY) || "[]") as RoundScore[];
@@ -276,10 +302,32 @@ export default function TeeOffPage() {
     setAccuracy(100);
     setAccuracyDir(-1);
     setTail([]);
-    setBallX(30);
-    setBallY(82);
+    setBallX(BALL_START_X);
+    setBallY(BALL_START_Y);
     setMessage(nextMessage);
     setPhase("ready");
+  }
+
+  function prepareFlight(offline: number, carryYards: number, remainingAfter: number) {
+    const nextProgress = clamp(1 - remainingAfter / Math.max(1, hole.yards), 0, 0.96);
+    const nextTargetTop = clamp(10 + nextProgress * 48, 10, 58);
+    const landingX = clamp(50 + offline * 0.36 + hole.dogleg * 0.18, 24, 82);
+    const landingY =
+      remainingAfter <= 2
+        ? clamp(nextTargetTop + 10, 18, 66)
+        : remainingAfter <= 20
+        ? clamp(nextTargetTop + 17, 30, 76)
+        : clamp(nextTargetTop + 30, 46, 84);
+
+    flightRef.current = {
+      started: 0,
+      curve: offline,
+      carryPct: clamp(carryYards / Math.max(1, hole.yards), 0.18, 1),
+      startX: BALL_START_X,
+      startY: BALL_START_Y,
+      landingX,
+      landingY,
+    };
   }
 
   function completeHole(finalStrokes: number) {
@@ -356,8 +404,7 @@ export default function TeeOffPage() {
       setClubName("7 IRON");
       setLastShot(`${adjustedCarry} YDS | WATER | PENALTY DROP | 100 YDS LEFT`);
       setMessage("WATER BALL - PENALTY DROP AT 100 YDS");
-      flightRef.current.curve = offline;
-      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      prepareFlight(offline, adjustedCarry, 100);
       setPhase("flight");
       return;
     }
@@ -367,8 +414,7 @@ export default function TeeOffPage() {
       setLie("green");
       setLastShot(`${adjustedCarry} YDS | ACE!`);
       setMessage("HOLE IN ONE!");
-      flightRef.current.curve = offline;
-      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      prepareFlight(offline, adjustedCarry, 0);
       setPhase("flight");
       setTimeout(() => completeHole(nextStroke), 1320);
       return;
@@ -382,8 +428,7 @@ export default function TeeOffPage() {
       setSwingMode("full");
       setLastShot(`${adjustedCarry} YDS | WHAT ARE WE GONNA DO NOW GUYS | CRASH | $100 FINE | PENALTY | RE-TEE HITTING 3`);
       setMessage("PARKING LOT CRASH - PENALTY STROKE - RE-TEE HITTING 3");
-      flightRef.current.curve = offline;
-      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      prepareFlight(offline, adjustedCarry, hole.yards);
       setPhase("flight");
       return;
     }
@@ -413,8 +458,7 @@ export default function TeeOffPage() {
       note = "LEFT TREES - 180 LEFT";
     }
 
-    flightRef.current.curve = offline;
-    flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+    prepareFlight(offline, adjustedCarry, newRemaining);
 
     if (newRemaining <= 2) {
       setRemaining(0);
@@ -496,6 +540,8 @@ export default function TeeOffPage() {
   const targetTop = clamp(10 + fairwayProgress * 48, 10, 58);
   const targetScale = 1 + fairwayProgress * 1.15;
   const showTeeObstacles = strokes === 0;
+  const swingActive = phase === "flight";
+  const puttBallLeft = clamp(50 - puttFeet * 0.65, 18, 82);
   const status = useMemo(() => {
     if (phase === "complete") return `ROUND COMPLETE: ${holeScores.reduce((sum, s) => sum + s, 0)} ON PAR ${totalPar}`;
     if (remaining <= 0) return message;
@@ -725,12 +771,13 @@ export default function TeeOffPage() {
             <div>HOLE {holeIndex + 1}</div>
             <div>{hole.yards} YARDS</div>
           </div>
-          <div style={{ position: "absolute", left: 26, bottom: 42, width: 92, height: 18, background: "#22543d" }} />
-          <div style={{ position: "absolute", left: 59, bottom: 80, width: 12, height: 62, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 52, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 37, bottom: 102, width: 48, height: 4, background: "#d9ffe2", transform: "rotate(-24deg)" }} />
-          <div style={{ position: "absolute", left: 67, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
-          <div style={{ position: "absolute", left: 57, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
+          <div style={{ position: "absolute", left: `${GOLFER_LEFT}%`, bottom: 42, width: 92, height: 18, background: "#22543d" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 33px)`, bottom: 80, width: 12, height: 62, background: "#d9ffe2", transform: swingActive ? "rotate(-7deg)" : "rotate(0deg)", transformOrigin: "bottom center", transition: "transform 180ms ease-out" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 26px)`, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 11px)`, bottom: 102, width: 52, height: 4, background: "#d9ffe2", transform: swingActive ? "rotate(-76deg)" : "rotate(-24deg)", transformOrigin: "44px 2px", transition: "transform 220ms cubic-bezier(.2,.8,.2,1)" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% - 1px)`, bottom: 116, width: 64, height: 3, background: "#bae6fd", transform: swingActive ? "rotate(-122deg)" : "rotate(-54deg)", transformOrigin: "60px 1px", opacity: 0.92, transition: "transform 220ms cubic-bezier(.2,.8,.2,1)" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 41px)`, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 31px)`, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
 
           {tail.map((p, idx) => (
             <div
@@ -782,7 +829,12 @@ export default function TeeOffPage() {
               <div style={{ position: "absolute", left: "50%", top: "50%", width: 5, height: 40, background: "#d9ffe2", transform: "translate(-50%, -100%)" }} />
               <div style={{ position: "absolute", left: "50.4%", top: "39%", width: 30, height: 16, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
               <div style={{ position: "absolute", left: "50%", top: "50%", width: 12, height: 12, borderRadius: 999, background: "#020617", border: "2px solid #d9ffe2", transform: "translate(-50%, -50%)" }} />
-              <div style={{ position: "absolute", left: `${clamp(50 - puttFeet * 0.65, 18, 82)}%`, top: "64%", width: 12, height: 12, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 12px #bae6fd", transform: "translate(-50%, -50%)" }} />
+              <div style={{ position: "absolute", left: `calc(${puttBallLeft}% - 34px)`, top: "59%", width: 4, height: 32, background: "#d9ffe2", transform: swingActive ? "rotate(-7deg)" : "rotate(0deg)", transformOrigin: "bottom center", transition: "transform 180ms ease-out" }} />
+              <div style={{ position: "absolute", left: `calc(${puttBallLeft}% - 41px)`, top: "54%", width: 15, height: 15, borderRadius: 999, background: "#d9ffe2" }} />
+              <div style={{ position: "absolute", left: `calc(${puttBallLeft}% - 52px)`, top: "63%", width: 28, height: 3, background: "#d9ffe2", transform: swingActive ? "rotate(-72deg)" : "rotate(-18deg)", transformOrigin: "24px 1px", transition: "transform 220ms cubic-bezier(.2,.8,.2,1)" }} />
+              <div style={{ position: "absolute", left: `calc(${puttBallLeft}% - 30px)`, top: "68%", width: 3, height: 24, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
+              <div style={{ position: "absolute", left: `calc(${puttBallLeft}% - 38px)`, top: "68%", width: 3, height: 24, background: "#d9ffe2", transform: "rotate(18deg)" }} />
+              <div style={{ position: "absolute", left: `${puttBallLeft}%`, top: "64%", width: 12, height: 12, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 12px #bae6fd", transform: "translate(-50%, -50%)" }} />
               <div style={{ position: "absolute", left: 14, top: 14, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 8, fontSize: 12 }}>
                 ON GREEN | {puttFeet} FT TO CUP
               </div>
