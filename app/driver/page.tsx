@@ -17,8 +17,15 @@ type ScoreRow = {
   accuracy: number;
   created_at?: string;
 };
+type DriveFlag = {
+  id: string;
+  distance_yards: number;
+  x: number;
+  y: number;
+};
 
 const LOCAL_KEY = "4play_driver_scores_v1";
+const FLAG_KEY = "4play_driver_flags_v1";
 const HOLE_IN_ONE_MIN = 362;
 const HOLE_IN_ONE_MAX = 373;
 
@@ -35,6 +42,15 @@ function isHoleInOne(score: ScoreRow | null) {
   return !!score && score.accuracy >= 90 && score.distance_yards >= HOLE_IN_ONE_MIN && score.distance_yards <= HOLE_IN_ONE_MAX;
 }
 
+function driveTaunt(score: ScoreRow) {
+  if (score.distance_yards < 140) return "DID THE BALL FILE A RESTRAINING ORDER?";
+  if (score.power < 45) return "THAT SWING HAD A CURFEW.";
+  if (score.accuracy < 35) return "FORE LEFT, RIGHT, AND MAYBE PARKING LOT.";
+  if (score.distance_yards < 210) return "THE CART PATH IS UNIMPRESSED.";
+  if (score.accuracy < 55) return "THAT ONE NEEDS A PASSPORT.";
+  return "";
+}
+
 export default function DriverPage() {
   const [session, setSession] = useState<any>(null);
   const [phase, setPhase] = useState<Phase>("ready");
@@ -47,6 +63,7 @@ export default function DriverPage() {
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
   const [result, setResult] = useState<ScoreRow | null>(null);
   const [scores, setScores] = useState<ScoreRow[]>([]);
+  const [driveFlags, setDriveFlags] = useState<DriveFlag[]>([]);
   const [storageMode, setStorageMode] = useState("local");
   const [swingNotice, setSwingNotice] = useState("");
   const flightRef = useRef({ started: 0, distance: 0, curve: 0 });
@@ -59,6 +76,7 @@ export default function DriverPage() {
       }
       setSession(data.session);
     });
+    setDriveFlags(JSON.parse(localStorage.getItem(FLAG_KEY) || "[]") as DriveFlag[]);
   }, []);
 
   useEffect(() => {
@@ -139,6 +157,20 @@ export default function DriverPage() {
     setScores(next);
   }
 
+  function addDriveFlag(row: ScoreRow, curve: number) {
+    const nextFlag = {
+      id: `${row.created_at}-${row.distance_yards}-${Math.round(curve)}`,
+      distance_yards: row.distance_yards,
+      x: clamp(50 + curve * 0.58, 13, 88),
+      y: clamp(82 - (row.distance_yards / 390) * 63, 16, 82),
+    };
+    setDriveFlags((prev) => {
+      const next = [...prev, nextFlag].slice(-50);
+      localStorage.setItem(FLAG_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   async function saveScore(row: ScoreRow) {
     saveLocalScore(row);
     const token = await supabase.auth.getSession().then(({ data }) => data.session?.access_token || "");
@@ -196,10 +228,12 @@ export default function DriverPage() {
         accuracy: accuracyScore,
         created_at: new Date().toISOString(),
       };
+      const curve = (accuracy - 50) / 1.6 - wind / 3;
       flightRef.current.distance = distance;
-      flightRef.current.curve = (accuracy - 50) / 1.6 - wind / 3;
+      flightRef.current.curve = curve;
       setResult(row);
-      setSwingNotice(isHoleInOne(row) ? "HOLE IN 1!!!" : power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : "AWAY!");
+      setSwingNotice(isHoleInOne(row) ? "HOLE IN 1!!!" : power >= 97 ? "BOMB!" : accuracyScore >= 92 ? "PIPE!" : driveTaunt(row) || "AWAY!");
+      addDriveFlag(row, curve);
       saveScore(row);
       setPhase("flight");
     }
@@ -295,10 +329,8 @@ export default function DriverPage() {
           <div style={{ position: "absolute", left: "40%", top: "17%", width: "20%", height: "83%", background: "repeating-linear-gradient(180deg, rgba(217,255,226,0.11) 0 2px, transparent 2px 24px)", clipPath: "polygon(44% 0, 56% 0, 100% 100%, 0 100%)" }} />
           <div style={{ position: "absolute", right: 0, top: "38%", width: "19%", height: "62%", background: "repeating-linear-gradient(135deg, #0ea5e9 0 8px, #075985 8px 16px)", clipPath: "polygon(40% 0, 100% 0, 100% 100%, 0 100%)", opacity: 0.85 }} />
           <div style={{ position: "absolute", right: "3%", top: "44%", color: "#bae6fd", fontSize: 12 }}>~~~~ RIVER ~~~~</div>
-          <div style={{ position: "absolute", left: "49%", top: "18%", width: 3, height: 46, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: "49.5%", top: "18%", width: 28, height: 16, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
           <div style={{ position: "absolute", left: "47.5%", top: "32%", width: 42, height: 9, border: "1px solid #d9ffe2", borderRadius: 999, opacity: 0.65 }} />
-          <div style={{ position: "absolute", left: 16, bottom: 96, width: 152, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
+          <div style={{ position: "absolute", left: 16, top: 86, width: 152, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
             <div>BUXTON-HOLLIS CC</div>
             <div>HOLE 1</div>
             <div>365 YARDS</div>
@@ -310,6 +342,26 @@ export default function DriverPage() {
           <div style={{ position: "absolute", left: 67, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
           <div style={{ position: "absolute", left: 57, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
           <div style={{ position: "absolute", left: 89, bottom: 126, width: 3, height: 68, background: "#cbd5e1", transform: "rotate(34deg)" }} />
+
+          {driveFlags.map((flag, idx) => (
+            <div
+              key={flag.id}
+              style={{
+                position: "absolute",
+                left: `${flag.x}%`,
+                top: `${flag.y}%`,
+                width: 56,
+                height: 36,
+                transform: "translate(-6px, -30px)",
+                zIndex: 2 + idx,
+              }}
+            >
+              <div style={{ position: "absolute", left: 5, top: 5, width: 2, height: 30, background: "#d9ffe2" }} />
+              <div style={{ position: "absolute", left: 7, top: 2, minWidth: 46, height: 17, background: "#ef4444", color: "#fff7ed", fontSize: 10, lineHeight: "17px", paddingLeft: 4, clipPath: "polygon(0 0, 100% 0, 84% 50%, 100% 100%, 0 100%)" }}>
+                {flag.distance_yards}
+              </div>
+            </div>
+          ))}
 
           {tail.map((p, idx) => (
             <div
