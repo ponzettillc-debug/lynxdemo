@@ -364,6 +364,12 @@ export default function TeeOffPage() {
       return;
     }
 
+    if (holeIndex === 5 && offline < -12) {
+      newRemaining = Math.max(35, Math.round(remaining - Math.min(adjustedCarry, 80)));
+      nextLie = "fairway";
+      note = "WHAT ARE WE GONNA DO NOW GUYS | CRASH | $100 FINE";
+    }
+
     if (holeIndex === 3 && !isTeeShot && accuracyScore < 80 && Math.random() < 0.45) {
       newRemaining = 150;
       nextLie = "fairway";
@@ -635,9 +641,16 @@ export default function TeeOffPage() {
           ) : null}
           {holeIndex === 5 ? (
             <>
-              <div style={{ position: "absolute", left: 0, top: "38%", width: "18%", height: "62%", background: "#334155" }} />
+              <div style={{ position: "absolute", left: 0, top: "30%", width: "20%", height: "70%", background: "#334155" }} />
+              <div style={{ position: "absolute", left: "20%", top: "32%", width: 10, height: "68%", background: "#94a3b8" }} />
+              {[36, 50, 64, 78].map((top, idx) => (
+                <div key={top} style={{ position: "absolute", left: `${idx % 2 === 0 ? 3 : 11}%`, top: `${top}%`, width: 28, height: 13, background: idx % 3 === 0 ? "#ef4444" : idx % 3 === 1 ? "#38bdf8" : "#f8fafc", border: "1px solid #020617", boxShadow: "inset 0 -4px 0 rgba(15,23,42,0.45)" }}>
+                  <div style={{ position: "absolute", left: 4, top: 2, width: 6, height: 4, background: "#0f172a" }} />
+                  <div style={{ position: "absolute", right: 4, top: 2, width: 6, height: 4, background: "#0f172a" }} />
+                </div>
+              ))}
               {[12, 28, 46, 66, 86].map((top) => (
-                <div key={top} style={{ position: "absolute", left: "16%", top: `${top}%`, width: 18, height: 18, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 4px #14532d" }} />
+                <div key={top} style={{ position: "absolute", left: "18%", top: `${top}%`, width: 18, height: 18, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 4px #14532d" }} />
               ))}
             </>
           ) : null}
@@ -679,6 +692,16 @@ export default function TeeOffPage() {
           <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2" }} />
           <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
           <div style={{ position: "absolute", left: `${45.2 + hole.dogleg * 0.18 - fairwayProgress * 5}%`, top: `${targetTop + 12}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82 }} />
+          {holeIndex === 8 && strokes >= 1 ? (
+            <div style={{ position: "absolute", left: `${61 + hole.dogleg * 0.18}%`, top: `${Math.max(8, targetTop - 5)}%`, width: 90, height: 54, opacity: 0.92 }}>
+              <div style={{ position: "absolute", left: 8, top: 18, width: 72, height: 30, background: "#7f5539", border: "2px solid #facc15" }} />
+              <div style={{ position: "absolute", left: 0, top: 6, width: 88, height: 18, background: "#991b1b", clipPath: "polygon(50% 0, 100% 100%, 0 100%)" }} />
+              <div style={{ position: "absolute", left: 18, top: 29, width: 10, height: 10, background: "#bae6fd" }} />
+              <div style={{ position: "absolute", left: 48, top: 29, width: 10, height: 10, background: "#bae6fd" }} />
+              <div style={{ position: "absolute", left: 34, top: 31, width: 12, height: 17, background: "#422006" }} />
+              <div style={{ position: "absolute", left: 4, top: 49, color: "#fef3c7", fontSize: 9 }}>CLUBHOUSE</div>
+            </div>
+          ) : null}
           <div style={{ position: "absolute", left: 14, top: 118, width: 134, border: "2px solid #7cff9b", background: "#07111f", color: "#d9ffe2", padding: 6, fontSize: 11, lineHeight: 1.25 }}>
             <div>BUXTON-HOLLIS CC</div>
             <div>HOLE {holeIndex + 1}</div>
