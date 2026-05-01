@@ -436,8 +436,8 @@ export default function LeaderboardPage() {
     display: "block",
     margin: "0 auto",
     borderRadius: 14,
-    opacity: 0.29,
-    filter: "saturate(0.5) contrast(0.82) brightness(0.72)",
+    opacity: 0.42,
+    filter: "saturate(0.72) contrast(0.95) brightness(0.92)",
     mixBlendMode: "screen",
     boxShadow: "none",
     WebkitMaskImage:
