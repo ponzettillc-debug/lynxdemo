@@ -92,10 +92,20 @@ function greenShape(shape: string) {
 
 function puttSettings(feet: number) {
   if (feet <= 10) return { speed: 0.58, makeRange: 3 };
-  if (feet <= 15) return { speed: 0.76, makeRange: 2.5 };
-  if (feet <= 20) return { speed: 0.96, makeRange: 2 };
-  if (feet <= 30) return { speed: 1.18, makeRange: 1.5 };
-  return { speed: 1.42, makeRange: 1 };
+  if (feet <= 15) return { speed: 1.05, makeRange: 2.5 };
+  if (feet <= 20) return { speed: 1.38, makeRange: 2 };
+  if (feet <= 30) return { speed: 1.75, makeRange: 1.5 };
+  if (feet <= 40) return { speed: 2.15, makeRange: 1 };
+  return { speed: 2.75, makeRange: 1 };
+}
+
+function puttSpeedLabel(feet: number) {
+  if (feet <= 10) return "EASY";
+  if (feet <= 15) return "QUICK";
+  if (feet <= 20) return "FAST";
+  if (feet <= 30) return "FASTER";
+  if (feet <= 40) return "TOUCHY";
+  return "WHITE KNUCKLE";
 }
 
 export default function TeeOffPage() {
@@ -364,10 +374,18 @@ export default function TeeOffPage() {
       return;
     }
 
-    if (holeIndex === 5 && offline < -12) {
-      newRemaining = Math.max(35, Math.round(remaining - Math.min(adjustedCarry, 80)));
-      nextLie = "fairway";
-      note = "WHAT ARE WE GONNA DO NOW GUYS | CRASH | $100 FINE";
+    if (holeIndex === 5 && isTeeShot && offline < -12) {
+      setStrokes(2);
+      setRemaining(hole.yards);
+      setLie("fairway");
+      setClubName("DRIVER");
+      setSwingMode("full");
+      setLastShot(`${adjustedCarry} YDS | WHAT ARE WE GONNA DO NOW GUYS | CRASH | $100 FINE | PENALTY | RE-TEE HITTING 3`);
+      setMessage("PARKING LOT CRASH - PENALTY STROKE - RE-TEE HITTING 3");
+      flightRef.current.curve = offline;
+      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      setPhase("flight");
+      return;
     }
 
     if (holeIndex === 3 && !isTeeShot && accuracyScore < 80 && Math.random() < 0.45) {
@@ -604,7 +622,7 @@ export default function TeeOffPage() {
           ) : null}
           {club.putter ? (
             <div style={{ marginTop: 4, color: "#fde68a", fontSize: 12 }}>
-              {puttFeet}' PUTT | MADE IF WITHIN {currentPuttSettings.makeRange}' | METER SPEED {puttFeet <= 10 ? "EASY" : puttFeet <= 20 ? "MED" : "FAST"}
+              {puttFeet}' PUTT | MADE IF WITHIN {currentPuttSettings.makeRange}' | METER SPEED {puttSpeedLabel(puttFeet)}
             </div>
           ) : null}
         </div>
