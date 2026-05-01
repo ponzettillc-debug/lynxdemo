@@ -16,6 +16,8 @@ type Club = {
   min: number;
   putter?: boolean;
 };
+type SwingMode = "full" | "half" | "quarter";
+type Lie = "fairway" | "green" | "sand";
 type Hole = {
   yards: number;
   par: number;
@@ -37,18 +39,19 @@ const CLUBS: Club[] = [
   { name: "3 WOOD", max: 225, min: 135 },
   { name: "7 IRON", max: 165, min: 85 },
   { name: "WEDGE", max: 105, min: 25 },
-  { name: "PUTTER", max: 65, min: 1, putter: true },
+  { name: "CHIPPER", max: 25, min: 15 },
+  { name: "PUTTER", max: 60, min: 1, putter: true },
 ];
 const COURSE: Hole[] = [
   { yards: 365, par: 4, dogleg: 0, water: "right", green: "oval" },
-  { yards: 142, par: 3, dogleg: -8, water: "left", green: "kidney" },
-  { yards: 506, par: 5, dogleg: 10, water: "right", green: "long" },
-  { yards: 318, par: 4, dogleg: -12, water: "none", green: "peanut" },
-  { yards: 178, par: 3, dogleg: 4, water: "right", green: "round" },
-  { yards: 437, par: 4, dogleg: 12, water: "left", green: "tilt" },
-  { yards: 489, par: 5, dogleg: -10, water: "none", green: "double" },
-  { yards: 296, par: 4, dogleg: 7, water: "right", green: "wide" },
-  { yards: 391, par: 4, dogleg: 0, water: "left", green: "crown" },
+  { yards: 250, par: 4, dogleg: -16, water: "none", green: "kidney" },
+  { yards: 190, par: 3, dogleg: 0, water: "none", green: "long" },
+  { yards: 500, par: 5, dogleg: 8, water: "none", green: "peanut" },
+  { yards: 455, par: 5, dogleg: 5, water: "none", green: "round" },
+  { yards: 165, par: 3, dogleg: 0, water: "none", green: "tilt" },
+  { yards: 303, par: 4, dogleg: 2, water: "none", green: "double" },
+  { yards: 251, par: 4, dogleg: 6, water: "none", green: "wide" },
+  { yards: 404, par: 4, dogleg: -15, water: "none", green: "crown" },
 ];
 
 function clamp(v: number, min: number, max: number) {
@@ -87,7 +90,7 @@ export default function TeeOffPage() {
   const [holeIndex, setHoleIndex] = useState(0);
   const [remaining, setRemaining] = useState(COURSE[0].yards);
   const [clubName, setClubName] = useState(CLUBS[0].name);
-  const [swingMode, setSwingMode] = useState<"full" | "half">("full");
+  const [swingMode, setSwingMode] = useState<SwingMode>("full");
   const [power, setPower] = useState(0);
   const [powerDir, setPowerDir] = useState(1);
   const [accuracy, setAccuracy] = useState(100);
@@ -97,6 +100,7 @@ export default function TeeOffPage() {
   const [message, setMessage] = useState("SELECT CLUB, CLICK / TAP TO START SWING");
   const [lastShot, setLastShot] = useState("");
   const [wind, setWind] = useState(() => Math.round(Math.random() * 25 - 12));
+  const [lie, setLie] = useState<Lie>("fairway");
   const [ballX, setBallX] = useState(30);
   const [ballY, setBallY] = useState(82);
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
@@ -106,11 +110,12 @@ export default function TeeOffPage() {
 
   const hole = COURSE[holeIndex];
   const club = CLUBS.find((c) => c.name === clubName) || CLUBS[0];
-  const modeFactor = swingMode === "half" ? 0.5 : 1;
+  const modeFactor = club.name === "CHIPPER" && swingMode === "half" ? 0.6 : swingMode === "quarter" ? 0.25 : swingMode === "half" ? 0.5 : 1;
+  const lieFactor = lie === "sand" && !club.putter ? 0.6 : 1;
   const effectiveClub = {
     ...club,
-    max: Math.round(club.max * modeFactor),
-    min: Math.max(1, Math.round(club.min * modeFactor)),
+    max: Math.round(club.max * modeFactor * lieFactor),
+    min: Math.max(1, Math.round(club.min * modeFactor * lieFactor)),
   };
   const totalPar = COURSE.reduce((sum, h) => sum + h.par, 0);
   const totalStrokes = holeScores.reduce((sum, s) => sum + s, 0) + (phase === "complete" ? 0 : strokes);
@@ -129,7 +134,8 @@ export default function TeeOffPage() {
     if (phase !== "power") return;
     const id = setInterval(() => {
       setPower((prev) => {
-        let next = prev + powerDir * 2.6;
+        const speed = club.putter ? 0.58 : 2.25;
+        let next = prev + powerDir * speed;
         if (next >= 100) {
           next = 100;
           setPowerDir(-1);
@@ -142,7 +148,7 @@ export default function TeeOffPage() {
       });
     }, 24);
     return () => clearInterval(id);
-  }, [phase, powerDir]);
+  }, [phase, powerDir, club.putter]);
 
   useEffect(() => {
     if (phase !== "accuracy") return;
@@ -265,18 +271,20 @@ export default function TeeOffPage() {
     setWind(Math.round(Math.random() * 25 - 12));
     setClubName(CLUBS[0].name);
     setSwingMode("full");
+    setLie("fairway");
     resetSwing(`HOLE ${holeIndex + 2} READY`);
   }
 
   function takeShot() {
     const nextStroke = strokes + 1;
     setStrokes(nextStroke);
+    const isTeeShot = strokes === 0;
 
     if (club.putter) {
       const remainingFeet = Math.round(remaining * 3);
       const puttRollFeet = Math.round((power / 100) * effectiveClub.max);
       const missFeet = Math.abs(remainingFeet - puttRollFeet);
-      if (missFeet <= 2 || remainingFeet <= 2) {
+      if (missFeet <= 3 || remainingFeet <= 3) {
         setRemaining(0);
         setLastShot(`${puttRollFeet} FT PUTT | IN THE CUP`);
         setMessage("IN THE CUP");
@@ -285,8 +293,7 @@ export default function TeeOffPage() {
       }
       setRemaining(Math.max(1, Math.round(missFeet)) / 3);
       setLastShot(`${puttRollFeet} FT PUTT | ${Math.max(1, Math.round(missFeet))} FT LEFT`);
-      setMessage(`${puttRollFeet} FT PUTT - ${Math.max(1, Math.round(missFeet))} FT LEFT`);
-      resetSwing();
+      resetSwing(`${puttRollFeet} FT PUTT - ${Math.max(1, Math.round(missFeet))} FT LEFT`);
       return;
     }
 
@@ -295,27 +302,93 @@ export default function TeeOffPage() {
     const windBoost = wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
     const carry = Math.round(clamp(effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) - centerMiss * 0.45 + windBoost, 1, effectiveClub.max + 18));
     const offline = Math.round((accuracy - 50) / 3 + hole.dogleg * 0.35 + wind * 0.1 * clamp(effectiveClub.max / 180, 0.1, 1));
-    const newRemaining = Math.max(0, Math.round(Math.abs(remaining - carry) + Math.abs(offline) * 0.55));
+    let adjustedCarry = carry;
+    let newRemaining = Math.max(0, Math.round(Math.abs(remaining - adjustedCarry) + Math.abs(offline) * 0.55));
+    let nextLie: Lie = newRemaining <= 20 ? "green" : "fairway";
+    let note = "";
+
+    if (holeIndex === 1 && offline < -11) {
+      adjustedCarry = 50;
+      newRemaining = Math.max(20, Math.round(remaining - adjustedCarry));
+      nextLie = "fairway";
+      note = "TREE LEFT - KNOCKED DOWN";
+    }
+
+    if (holeIndex === 2 && ((isTeeShot && adjustedCarry >= 150 && adjustedCarry <= 170) || (!isTeeShot && remaining <= 105 && adjustedCarry < 85))) {
+      const penaltyStroke = nextStroke + 1;
+      setStrokes(penaltyStroke);
+      setRemaining(100);
+      setLie("fairway");
+      setClubName("7 IRON");
+      setLastShot(`${adjustedCarry} YDS | WATER | PENALTY DROP | 100 YDS LEFT`);
+      setMessage("WATER BALL - PENALTY DROP AT 100 YDS");
+      flightRef.current.curve = offline;
+      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      setPhase("flight");
+      return;
+    }
+
+    if ((holeIndex === 2 || holeIndex === 5) && isTeeShot && newRemaining <= 20 && Math.random() < 0.05) {
+      setRemaining(0);
+      setLie("green");
+      setLastShot(`${adjustedCarry} YDS | ACE!`);
+      setMessage("HOLE IN ONE!");
+      flightRef.current.curve = offline;
+      flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
+      setPhase("flight");
+      setTimeout(() => completeHole(nextStroke), 1320);
+      return;
+    }
+
+    if (holeIndex === 3 && !isTeeShot && accuracyScore < 80 && Math.random() < 0.45) {
+      newRemaining = 150;
+      nextLie = "fairway";
+      note = "TREE ON APPROACH - 150 LEFT";
+    }
+
+    if (holeIndex === 4 && adjustedCarry >= 210 && adjustedCarry <= 245 && offline > 8) {
+      adjustedCarry = 75;
+      newRemaining = Math.max(180, Math.round(remaining - adjustedCarry));
+      nextLie = "fairway";
+      note = "BIG TREE RIGHT - KNOCKED DOWN";
+    }
+
+    if (holeIndex === 6 && newRemaining <= 22 && Math.abs(offline) > 8) {
+      newRemaining = Math.max(8, Math.min(20, newRemaining));
+      nextLie = "sand";
+      note = "GREENSIDE BUNKER";
+    }
+
+    if (holeIndex === 8 && offline < -9) {
+      newRemaining = 180;
+      nextLie = "fairway";
+      note = "LEFT TREES - 180 LEFT";
+    }
 
     flightRef.current.curve = offline;
-    flightRef.current.carryPct = clamp(carry / Math.max(1, hole.yards), 0.18, 1);
+    flightRef.current.carryPct = clamp(adjustedCarry / Math.max(1, hole.yards), 0.18, 1);
 
     if (newRemaining <= 2) {
       setRemaining(0);
-      setLastShot(`${carry} YDS | ACC ${accuracyScore} | HOLED OUT`);
-      setMessage(`HOLED OUT! ${carry} YDS | ACC ${accuracyScore}`);
+      setLie("green");
+      setLastShot(`${adjustedCarry} YDS | ACC ${accuracyScore} | HOLED OUT`);
+      setMessage(`HOLED OUT! ${adjustedCarry} YDS | ACC ${accuracyScore}`);
       setPhase("flight");
       setTimeout(() => completeHole(nextStroke), 1320);
       return;
     }
 
     setRemaining(newRemaining);
-    setLastShot(`${carry} YDS | ACC ${accuracyScore} | ${newRemaining <= 10 ? "ON GREEN" : `${newRemaining} YDS LEFT`} | WIND ${windText(wind)}`);
-    if (newRemaining <= 10) {
+    setLie(nextLie);
+    setLastShot(`${adjustedCarry} YDS | ACC ${accuracyScore} | ${note ? `${note} | ` : ""}${nextLie === "green" ? "ON GREEN" : nextLie === "sand" ? "IN SAND" : `${newRemaining} YDS LEFT`} | WIND ${windText(wind)}`);
+    if (nextLie === "green") {
       setClubName("PUTTER");
       setSwingMode("full");
+    } else if (nextLie === "sand") {
+      setClubName("CHIPPER");
+      setSwingMode("full");
     }
-    setMessage(`${carry} YDS | ACC ${accuracyScore} | ${newRemaining <= 10 ? `${Math.round(newRemaining * 3)} FT PUTT` : `${newRemaining} YDS LEFT`}`);
+    setMessage(`${adjustedCarry} YDS | ACC ${accuracyScore} | ${note ? `${note} | ` : ""}${nextLie === "green" ? `${Math.round(newRemaining * 3)} FT PUTT` : nextLie === "sand" ? `${Math.round(newRemaining)} YDS IN SAND` : `${newRemaining} YDS LEFT`}`);
     setPhase("flight");
   }
 
@@ -352,6 +425,7 @@ export default function TeeOffPage() {
     setHoleScores([]);
     setLastShot("");
     setWind(Math.round(Math.random() * 25 - 12));
+    setLie("fairway");
     setClubName(CLUBS[0].name);
     setSwingMode("full");
     resetSwing("NEW ROUND READY");
@@ -363,7 +437,7 @@ export default function TeeOffPage() {
   const completedPar = holeScores.reduce((sum, _, idx) => sum + COURSE[idx].par, 0);
   const completedStrokes = holeScores.reduce((sum, s) => sum + s, 0);
   const relScore = completedStrokes - completedPar;
-  const onGreen = remaining > 0 && remaining <= 10;
+  const onGreen = remaining > 0 && (lie === "green" || (remaining <= 20 && lie !== "sand"));
   const puttFeet = Math.max(1, Math.round(remaining * 3));
   const idealPower = club.putter
     ? clamp((puttFeet / Math.max(1, effectiveClub.max)) * 100, 0, 100)
@@ -435,7 +509,7 @@ export default function TeeOffPage() {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          {(["full", "half"] as const).map((mode) => (
+          {(["full", "half", "quarter"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -457,7 +531,7 @@ export default function TeeOffPage() {
         </div>
 
         <div style={{ marginTop: 14, color: "#fde68a" }}>
-          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
+          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | LIE {lie.toUpperCase()} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
         </div>
         <div style={{ marginTop: 8 }}>{status}</div>
         {lastShot ? (
@@ -487,8 +561,8 @@ export default function TeeOffPage() {
           </div>
           {club.putter ? (
             <div style={{ position: "relative", height: 18, marginTop: 4, color: "#bae6fd", fontSize: 10 }}>
-              {[5, 10, 15, 20, 25, 30].map((ft) => (
-                <span key={ft} style={{ position: "absolute", left: `${clamp((ft / Math.max(1, effectiveClub.max)) * 100, 0, 100)}%`, transform: "translateX(-50%)" }}>
+              {[5, 10, 15, 20, 25, 30, 45, 60].map((ft) => (
+                <span key={ft} style={{ position: "absolute", left: `${clamp((ft / Math.max(1, effectiveClub.max)) * 100, 0, 100)}%`, opacity: ft > effectiveClub.max ? 0.35 : 1, transform: "translateX(-50%)" }}>
                   {ft}'
                 </span>
               ))}
@@ -522,6 +596,52 @@ export default function TeeOffPage() {
                 opacity: 0.82,
               }}
             />
+          ) : null}
+          {holeIndex === 2 ? (
+            <div style={{ position: "absolute", left: "24%", top: "45%", width: "52%", height: 34, background: "repeating-linear-gradient(90deg, #0ea5e9 0 9px, #075985 9px 18px)", border: "2px solid #7dd3fc", opacity: 0.86 }} />
+          ) : null}
+          {holeIndex === 5 ? (
+            <>
+              <div style={{ position: "absolute", left: 0, top: "38%", width: "18%", height: "62%", background: "#334155" }} />
+              {[12, 28, 46, 66, 86].map((top) => (
+                <div key={top} style={{ position: "absolute", left: "16%", top: `${top}%`, width: 18, height: 18, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 4px #14532d" }} />
+              ))}
+            </>
+          ) : null}
+          {holeIndex === 6 ? (
+            <>
+              <div style={{ position: "absolute", right: 0, top: "30%", width: "16%", height: "70%", background: "#475569" }} />
+              <div style={{ position: "absolute", right: "16%", top: "32%", width: 10, height: "68%", background: "#94a3b8" }} />
+              <div style={{ position: "absolute", left: `${38 + hole.dogleg * 0.18}%`, top: "24%", width: 34, height: 16, borderRadius: "50%", background: "#d6a94a", border: "2px solid #facc15" }} />
+              <div style={{ position: "absolute", left: `${60 + hole.dogleg * 0.18}%`, top: "24%", width: 34, height: 16, borderRadius: "50%", background: "#d6a94a", border: "2px solid #facc15" }} />
+            </>
+          ) : null}
+          {holeIndex === 7 ? (
+            <>
+              {[20, 34, 48, 62, 76].map((top) => (
+                <div key={top} style={{ position: "absolute", right: "9%", top: `${top}%`, width: 20, height: 20, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 5px #14532d" }} />
+              ))}
+            </>
+          ) : null}
+          {(holeIndex === 1 || holeIndex === 3 || holeIndex === 4 || holeIndex === 8) ? (
+            <>
+              {holeIndex === 1 ? <div style={{ position: "absolute", left: "10%", top: "42%", width: 32, height: 32, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} /> : null}
+              {holeIndex === 3 ? (
+                <>
+                  <div style={{ position: "absolute", left: "7%", top: "20%", width: 52, height: "64%", background: "linear-gradient(105deg, transparent 0 45%, rgba(132,204,22,0.35) 45% 100%)" }} />
+                  {[18, 36, 54].map((top) => <div key={top} style={{ position: "absolute", left: "22%", top: `${top}%`, width: 28, height: 28, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 8px #14532d" }} />)}
+                  <div style={{ position: "absolute", left: "46%", top: "53%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
+                  <div style={{ position: "absolute", left: "56%", top: "51%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
+                </>
+              ) : null}
+              {holeIndex === 4 ? <div style={{ position: "absolute", right: "18%", top: "46%", width: 38, height: 38, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 10px #14532d" }} /> : null}
+              {holeIndex === 8 ? (
+                <>
+                  {[24, 40, 56].map((top) => <div key={top} style={{ position: "absolute", left: "13%", top: `${top}%`, width: 26, height: 26, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 8px #14532d" }} />)}
+                  <div style={{ position: "absolute", left: "48%", top: "47%", width: 30, height: 30, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
+                </>
+              ) : null}
+            </>
           ) : null}
           <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: "10%", width: 3, height: 42, background: "#d9ffe2" }} />
           <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: "10%", width: 26, height: 15, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
@@ -570,15 +690,15 @@ export default function TeeOffPage() {
             <div style={{ position: "absolute", inset: 0, zIndex: 4, background: "#082112", overflow: "hidden" }}>
               <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(0deg, rgba(124,255,155,0.06) 0 2px, transparent 2px 22px), repeating-linear-gradient(90deg, rgba(124,255,155,0.05) 0 2px, transparent 2px 22px)" }} />
               <div style={{ position: "absolute", left: "18%", top: "8%", width: "64%", height: "82%", background: "#1e7b35", clipPath: greenShape(hole.green), boxShadow: "inset 0 0 0 3px rgba(217,255,226,0.35), 0 0 28px rgba(34,197,94,0.28)" }} />
-              {[5, 10, 15, 20, 25, 30].map((ft) => (
+              {[5, 10, 15, 20, 25, 30, 45, 60].map((ft) => (
                 <div
                   key={ft}
                   style={{
                     position: "absolute",
                     left: "50%",
                     top: "50%",
-                    width: `${ft * 8}px`,
-                    height: `${ft * 5}px`,
+                    width: `${ft * 4}px`,
+                    height: `${ft * 2.6}px`,
                     border: "1px dashed rgba(217,255,226,0.45)",
                     borderRadius: "50%",
                     transform: "translate(-50%, -50%)",
