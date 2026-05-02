@@ -641,6 +641,15 @@ export default function LeaderboardPage() {
                     padding: 8,
                   }}
                 >
+                  Total
+                </th>
+                <th
+                  style={{
+                    textAlign: "left",
+                    borderBottom: "1px solid rgba(148,163,184,0.22)",
+                    padding: 8,
+                  }}
+                >
                   R1
                 </th>
                 <th
@@ -670,33 +679,6 @@ export default function LeaderboardPage() {
                 >
                   R4
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Total
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Scored
-                </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Views
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -710,6 +692,18 @@ export default function LeaderboardPage() {
                 return (
                   <Fragment key={r.user_id}>
                     <tr
+                      onClick={() => {
+                        if (canExpandAllUsed) toggleAllUsedExpanded(r.user_id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!canExpandAllUsed) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleAllUsedExpanded(r.user_id);
+                        }
+                      }}
+                      tabIndex={canExpandAllUsed ? 0 : undefined}
+                      aria-expanded={canExpandAllUsed ? isAllUsedExpanded : undefined}
                       style={{
                         background: isCurrentUser
                           ? "rgba(251,146,60,0.15)"
@@ -718,6 +712,7 @@ export default function LeaderboardPage() {
                           : "transparent",
                         outline: isCurrentUser ? "2px solid #fb923c" : "none",
                         outlineOffset: -2,
+                        cursor: canExpandAllUsed ? "pointer" : "default",
                       }}
                     >
                       <td
@@ -772,6 +767,16 @@ export default function LeaderboardPage() {
                         style={{
                           padding: 8,
                           borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          fontWeight: 800,
+                          color: scoreColor(r.total_strokes),
+                        }}
+                      >
+                        {fmtScore(r.total_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          padding: 8,
+                          borderBottom: "1px solid rgba(148,163,184,0.12)",
                           color: scoreColor(r.r1_strokes),
                           fontWeight: r.r1_strokes < 0 ? 700 : 400,
                         }}
@@ -808,51 +813,12 @@ export default function LeaderboardPage() {
                       >
                         {fmtScore(r.r4_strokes)}
                       </td>
-                      <td
-                        style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
-                          fontWeight: 800,
-                          color: scoreColor(r.total_strokes),
-                        }}
-                      >
-                        {fmtScore(r.total_strokes)}
-                      </td>
-                      <td
-                        style={{ padding: 8, borderBottom: "1px solid rgba(148,163,184,0.12)" }}
-                      >
-                        {r.scored_picks}
-                      </td>
-                      <td
-                        style={{ padding: 8, borderBottom: "1px solid rgba(148,163,184,0.12)" }}
-                      >
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {canExpandAllUsed ? (
-                            <button
-                              onClick={() => toggleAllUsedExpanded(r.user_id)}
-                              style={{
-                                padding: "6px 10px",
-                                borderRadius: 8,
-                                border: "1px solid rgba(148,163,184,0.16)",
-                                background: "rgba(15,23,42,0.92)",
-                                color: "#e2e8f0",
-                                cursor: "pointer",
-                                fontWeight: 800,
-                              }}
-                            >
-                              {isAllUsedExpanded ? "Hide Used" : "Show Used"}
-                            </button>
-                          ) : (
-                            <span style={{ opacity: 0.6 }}>—</span>
-                          )}
-                        </div>
-                      </td>
                     </tr>
 
                     {isAllUsedExpanded ? (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={8}
                           style={{
                             padding: 0,
                             borderBottom: "1px solid rgba(148,163,184,0.12)",
@@ -983,9 +949,10 @@ export default function LeaderboardPage() {
       ) : null}
 
       {!loading && !message ? (
-        <p style={{ marginTop: 12, opacity: 0.7 }}>
-          Auto-refreshes every 2 minutes.
-        </p>
+        <div style={{ marginTop: 12, opacity: 0.7 }}>
+          <p style={{ margin: 0 }}>Click Player Name to Show Players Used</p>
+          <p style={{ margin: "4px 0 0" }}>Auto-refreshes every 2 minutes.</p>
+        </div>
       ) : null}
 
       <div style={footerWrap}>
@@ -996,6 +963,5 @@ export default function LeaderboardPage() {
     </main>
   );
 }
-
 
 
