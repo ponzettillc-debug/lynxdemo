@@ -159,6 +159,7 @@ export default function LeaderboardPage() {
   const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<
     Record<string, boolean>
   >({});
+  const [isCompactNav, setIsCompactNav] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -182,6 +183,16 @@ export default function LeaderboardPage() {
     return () => {
       subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    function updateCompactNav() {
+      setIsCompactNav(window.innerWidth < 560);
+    }
+
+    updateCompactNav();
+    window.addEventListener("resize", updateCompactNav);
+    return () => window.removeEventListener("resize", updateCompactNav);
   }, []);
 
   const userEmail = session?.user?.email?.toLowerCase() ?? "";
@@ -468,7 +479,7 @@ export default function LeaderboardPage() {
 
   const nav: React.CSSProperties = {
     display: "flex",
-    gap: 10,
+    gap: isCompactNav ? 6 : 10,
     flexWrap: "wrap",
     marginBottom: 14,
   };
@@ -477,8 +488,8 @@ export default function LeaderboardPage() {
     textDecoration: "none",
     color: "#e2e8f0",
     fontWeight: 700,
-    fontSize: 14,
-    padding: "10px 14px",
+    fontSize: isCompactNav ? 12 : 14,
+    padding: isCompactNav ? "8px 9px" : "10px 14px",
     borderRadius: 999,
     background: "rgba(15,23,42,0.88)",
     border: "1px solid rgba(148,163,184,0.14)",
@@ -486,7 +497,9 @@ export default function LeaderboardPage() {
 
   const gamesNavLink: React.CSSProperties = {
     ...navLink,
-    marginLeft: "auto",
+    marginLeft: isCompactNav ? 0 : "auto",
+    fontSize: isCompactNav ? 11 : navLink.fontSize,
+    padding: isCompactNav ? "8px 8px" : navLink.padding,
     color: "#f8fafc",
     border: "1px solid rgba(203,213,225,0.28)",
     background:
