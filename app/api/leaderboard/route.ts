@@ -162,7 +162,6 @@ export async function GET(req: NextRequest) {
 
     const [
       tournamentRes,
-      poolMembersRes,
       golfersRes,
       picksRes,
       scoresRes,
@@ -173,10 +172,6 @@ export async function GET(req: NextRequest) {
         .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
         .eq("id", tournamentId)
         .maybeSingle(),
-      supabaseAdmin
-        .from("pool_members")
-        .select("user_id")
-        .eq("pool_id", poolId),
       supabaseAdmin
         .from("golfers")
         .select("id,name")
@@ -199,14 +194,12 @@ export async function GET(req: NextRequest) {
     ]);
 
     if (tournamentRes.error) return jsonError(`Error loading tournament: ${tournamentRes.error.message}`, 400);
-    if (poolMembersRes.error) return jsonError(`Error loading pool members: ${poolMembersRes.error.message}`, 400);
     if (golfersRes.error) return jsonError(`Error loading golfers: ${golfersRes.error.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
     if (leaderboardNamesRes.error) return jsonError(`Error loading names: ${leaderboardNamesRes.error.message}`, 400);
 
     const tournament = tournamentRes.data;
-    const poolMembers = poolMembersRes.data ?? [];
     const golfers = golfersRes.data ?? [];
     const picks = picksRes.data ?? [];
     const scores = scoresRes.data ?? [];
@@ -262,14 +255,11 @@ export async function GET(req: NextRequest) {
       }
     >();
 
-    const allUserIds = new Set<string>();
-
-    poolMembers.forEach((m: any) => allUserIds.add(m.user_id));
-    picks.forEach((p: any) => allUserIds.add(p.user_id));
-    leaderboardNames.forEach((r: any) => allUserIds.add(r.user_id));
+    const participantUserIds = new Set<string>();
+    picks.forEach((p: any) => participantUserIds.add(p.user_id));
 
     const rowMap = new Map<string, any>();
-    allUserIds.forEach((userId) => {
+    participantUserIds.forEach((userId) => {
       rowMap.set(userId, {
         user_id: userId,
         display_name: displayNameByUserId.get(userId) ?? null,

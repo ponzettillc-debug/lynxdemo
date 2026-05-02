@@ -32,10 +32,6 @@ type NameRow = {
   display_name: string | null;
 };
 
-type PoolMemberRow = {
-  user_id: string;
-};
-
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
@@ -139,16 +135,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const [tournamentsRes, poolMembersRes, picksRes, scoresRes, namesRes] = await Promise.all([
+    const [tournamentsRes, picksRes, scoresRes, namesRes] = await Promise.all([
       supabaseAdmin
         .from("tournaments")
         .select("id,name,round4_lock,created_at")
         .eq("pool_id", poolId)
         .order("created_at", { ascending: false }),
-      supabaseAdmin
-        .from("pool_members")
-        .select("user_id")
-        .eq("pool_id", poolId),
       supabaseAdmin
         .from("picks")
         .select("user_id,golfer_id,round,tournament_id")
@@ -164,13 +156,11 @@ export async function GET(req: NextRequest) {
     ]);
 
     if (tournamentsRes.error) return jsonError(`Error loading tournaments: ${tournamentsRes.error.message}`, 400);
-    if (poolMembersRes.error) return jsonError(`Error loading pool members: ${poolMembersRes.error.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
     if (namesRes.error) return jsonError(`Error loading names: ${namesRes.error.message}`, 400);
 
     const tournaments = (tournamentsRes.data ?? []) as TournamentRow[];
-    const poolMembers = (poolMembersRes.data ?? []) as PoolMemberRow[];
     const picks = (picksRes.data ?? []) as PickRow[];
     const scores = (scoresRes.data ?? []) as ScoreRow[];
     const names = (namesRes.data ?? []) as NameRow[];
@@ -202,10 +192,6 @@ export async function GET(req: NextRequest) {
         const totalsByUserId = new Map<string, { total: number; scoredPicks: number }>();
         const tournamentPicks = picks.filter((pick) => pick.tournament_id === tournament.id);
         const picksByUserRound = new Map<string, PickRow[]>();
-
-        poolMembers.forEach((member) => {
-          totalsByUserId.set(member.user_id, { total: 0, scoredPicks: 0 });
-        });
 
         tournamentPicks.forEach((pick) => {
           if (!totalsByUserId.has(pick.user_id)) {
