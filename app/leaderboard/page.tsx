@@ -437,26 +437,26 @@ export default function LeaderboardPage() {
   };
 
   const leaderboardWatermarkImage: React.CSSProperties = {
-    width: "min(58%, 520px)",
-    maxHeight: "82%",
+    width: "min(68%, 620px)",
+    maxHeight: "88%",
     objectFit: "contain",
-    opacity: 0.25,
-    filter: "saturate(0.82) contrast(0.9) brightness(1.08) blur(0.2px)",
+    opacity: 0.46,
+    filter: "saturate(0.95) contrast(1.02) brightness(1.24)",
     mixBlendMode: "screen",
   };
 
   const selectorRow: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: isCompactNav ? "1fr" : "minmax(260px, 420px) minmax(160px, 1fr)",
-    gap: 18,
+    gridTemplateColumns: isCompactNav ? "minmax(0, 1fr) 92px" : "minmax(260px, 420px) minmax(160px, 1fr)",
+    gap: isCompactNav ? 10 : 18,
     alignItems: "center",
   };
 
   const selectorLogo: React.CSSProperties = {
-    width: isCompactNav ? "min(72%, 250px)" : "min(100%, 280px)",
-    maxHeight: isCompactNav ? 88 : 104,
+    width: isCompactNav ? 92 : "min(100%, 280px)",
+    maxHeight: isCompactNav ? 66 : 104,
     objectFit: "contain",
-    justifySelf: isCompactNav ? "center" : "start",
+    justifySelf: "start",
     borderRadius: 14,
     opacity: 0.88,
     filter: "saturate(0.95) contrast(1.02) brightness(1.04)",
@@ -547,7 +547,7 @@ export default function LeaderboardPage() {
           <div>
             <label
               htmlFor="tournament-select"
-              style={{ display: "block", fontWeight: 900, marginBottom: 8 }}
+              style={{ display: "block", fontWeight: 900, marginBottom: isCompactNav ? 6 : 8 }}
             >
               Tournament
             </label>
@@ -557,12 +557,14 @@ export default function LeaderboardPage() {
               onChange={(e) => setSelectedTournamentId(e.target.value)}
               style={{
                 width: "100%",
-                padding: "13px 14px",
-                borderRadius: 14,
+                minWidth: 0,
+                padding: isCompactNav ? "10px 9px" : "13px 14px",
+                borderRadius: isCompactNav ? 11 : 14,
                 border: "1px solid rgba(148,163,184,0.16)",
                 background: "rgba(2,6,23,0.82)",
                 color: "#f8fafc",
                 outline: "none",
+                fontSize: isCompactNav ? 12 : 14,
               }}
             >
               <option value="">Select tournament</option>
