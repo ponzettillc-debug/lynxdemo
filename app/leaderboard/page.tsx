@@ -438,7 +438,8 @@ export default function LeaderboardPage() {
     width: "min(74%, 620px)",
     maxHeight: "76%",
     objectFit: "contain",
-    filter: "saturate(0.85) contrast(0.9) brightness(1.25) blur(0.35px)",
+    opacity: 0.2,
+    filter: "saturate(0.95) contrast(0.95) brightness(1.38) blur(0.25px)",
   };
 
   const bottomBannerImage: React.CSSProperties = {
@@ -586,7 +587,7 @@ export default function LeaderboardPage() {
               width: "100%",
               borderCollapse: "collapse",
               minWidth: 940,
-              background: "rgba(2,6,23,0.70)",
+              background: "rgba(2,6,23,0.62)",
             }}
           >
             <thead>
