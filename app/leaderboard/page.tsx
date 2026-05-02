@@ -512,10 +512,6 @@ export default function LeaderboardPage() {
       <div style={content}>
       <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
 
-      {selectedTournament?.name ? (
-        <p style={{ marginTop: 0, color: "#94a3b8" }}>{selectedTournament.name}</p>
-      ) : null}
-
       <div style={nav}>
         <a href="/picks" style={navLink}>
           Picks
