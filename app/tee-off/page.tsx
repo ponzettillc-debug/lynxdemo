@@ -106,6 +106,12 @@ function distanceToTarget(afterForwardYards: number, lateralYards: number) {
   return Math.sqrt(afterForwardYards * afterForwardYards + lateralYards * lateralYards);
 }
 
+function teeDriverBonusFactor(accuracyScore: number) {
+  if (accuracyScore >= 90) return 1.08 + Math.random() * 0.02;
+  if (accuracyScore >= 80) return 1.05 + Math.random() * 0.02;
+  return 1;
+}
+
 function puttSettings(feet: number) {
   if (feet <= 10) return { speed: 0.58, makeRange: 3 };
   if (feet <= 15) return { speed: 1.05, makeRange: 2.5 };
@@ -386,7 +392,8 @@ export default function TeeOffPage() {
     const centerMiss = Math.abs(accuracy - 50);
     const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
     const windBoost = wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
-    const carry = Math.round(clamp(effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) + windBoost, 1, effectiveClub.max + 18));
+    const teeDriverBonus = club.name === "DRIVER" && isTeeShot ? teeDriverBonusFactor(accuracyScore) : 1;
+    const carry = Math.round(clamp((effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) + windBoost) * teeDriverBonus, 1, effectiveClub.max * teeDriverBonus + 18));
     const missRatio = centerMiss / 50;
     const lateralYards = Math.round(
       carry * missRatio * 0.8 * (accuracy < 50 ? -1 : 1) +
@@ -398,7 +405,7 @@ export default function TeeOffPage() {
     let adjustedCarry = carry;
     let newRemaining = Math.max(0, Math.round(distanceToTarget(remaining - forwardYards, lateralYards)));
     let nextLie: Lie = newRemaining <= 20 ? "green" : "fairway";
-    let note = "";
+    let note = teeDriverBonus > 1 ? `TEE DRIVER BONUS +${Math.round((teeDriverBonus - 1) * 100)}%` : "";
 
     if (adjustedCarry > remaining + 50) {
       const penaltyStroke = nextStroke + 1;
@@ -568,9 +575,11 @@ export default function TeeOffPage() {
   const relScore = completedStrokes - completedPar;
   const onGreen = remaining > 0 && (lie === "green" || (remaining <= 20 && lie !== "sand"));
   const puttFeet = currentPuttFeet;
+  const idealWindBoost = club.putter ? 0 : wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
+  const expectedTeeDriverBonus = club.name === "DRIVER" && strokes === 0 ? 1.06 : 1;
   const idealPower = club.putter
     ? clamp((puttFeet / Math.max(1, effectiveClub.max)) * 100, 0, 100)
-    : clamp(((remaining - effectiveClub.min) / Math.max(1, effectiveClub.max - effectiveClub.min)) * 100, 0, 100);
+    : clamp((((remaining / expectedTeeDriverBonus) - idealWindBoost - effectiveClub.min) / Math.max(1, effectiveClub.max - effectiveClub.min)) * 100, 0, 100);
   const remainingLabel = onGreen || club.putter ? `${puttFeet} FT` : `${Math.round(remaining)} YDS`;
   const miniBallY = clamp(92 - (1 - remaining / Math.max(1, hole.yards)) * 76, 12, 92);
   const fairwayProgress = clamp(1 - remaining / Math.max(1, hole.yards), 0, 0.95);

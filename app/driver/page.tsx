@@ -46,6 +46,12 @@ function isOutOfBoundsDrive(score: ScoreRow | null) {
   return !!score && ((score.distance_yards > 200 && score.accuracy < 20) || score.distance_yards > HOLE_IN_ONE_MAX + 50);
 }
 
+function teeDriverBonusFactor(accuracyScore: number) {
+  if (accuracyScore >= 90) return 1.08 + Math.random() * 0.02;
+  if (accuracyScore >= 80) return 1.05 + Math.random() * 0.02;
+  return 1;
+}
+
 function driveTaunt(score: ScoreRow) {
   if (isOutOfBoundsDrive(score)) return "LOST BALL. THAT ONE HAS A NEW ZIP CODE.";
   if (score.distance_yards < 140) return "DID THE BALL FILE A RESTRAINING ORDER?";
@@ -223,8 +229,9 @@ export default function DriverPage() {
       const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
       const windBoost = wind * 1.8;
       const bombBonus = power >= 97 ? 14 : 0;
-      const rawDistance = 145 + power * 2.25 + windBoost + bombBonus;
-      const distance = Math.round(clamp(rawDistance, 45, 390));
+      const accuracyBonus = teeDriverBonusFactor(accuracyScore);
+      const rawDistance = (145 + power * 2.25 + windBoost + bombBonus) * accuracyBonus;
+      const distance = Math.round(clamp(rawDistance, 45, 430));
       const row = {
         distance_yards: distance,
         wind_mph: wind,
