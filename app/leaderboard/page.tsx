@@ -437,27 +437,34 @@ export default function LeaderboardPage() {
   };
 
   const leaderboardWatermarkImage: React.CSSProperties = {
-    width: "min(74%, 620px)",
-    maxHeight: "76%",
+    width: "min(58%, 520px)",
+    maxHeight: "82%",
     objectFit: "contain",
-    opacity: 0.29,
-    filter: "saturate(1.05) contrast(1) brightness(1.5) blur(0.15px)",
+    opacity: 0.25,
+    filter: "saturate(0.82) contrast(0.9) brightness(1.08) blur(0.2px)",
+    mixBlendMode: "screen",
   };
 
-  const bottomBannerImage: React.CSSProperties = {
-    width: "80%",
-    maxWidth: 416,
-    display: "block",
-    margin: "0 auto",
+  const selectorRow: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: isCompactNav ? "1fr" : "minmax(260px, 420px) minmax(160px, 1fr)",
+    gap: 18,
+    alignItems: "center",
+  };
+
+  const selectorLogo: React.CSSProperties = {
+    width: isCompactNav ? "min(72%, 250px)" : "min(100%, 280px)",
+    maxHeight: isCompactNav ? 88 : 104,
+    objectFit: "contain",
+    justifySelf: isCompactNav ? "center" : "start",
     borderRadius: 14,
-    opacity: 0.42,
-    filter: "saturate(0.72) contrast(0.95) brightness(0.92)",
+    opacity: 0.88,
+    filter: "saturate(0.95) contrast(1.02) brightness(1.04)",
     mixBlendMode: "screen",
-    boxShadow: "none",
     WebkitMaskImage:
-      "radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,0.62) 66%, transparent 100%)",
+      "radial-gradient(ellipse at center, #000 46%, rgba(0,0,0,0.68) 68%, transparent 100%)",
     maskImage:
-      "radial-gradient(ellipse at center, #000 42%, rgba(0,0,0,0.62) 66%, transparent 100%)",
+      "radial-gradient(ellipse at center, #000 46%, rgba(0,0,0,0.68) 68%, transparent 100%)",
   };
 
   const footerWrap: React.CSSProperties = {
@@ -536,34 +543,38 @@ export default function LeaderboardPage() {
       </div>
 
       <div style={{ ...card, marginBottom: 14 }}>
-        <label
-          htmlFor="tournament-select"
-          style={{ display: "block", fontWeight: 900, marginBottom: 8 }}
-        >
-          Tournament
-        </label>
-        <select
-          id="tournament-select"
-          value={selectedTournamentId}
-          onChange={(e) => setSelectedTournamentId(e.target.value)}
-          style={{
-            width: "100%",
-            maxWidth: 420,
-            padding: "13px 14px",
-            borderRadius: 14,
-            border: "1px solid rgba(148,163,184,0.16)",
-            background: "rgba(2,6,23,0.82)",
-            color: "#f8fafc",
-            outline: "none",
-          }}
-        >
-          <option value="">Select tournament</option>
-          {tournaments.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+        <div style={selectorRow}>
+          <div>
+            <label
+              htmlFor="tournament-select"
+              style={{ display: "block", fontWeight: 900, marginBottom: 8 }}
+            >
+              Tournament
+            </label>
+            <select
+              id="tournament-select"
+              value={selectedTournamentId}
+              onChange={(e) => setSelectedTournamentId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "13px 14px",
+                borderRadius: 14,
+                border: "1px solid rgba(148,163,184,0.16)",
+                background: "rgba(2,6,23,0.82)",
+                color: "#f8fafc",
+                outline: "none",
+              }}
+            >
+              <option value="">Select tournament</option>
+              {tournaments.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <img src="/4play-logo.png" alt="4Play Golf" style={selectorLogo} />
+        </div>
       </div>
 
       {loading ? <p style={{ color: "#cbd5e1" }}>Loading leaderboard…</p> : null}
@@ -578,7 +589,7 @@ export default function LeaderboardPage() {
             <div style={leaderboardWatermark} aria-hidden="true">
               <img
                 className="soft-logo-watermark"
-                src="/4play-logo.png"
+                src={bannerSrc}
                 alt=""
                 style={leaderboardWatermarkImage}
               />
@@ -974,14 +985,6 @@ export default function LeaderboardPage() {
           Auto-refreshes every 2 minutes.
         </p>
       ) : null}
-
-      <div style={{ marginTop: 28 }}>
-        <img
-          src={bannerSrc}
-          alt="Tournament round banner"
-          style={bottomBannerImage}
-        />
-      </div>
 
       <div style={footerWrap}>
         <p style={footerText}>© 2026 4Play Golf</p>
