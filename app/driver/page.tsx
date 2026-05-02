@@ -28,6 +28,8 @@ const LOCAL_KEY = "4play_driver_scores_v1";
 const FLAG_KEY = "4play_driver_flags_v1";
 const HOLE_IN_ONE_MIN = 362;
 const HOLE_IN_ONE_MAX = 373;
+const BALL_START_X = 40;
+const BALL_START_Y = 82;
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -69,8 +71,8 @@ export default function DriverPage() {
   const [accuracy, setAccuracy] = useState(100);
   const [accuracyDir, setAccuracyDir] = useState(-1);
   const [wind, setWind] = useState(() => Math.round(Math.random() * 30 - 15));
-  const [ballX, setBallX] = useState(4);
-  const [ballY, setBallY] = useState(70);
+  const [ballX, setBallX] = useState(BALL_START_X);
+  const [ballY, setBallY] = useState(BALL_START_Y);
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
   const [result, setResult] = useState<ScoreRow | null>(null);
   const [scores, setScores] = useState<ScoreRow[]>([]);
@@ -124,7 +126,7 @@ export default function DriverPage() {
       const elapsed = Date.now() - flightRef.current.started;
       const t = clamp(elapsed / 1700, 0, 1);
       const landingX = clamp(50 + flightRef.current.curve * 0.58, 13, 88);
-      const x = 30 + (landingX - 30) * t;
+      const x = BALL_START_X + (landingX - BALL_START_X) * t;
       const arc = Math.sin(t * Math.PI) * 18;
       const curve = flightRef.current.curve * t * t;
       const y = 82 - t * 63 - arc + Math.abs(curve) * 0.06;
@@ -208,8 +210,8 @@ export default function DriverPage() {
       setAccuracyDir(-1);
       setWind(Math.round(Math.random() * 30 - 15));
       setTail([]);
-      setBallX(30);
-      setBallY(82);
+      setBallX(BALL_START_X);
+      setBallY(BALL_START_Y);
       setResult(null);
       setSwingNotice("");
       setPhase("power");
@@ -282,12 +284,27 @@ export default function DriverPage() {
   const accuracyScore = Math.round(clamp(100 - Math.abs(accuracy - 50) * 2, 0, 100));
   const meterLabel = phase === "accuracy" ? `${accuracyScore}` : `${Math.round(power)}%`;
   const ballSize = clamp(12 - ((82 - ballY) / 63) * 7, 5, 12);
+  const swingActive = phase === "flight";
   const resultLine = result
     ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${isOutOfBoundsDrive(result) ? " | OUT OF BOUNDS - LOST BALL" : ""}${!isOutOfBoundsDrive(result) && result.power >= 97 ? " | BOMB!" : ""}${isHoleInOne(result) ? " | HOLE IN 1!!!" : ""}`
     : "LAST DRIVE: --";
 
   return (
     <main style={page} onClick={swingClick}>
+      <style>{`
+        @keyframes driverBackswing {
+          0% { transform: rotate(34deg); }
+          38% { transform: rotate(-54deg); }
+          68% { transform: rotate(76deg); }
+          100% { transform: rotate(34deg); }
+        }
+        @keyframes driverLeadArm {
+          0% { transform: rotate(-24deg); }
+          38% { transform: rotate(-64deg); }
+          68% { transform: rotate(24deg); }
+          100% { transform: rotate(-24deg); }
+        }
+      `}</style>
       <div style={panel}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
@@ -350,13 +367,46 @@ export default function DriverPage() {
             <div>HOLE 1</div>
             <div>365 YARDS</div>
           </div>
-          <div style={{ position: "absolute", left: 26, bottom: 42, width: 92, height: 18, background: "#22543d" }} />
-          <div style={{ position: "absolute", left: 59, bottom: 80, width: 12, height: 62, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 52, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: 37, bottom: 102, width: 48, height: 4, background: "#d9ffe2", transform: "rotate(-24deg)" }} />
-          <div style={{ position: "absolute", left: 67, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
-          <div style={{ position: "absolute", left: 57, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
-          <div style={{ position: "absolute", left: 89, bottom: 126, width: 3, height: 68, background: "#cbd5e1", transform: "rotate(34deg)" }} />
+          <div style={{ position: "absolute", left: "31%", bottom: 36, width: 120, height: 174, zIndex: 4 }}>
+            <div style={{ position: "absolute", left: 8, bottom: 0, width: 92, height: 18, background: "#22543d" }} />
+            <div style={{ position: "absolute", left: 41, bottom: 38, width: 12, height: 62, background: "#d9ffe2" }} />
+            <div style={{ position: "absolute", left: 34, bottom: 91, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
+            <div style={{ position: "absolute", left: 29, bottom: 111, width: 28, height: 13, background: "#1d4ed8", borderRadius: "10px 10px 3px 3px", overflow: "hidden", transform: "rotate(-8deg)" }}>
+              <div style={{ position: "absolute", left: 0, top: 0, width: 10, height: 13, background: "#1e3a8a" }} />
+              <div style={{ position: "absolute", left: 10, top: 2, width: 18, height: 2, background: "#ef4444" }} />
+              <div style={{ position: "absolute", left: 10, top: 6, width: 18, height: 2, background: "#f8fafc" }} />
+              <div style={{ position: "absolute", left: 10, top: 10, width: 18, height: 2, background: "#ef4444" }} />
+            </div>
+            <div style={{ position: "absolute", left: 18, bottom: 108, width: 17, height: 5, background: "#1d4ed8", borderRadius: 999, transform: "rotate(-16deg)" }} />
+            <div
+              style={{
+                position: "absolute",
+                left: 19,
+                bottom: 60,
+                width: 48,
+                height: 4,
+                background: "#d9ffe2",
+                transformOrigin: "38px 2px",
+                transform: "rotate(-24deg)",
+                animation: swingActive ? "driverLeadArm 520ms ease-out 1" : undefined,
+              }}
+            />
+            <div style={{ position: "absolute", left: 49, bottom: 1, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
+            <div style={{ position: "absolute", left: 39, bottom: 1, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
+            <div
+              style={{
+                position: "absolute",
+                left: 71,
+                bottom: 84,
+                width: 3,
+                height: 68,
+                background: "#cbd5e1",
+                transformOrigin: "1px 64px",
+                transform: "rotate(34deg)",
+                animation: swingActive ? "driverBackswing 520ms ease-out 1" : undefined,
+              }}
+            />
+          </div>
 
           {driveFlags.map((flag, idx) => (
             <div
