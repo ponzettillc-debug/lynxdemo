@@ -426,7 +426,9 @@ export default function LeaderboardPage() {
 
   const leaderboardWatermark: React.CSSProperties = {
     position: "absolute",
-    inset: 0,
+    inset: "0 auto 0 0",
+    width: "100%",
+    minWidth: 940,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -438,8 +440,8 @@ export default function LeaderboardPage() {
     width: "min(74%, 620px)",
     maxHeight: "76%",
     objectFit: "contain",
-    opacity: 0.2,
-    filter: "saturate(0.95) contrast(0.95) brightness(1.38) blur(0.25px)",
+    opacity: 0.29,
+    filter: "saturate(1.05) contrast(1) brightness(1.5) blur(0.15px)",
   };
 
   const bottomBannerImage: React.CSSProperties = {
@@ -572,24 +574,24 @@ export default function LeaderboardPage() {
 
       {!loading && !message && rankedRows.length > 0 ? (
         <div style={leaderboardTableWrap}>
-          <div style={leaderboardWatermark} aria-hidden="true">
-            <img
-              className="soft-logo-watermark"
-              src="/4play-logo.png"
-              alt=""
-              style={leaderboardWatermarkImage}
-            />
-          </div>
-          <table
-            style={{
-              position: "relative",
-              zIndex: 1,
-              width: "100%",
-              borderCollapse: "collapse",
-              minWidth: 940,
-              background: "rgba(2,6,23,0.62)",
-            }}
-          >
+          <div style={{ position: "relative", minWidth: 940 }}>
+            <div style={leaderboardWatermark} aria-hidden="true">
+              <img
+                className="soft-logo-watermark"
+                src="/4play-logo.png"
+                alt=""
+                style={leaderboardWatermarkImage}
+              />
+            </div>
+            <table
+              style={{
+                position: "relative",
+                zIndex: 1,
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "rgba(2,6,23,0.62)",
+              }}
+            >
             <thead>
               <tr>
                 <th
@@ -962,7 +964,8 @@ export default function LeaderboardPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       ) : null}
 
