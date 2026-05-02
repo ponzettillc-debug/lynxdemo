@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import AppLogo from "../components/AppLogo";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -158,6 +157,23 @@ export default function TrophyRoomPage() {
     marginBottom: 16,
   };
 
+  const bannerStyle: React.CSSProperties = {
+    width: "100%",
+    maxWidth: 760,
+    display: "block",
+    margin: "0 auto 18px",
+    borderRadius: 22,
+    opacity: 0.92,
+    filter: "saturate(0.94) contrast(0.98) brightness(0.96)",
+    mixBlendMode: "screen",
+    WebkitMaskImage:
+      "linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 9%, #000 88%, transparent 100%)",
+    WebkitMaskComposite: "source-in",
+    maskImage:
+      "linear-gradient(to right, transparent 0%, #000 8%, #000 92%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 9%, #000 88%, transparent 100%)",
+    maskComposite: "intersect",
+  };
+
   const trophyBadge: React.CSSProperties = {
     alignSelf: "flex-start",
     borderRadius: 999,
@@ -183,9 +199,7 @@ export default function TrophyRoomPage() {
   return (
     <main style={shell}>
       <div style={content}>
-        <div className="soft-logo-mark" style={{ marginBottom: 10 }}>
-          <AppLogo width={220} height={90} />
-        </div>
+        <img src="/4play-banner.png" alt="4Play Golf" style={bannerStyle} />
 
         <h1 style={{ marginTop: 0, marginBottom: 4 }}>Trophy Room</h1>
         <p style={{ marginTop: 0, color: "#94a3b8" }}>
