@@ -32,12 +32,22 @@ type NameRow = {
   display_name: string | null;
 };
 
+type PoolMemberRow = {
+  user_id: string;
+};
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
+}
+
+function parseLockTime(value?: string | null) {
+  if (!value) return NaN;
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
 }
 
 async function requireUser(req: NextRequest) {
@@ -69,7 +79,7 @@ async function requireUser(req: NextRequest) {
 
 function isPastTournament(tournament: { round4_lock?: string | null }) {
   if (!tournament.round4_lock) return false;
-  const lockTime = new Date(tournament.round4_lock).getTime();
+  const lockTime = parseLockTime(tournament.round4_lock);
   return Number.isFinite(lockTime) && lockTime <= Date.now();
 }
 
@@ -129,12 +139,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const [tournamentsRes, picksRes, scoresRes, namesRes] = await Promise.all([
+    const [tournamentsRes, poolMembersRes, picksRes, scoresRes, namesRes] = await Promise.all([
       supabaseAdmin
         .from("tournaments")
         .select("id,name,round4_lock,created_at")
         .eq("pool_id", poolId)
         .order("created_at", { ascending: false }),
+      supabaseAdmin
+        .from("pool_members")
+        .select("user_id")
+        .eq("pool_id", poolId),
       supabaseAdmin
         .from("picks")
         .select("user_id,golfer_id,round,tournament_id")
@@ -150,11 +164,13 @@ export async function GET(req: NextRequest) {
     ]);
 
     if (tournamentsRes.error) return jsonError(`Error loading tournaments: ${tournamentsRes.error.message}`, 400);
+    if (poolMembersRes.error) return jsonError(`Error loading pool members: ${poolMembersRes.error.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
     if (namesRes.error) return jsonError(`Error loading names: ${namesRes.error.message}`, 400);
 
     const tournaments = (tournamentsRes.data ?? []) as TournamentRow[];
+    const poolMembers = (poolMembersRes.data ?? []) as PoolMemberRow[];
     const picks = (picksRes.data ?? []) as PickRow[];
     const scores = (scoresRes.data ?? []) as ScoreRow[];
     const names = (namesRes.data ?? []) as NameRow[];
@@ -165,11 +181,19 @@ export async function GET(req: NextRequest) {
     });
 
     const scoreByTournamentGolferRound = new Map<string, number>();
+    const worstScoreByTournamentRound = new Map<string, number>();
     scores.forEach((score) => {
-      scoreByTournamentGolferRound.set(
-        `${score.tournament_id}:${score.golfer_id}:${score.round}`,
-        Number(score.strokes) || 0
-      );
+      const round = Number(score.round);
+      const strokes = Number(score.strokes) || 0;
+      scoreByTournamentGolferRound.set(`${score.tournament_id}:${score.golfer_id}:${round}`, strokes);
+
+      if ([1, 2, 3, 4].includes(round)) {
+        const worstKey = `${score.tournament_id}:${round}`;
+        const currentWorst = worstScoreByTournamentRound.get(worstKey);
+        if (typeof currentWorst !== "number" || strokes > currentWorst) {
+          worstScoreByTournamentRound.set(worstKey, strokes);
+        }
+      }
     });
 
     const winnerRows = tournaments
@@ -177,19 +201,42 @@ export async function GET(req: NextRequest) {
       .map((tournament) => {
         const totalsByUserId = new Map<string, { total: number; scoredPicks: number }>();
         const tournamentPicks = picks.filter((pick) => pick.tournament_id === tournament.id);
+        const picksByUserRound = new Map<string, PickRow[]>();
+
+        poolMembers.forEach((member) => {
+          totalsByUserId.set(member.user_id, { total: 0, scoredPicks: 0 });
+        });
 
         tournamentPicks.forEach((pick) => {
           if (!totalsByUserId.has(pick.user_id)) {
             totalsByUserId.set(pick.user_id, { total: 0, scoredPicks: 0 });
           }
 
-          const row = totalsByUserId.get(pick.user_id)!;
-          const scoreKey = `${pick.tournament_id}:${pick.golfer_id}:${pick.round}`;
+          const round = Number(pick.round);
+          if (![1, 2, 3, 4].includes(round)) return;
+          const key = `${pick.user_id}:${round}`;
+          if (!picksByUserRound.has(key)) picksByUserRound.set(key, []);
+          picksByUserRound.get(key)!.push(pick);
+        });
 
-          if (scoreByTournamentGolferRound.has(scoreKey)) {
-            row.total += scoreByTournamentGolferRound.get(scoreKey) ?? 0;
-            row.scoredPicks += 1;
-          }
+        totalsByUserId.forEach((row, userId) => {
+          ([1, 2, 3, 4] as const).forEach((round) => {
+            const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
+            const worstScore = worstScoreByTournamentRound.get(`${tournament.id}:${round}`);
+
+            for (let slot = 0; slot < 4; slot += 1) {
+              const pick = roundPicks[slot];
+              const pickedScore = pick
+                ? scoreByTournamentGolferRound.get(`${pick.tournament_id}:${pick.golfer_id}:${round}`)
+                : undefined;
+              const score = typeof pickedScore === "number" ? pickedScore : worstScore;
+
+              if (typeof score !== "number") continue;
+
+              row.total += score;
+              row.scoredPicks += 1;
+            }
+          });
         });
 
         const ranked = [...totalsByUserId.entries()]

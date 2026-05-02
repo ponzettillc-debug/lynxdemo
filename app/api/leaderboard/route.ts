@@ -43,6 +43,64 @@ function getLockedRound(tournament: {
   return latestLocked;
 }
 
+function addRoundScore(row: any, round: number, score: number) {
+  if (round === 1) row.r1_strokes += score;
+  if (round === 2) row.r2_strokes += score;
+  if (round === 3) row.r3_strokes += score;
+  if (round === 4) row.r4_strokes += score;
+}
+
+function addRoundPickData(
+  target: Record<string, Array<{ name: string; score: number | null }>>,
+  userId: string,
+  name: string,
+  score: number | null
+) {
+  if (!target[userId]) {
+    target[userId] = [];
+  }
+
+  target[userId].push({ name, score });
+}
+
+function addUsedPick(
+  accumulator: Map<
+    string,
+    {
+      userId: string;
+      golferId: string;
+      name: string;
+      roundsUsed: Set<number>;
+      totalScore: number;
+      roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+    }
+  >,
+  userId: string,
+  golferId: string,
+  name: string,
+  round: 1 | 2 | 3 | 4,
+  score: number | null
+) {
+  const key = `${userId}:${golferId}`;
+  if (!accumulator.has(key)) {
+    accumulator.set(key, {
+      userId,
+      golferId,
+      name,
+      roundsUsed: new Set<number>(),
+      totalScore: 0,
+      roundScores: {},
+    });
+  }
+
+  const entry = accumulator.get(key)!;
+  entry.roundsUsed.add(round);
+  entry.roundScores[round] = score;
+  if (typeof score === "number") {
+    entry.totalScore += score;
+  }
+}
+
 async function requireUser(req: NextRequest) {
   if (!supabaseUrl) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500) };
   if (!supabaseAnonKey) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500) };
@@ -163,23 +221,45 @@ export async function GET(req: NextRequest) {
     });
 
     const scoreByGolferRound = new Map<string, number>();
+    const worstScoreByRound = new Map<1 | 2 | 3 | 4, number>();
     scores.forEach((s: any) => {
-      scoreByGolferRound.set(`${s.golfer_id}:${s.round}`, Number(s.strokes) || 0);
+      const round = Number(s.round) as 1 | 2 | 3 | 4;
+      const strokes = Number(s.strokes) || 0;
+      scoreByGolferRound.set(`${s.golfer_id}:${round}`, strokes);
+
+      if ([1, 2, 3, 4].includes(round)) {
+        const currentWorst = worstScoreByRound.get(round);
+        if (typeof currentWorst !== "number" || strokes > currentWorst) {
+          worstScoreByRound.set(round, strokes);
+        }
+      }
     });
 
-    const pickedGolfersByUser = new Map<string, Set<string>>();
+    const picksByUserRound = new Map<string, any[]>();
     const roundPickDataByUser: Record<
       string,
       Array<{ name: string; score: number | null }>
     > = {};
     const allUsedPicksByUser: Record<
       string,
-      Array<{ name: string; roundsUsed: number[]; totalScore: number }>
+      Array<{
+        name: string;
+        roundsUsed: number[];
+        totalScore: number;
+        roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+      }>
     > = {};
 
     const allUsedAccumulator = new Map<
       string,
-      { userId: string; golferId: string; name: string; roundsUsed: Set<number>; totalScore: number }
+      {
+        userId: string;
+        golferId: string;
+        name: string;
+        roundsUsed: Set<number>;
+        totalScore: number;
+        roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+      }
     >();
 
     const allUserIds = new Set<string>();
@@ -200,92 +280,72 @@ export async function GET(req: NextRequest) {
         total_strokes: 0,
         scored_picks: 0,
       });
-      pickedGolfersByUser.set(userId, new Set<string>());
     });
 
     const lockedRound = tournament ? getLockedRound(tournament) : null;
 
     picks.forEach((pick: any) => {
-      const row = rowMap.get(pick.user_id);
-      if (!row) return;
-
-      const score = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
-      if (typeof score === "number") {
-        if (pick.round === 1) row.r1_strokes += score;
-        if (pick.round === 2) row.r2_strokes += score;
-        if (pick.round === 3) row.r3_strokes += score;
-        if (pick.round === 4) row.r4_strokes += score;
-      }
-
-      pickedGolfersByUser.get(pick.user_id)?.add(pick.golfer_id);
-
-      if (lockedRound && pick.round === lockedRound) {
-        const golferName = golferNameById.get(pick.golfer_id);
-        const lockedScore = scoreByGolferRound.has(`${pick.golfer_id}:${pick.round}`)
-          ? scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`) ?? null
-          : null;
-
-        if (!roundPickDataByUser[pick.user_id]) {
-          roundPickDataByUser[pick.user_id] = [];
-        }
-
-        if (golferName) {
-          roundPickDataByUser[pick.user_id].push({
-            name: golferName,
-            score: lockedScore,
-          });
-        }
-      }
-
-      if (lockedRound && pick.round <= lockedRound) {
-        const golferName = golferNameById.get(pick.golfer_id);
-        if (!golferName) return;
-
-        const key = `${pick.user_id}:${pick.golfer_id}`;
-        if (!allUsedAccumulator.has(key)) {
-          allUsedAccumulator.set(key, {
-            userId: pick.user_id,
-            golferId: pick.golfer_id,
-            name: golferName,
-            roundsUsed: new Set<number>(),
-            totalScore: 0,
-          });
-        }
-
-        const entry = allUsedAccumulator.get(key)!;
-        entry.roundsUsed.add(Number(pick.round));
-
-        const roundScore = scoreByGolferRound.get(`${pick.golfer_id}:${pick.round}`);
-        if (typeof roundScore === "number") {
-          entry.totalScore += roundScore;
-        }
-      }
+      const round = Number(pick.round);
+      if (![1, 2, 3, 4].includes(round)) return;
+      const key = `${pick.user_id}:${round}`;
+      if (!picksByUserRound.has(key)) picksByUserRound.set(key, []);
+      picksByUserRound.get(key)!.push(pick);
     });
+
+    if (lockedRound) {
+      rowMap.forEach((row: any, userId: string) => {
+        ([1, 2, 3, 4] as const).forEach((round) => {
+          if (round > lockedRound) return;
+
+          const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
+          const worstScore = worstScoreByRound.get(round);
+
+          for (let slot = 0; slot < 4; slot += 1) {
+            const pick = roundPicks[slot];
+            const pickedScore = pick
+              ? scoreByGolferRound.get(`${pick.golfer_id}:${round}`)
+              : undefined;
+            const hasPickedScore = typeof pickedScore === "number";
+            const score = hasPickedScore ? pickedScore : worstScore;
+
+            if (typeof score !== "number") continue;
+
+            const name = hasPickedScore
+              ? golferNameById.get(pick.golfer_id) ?? "Unknown Golfer"
+              : "Penalty";
+            const golferId = hasPickedScore
+              ? String(pick.golfer_id)
+              : `penalty-r${round}-slot${slot + 1}`;
+
+            addRoundScore(row, round, score);
+            row.scored_picks += 1;
+
+            if (round === lockedRound) {
+              addRoundPickData(roundPickDataByUser, userId, name, score);
+            }
+
+            addUsedPick(
+              allUsedAccumulator,
+              userId,
+              golferId,
+              name,
+              round,
+              score
+            );
+          }
+        });
+      });
+    }
 
     const rows = Array.from(rowMap.values())
       .map((row: any) => {
-        const pickedGolfers = pickedGolfersByUser.get(row.user_id) ?? new Set<string>();
-
-        let scoredPicks = 0;
-        pickedGolfers.forEach((golferId) => {
-          const hasAnyScore =
-            scoreByGolferRound.has(`${golferId}:1`) ||
-            scoreByGolferRound.has(`${golferId}:2`) ||
-            scoreByGolferRound.has(`${golferId}:3`) ||
-            scoreByGolferRound.has(`${golferId}:4`);
-
-          if (hasAnyScore) scoredPicks += 1;
-        });
-
         return {
           ...row,
-          scored_picks: scoredPicks,
           total_strokes:
             row.r1_strokes + row.r2_strokes + row.r3_strokes + row.r4_strokes,
         };
       })
       .filter((row: any) => {
-        const hasAnyPicks = (pickedGolfersByUser.get(row.user_id)?.size ?? 0) > 0;
         const hasAnyScores =
           row.scored_picks > 0 ||
           row.total_strokes !== 0 ||
@@ -293,7 +353,7 @@ export async function GET(req: NextRequest) {
           row.r2_strokes !== 0 ||
           row.r3_strokes !== 0 ||
           row.r4_strokes !== 0;
-        return hasAnyPicks || hasAnyScores;
+        return hasAnyScores;
       })
       .sort((a: any, b: any) => {
         if (a.total_strokes !== b.total_strokes) {
@@ -319,6 +379,7 @@ export async function GET(req: NextRequest) {
         name: entry.name,
         roundsUsed: [...entry.roundsUsed].sort((a, b) => a - b),
         totalScore: entry.totalScore,
+        roundScores: entry.roundScores,
       });
     });
 
