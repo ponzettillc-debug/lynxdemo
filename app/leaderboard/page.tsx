@@ -411,7 +411,8 @@ export default function LeaderboardPage() {
     border: "1px solid rgba(148,163,184,0.14)",
     borderRadius: 18,
     padding: 12,
-    background: "rgba(15,23,42,0.92)",
+    background: "rgba(15,23,42,0.48)",
+    backdropFilter: "blur(1px)",
   };
 
   const leaderboardTableWrap: React.CSSProperties = {
@@ -426,12 +427,15 @@ export default function LeaderboardPage() {
 
   const leaderboardWatermark: React.CSSProperties = {
     position: "absolute",
-    inset: "0 auto 0 0",
+    left: 0,
+    top: "50%",
     width: "100%",
+    height: "100%",
     minWidth: isCompactNav ? 320 : 760,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    transform: "translateY(-50%)",
     pointerEvents: "none",
     zIndex: 0,
   };
@@ -844,7 +848,7 @@ export default function LeaderboardPage() {
                                       minWidth: usedRoundMinWidth,
                                       border: "1px solid rgba(148,163,184,0.14)",
                                       borderRadius: isCompactNav ? 7 : 12,
-                                      background: roundVisible ? "rgba(15,23,42,0.78)" : "rgba(51,65,85,0.45)",
+                                      background: roundVisible ? "rgba(15,23,42,0.42)" : "rgba(51,65,85,0.28)",
                                       padding: isCompactNav ? 3 : 7,
                                     }}
                                   >
@@ -888,7 +892,7 @@ export default function LeaderboardPage() {
                                             style={{
                                               border: "1px solid rgba(148,163,184,0.12)",
                                               borderRadius: isCompactNav ? 5 : 8,
-                                              background: hidden ? "rgba(51,65,85,0.6)" : "rgba(2,6,23,0.72)",
+                                              background: hidden ? "rgba(51,65,85,0.34)" : "rgba(2,6,23,0.46)",
                                               padding: isCompactNav ? "4px 2px" : "7px 8px",
                                             }}
                                           >
