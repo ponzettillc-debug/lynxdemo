@@ -441,15 +441,12 @@ export default function LeaderboardPage() {
   };
 
   const leaderboardWatermarkImage: React.CSSProperties = {
-    width: isCompactNav ? "96%" : "94%",
-    height: isCompactNav ? "72%" : "78%",
-    maxHeight: isCompactNav ? 260 : 460,
-    objectFit: "fill",
-    objectPosition: "center center",
-    opacity: 0.54,
-    filter: "saturate(1.02) contrast(1.04) brightness(1.28)",
+    width: "min(68%, 620px)",
+    maxHeight: "88%",
+    objectFit: "contain",
+    opacity: 0.46,
+    filter: "saturate(0.95) contrast(1.02) brightness(1.24)",
     mixBlendMode: "screen",
-    borderRadius: 18,
   };
 
   const selectorRow: React.CSSProperties = {
@@ -599,7 +596,13 @@ export default function LeaderboardPage() {
               ))}
             </select>
           </div>
-          <img src="/4play-logo.png" alt="4Play Golf" style={selectorLogo} />
+          <a
+            href={`/daily-logo?round=${lockedRound ?? "default"}`}
+            aria-label="View daily 4Play image"
+            style={{ display: "inline-flex", justifySelf: "start", lineHeight: 0 }}
+          >
+            <img src="/4play-logo.png" alt="4Play Golf" style={selectorLogo} />
+          </a>
         </div>
       </div>
 
