@@ -11,6 +11,11 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
+function isMissingRosterTable(error: any) {
+  const text = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
+  return text.includes("42p01") || text.includes("tournament_golfers");
+}
+
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
@@ -75,14 +80,30 @@ if (lockVal) {
   }
 }
 
-    // Validate golferIds belong to this pool
-    const { data: golferRows, error: gErr } = await admin
-      .from("golfers")
-      .select("id")
+    // Validate golferIds belong to this tournament roster when one exists.
+    // If no roster has been configured yet, keep the legacy pool-wide behavior.
+    const { data: rosterRows, error: rosterErr } = await admin
+      .from("tournament_golfers")
+      .select("golfer_id")
       .eq("pool_id", pool.id)
-      .in("id", body.golferIds);
-    if (gErr) return jsonError(gErr.message, 500);
-    if ((golferRows?.length ?? 0) !== 4) return jsonError("One or more golferIds invalid for this pool", 400);
+      .eq("tournament_id", body.tournamentId)
+      .eq("active", true);
+
+    if (rosterErr && !isMissingRosterTable(rosterErr)) return jsonError(rosterErr.message, 500);
+
+    if (!rosterErr && (rosterRows?.length ?? 0) > 0) {
+      const allowed = new Set((rosterRows ?? []).map((row: any) => String(row.golfer_id)));
+      const invalid = body.golferIds.find((id) => !allowed.has(id));
+      if (invalid) return jsonError("One or more golfers are not in this tournament field", 400);
+    } else {
+      const { data: golferRows, error: gErr } = await admin
+        .from("golfers")
+        .select("id")
+        .eq("pool_id", pool.id)
+        .in("id", body.golferIds);
+      if (gErr) return jsonError(gErr.message, 500);
+      if ((golferRows?.length ?? 0) !== 4) return jsonError("One or more golferIds invalid for this pool", 400);
+    }
 
     // Burn rule: golfer cannot have been used by this user earlier in tournament (other rounds)
     const { data: existing, error: eErr } = await admin

@@ -195,19 +195,7 @@ export default function PicksPage() {
           return;
         }
 
-        const { data: gData, error: gErr } = await supabase
-          .from("golfers")
-          .select("id,name")
-          .eq("pool_id", resolvedPoolId);
-
-        if (gErr) {
-          setMessage(`Error loading golfers: ${gErr.message}`);
-          setInitialLoading(false);
-          return;
-        }
-
         setTournaments((tData ?? []) as Tournament[]);
-        setGolfers((gData ?? []) as Golfer[]);
 
         if ((tData ?? []).length === 0) {
           setMessage(
@@ -230,6 +218,48 @@ export default function PicksPage() {
       loadInitial();
     }
   }, [session, isAdmin]);
+
+  useEffect(() => {
+    async function loadTournamentGolfers() {
+      try {
+        if (!poolId || !selectedTournament) {
+          setGolfers([]);
+          return;
+        }
+
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (!token) {
+          window.location.href = "/";
+          return;
+        }
+
+        const r = await fetch(
+          `/api/tournament-golfers?pool_id=${encodeURIComponent(poolId)}&tournament_id=${encodeURIComponent(selectedTournament)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const j = await r.json().catch(() => ({} as any));
+
+        if (!r.ok) {
+          setMessage(j?.error || "Error loading tournament golfers.");
+          setGolfers([]);
+          return;
+        }
+
+        setGolfers((j?.golfers ?? []) as Golfer[]);
+        setMessage((m) => (m === "Loadingâ€¦" ? "" : m));
+      } catch (e: any) {
+        setMessage(e?.message || "Golfer load error");
+        setGolfers([]);
+      }
+    }
+
+    loadTournamentGolfers();
+  }, [poolId, selectedTournament]);
 
   useEffect(() => {
     async function loadPicks() {

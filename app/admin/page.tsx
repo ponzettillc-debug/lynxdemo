@@ -139,6 +139,12 @@ export default function AdminPage() {
   const [scoreEdits, setScoreEdits] = useState<ScoreMap>({});
   const [pickUsage, setPickUsage] = useState<PickUsageMap>({});
   const [pickUsageLoading, setPickUsageLoading] = useState(false);
+  const [rosterTournamentId, setRosterTournamentId] = useState<string>("");
+  const [rosterGolfers, setRosterGolfers] = useState<Golfer[]>([]);
+  const [rosterUrl, setRosterUrl] = useState("https://www.pgachampionship.com/players");
+  const [rosterNames, setRosterNames] = useState("");
+  const [rosterBusy, setRosterBusy] = useState(false);
+  const [rosterStatus, setRosterStatus] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -261,6 +267,16 @@ export default function AdminPage() {
     loadScoresForTournament(scoreTournamentId);
     loadPickUsageForTournament(scoreTournamentId);
   }, [scoreTournamentId, golfers, tournaments, pool]);
+
+  useEffect(() => {
+    if (!pool || !rosterTournamentId) {
+      setRosterGolfers([]);
+      setRosterStatus("");
+      return;
+    }
+
+    loadTournamentRoster(rosterTournamentId);
+  }, [pool, rosterTournamentId]);
 
   async function getAccessToken() {
     const { data } = await supabase.auth.getSession();
@@ -430,6 +446,99 @@ export default function AdminPage() {
       !nextTournaments.some((t) => t.id === scoreTournamentId)
     ) {
       setScoreTournamentId(nextTournaments[0]?.id ?? "");
+    }
+
+    if (!rosterTournamentId && nextTournaments.length > 0) {
+      setRosterTournamentId(nextTournaments[0].id);
+    } else if (
+      rosterTournamentId &&
+      !nextTournaments.some((t) => t.id === rosterTournamentId)
+    ) {
+      setRosterTournamentId(nextTournaments[0]?.id ?? "");
+    }
+  }
+
+  async function loadTournamentRoster(tournamentId: string) {
+    if (!pool || !tournamentId) {
+      setRosterGolfers([]);
+      return;
+    }
+
+    try {
+      setRosterBusy(true);
+      const token = await getAccessToken();
+      const r = await fetch(
+        `/api/admin/tournament-golfers?pool_id=${encodeURIComponent(pool.id)}&tournament_id=${encodeURIComponent(tournamentId)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setRosterStatus(j?.error || "Failed to load tournament field.");
+        setRosterGolfers([]);
+        return;
+      }
+
+      setRosterGolfers((j?.roster_golfers ?? []) as Golfer[]);
+      setRosterStatus(
+        (j?.roster_golfers?.length ?? 0) > 0
+          ? `Tournament field loaded (${j.roster_golfers.length} golfers).`
+          : "No specific field set. Picks will currently use the full golfer pool."
+      );
+    } catch (err: any) {
+      setRosterStatus(err?.message || "Failed to load tournament field.");
+      setRosterGolfers([]);
+    } finally {
+      setRosterBusy(false);
+    }
+  }
+
+  async function updateTournamentRoster(action: "seed_all" | "import_url" | "replace_names") {
+    if (!pool || !rosterTournamentId) {
+      setRosterStatus("Select a tournament field first.");
+      return;
+    }
+
+    try {
+      setRosterBusy(true);
+      setRosterStatus("Updating tournament field...");
+      const token = await getAccessToken();
+      const r = await fetch("/api/admin/tournament-golfers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pool_id: pool.id,
+          tournament_id: rosterTournamentId,
+          action,
+          url: rosterUrl,
+          names: rosterNames,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setRosterStatus(j?.error || "Tournament field update failed.");
+        return;
+      }
+
+      setRosterGolfers((j?.roster_golfers ?? []) as Golfer[]);
+      const created = Array.isArray(j?.created) ? j.created.length : 0;
+      setRosterStatus(
+        `Tournament field updated: ${j?.roster_golfers?.length ?? j?.imported_count ?? 0} golfers${created ? `, ${created} added to master list` : ""}.`
+      );
+      if (action === "replace_names") setRosterNames("");
+      await refresh(pool.id);
+    } catch (err: any) {
+      setRosterStatus(err?.message || "Tournament field update failed.");
+    } finally {
+      setRosterBusy(false);
     }
   }
 
@@ -1726,6 +1835,108 @@ export default function AdminPage() {
               <p style={{ marginTop: 12, color: "#94a3b8", fontSize: 14 }}>
                 Total golfers: <strong style={{ color: "#f8fafc" }}>{golfers.length}</strong>
               </p>
+            </section>
+
+            <section style={styles.card}>
+              <h2 style={styles.sectionTitle}>Tournament Field</h2>
+              <p style={styles.sectionText}>
+                Set which golfers are available for a specific tournament. If a tournament has no field set, picks fall back to the full golfer pool.
+              </p>
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                <select
+                  value={rosterTournamentId}
+                  onChange={(e) => setRosterTournamentId(e.target.value)}
+                  style={{ ...styles.input, flex: 1, marginBottom: 0, minWidth: 240 }}
+                >
+                  <option value="">Select tournament</option>
+                  {tournaments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => loadTournamentRoster(rosterTournamentId)}
+                  style={styles.secondaryButton}
+                  disabled={!rosterTournamentId || rosterBusy}
+                >
+                  Refresh Field
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginBottom: 12 }}>
+                <button
+                  onClick={() => updateTournamentRoster("seed_all")}
+                  style={styles.secondaryButton}
+                  disabled={!rosterTournamentId || rosterBusy}
+                >
+                  Use Full Current Golfer Pool
+                </button>
+                <button
+                  onClick={() => updateTournamentRoster("import_url")}
+                  style={styles.secondaryButton}
+                  disabled={!rosterTournamentId || rosterBusy || !rosterUrl.trim()}
+                >
+                  Import From URL
+                </button>
+                <button
+                  onClick={() => updateTournamentRoster("replace_names")}
+                  style={styles.secondaryButton}
+                  disabled={!rosterTournamentId || rosterBusy || !rosterNames.trim()}
+                >
+                  Replace With Pasted List
+                </button>
+              </div>
+
+              <input
+                value={rosterUrl}
+                onChange={(e) => setRosterUrl(e.target.value)}
+                placeholder="Roster page URL"
+                style={styles.input}
+              />
+
+              <textarea
+                value={rosterNames}
+                onChange={(e) => setRosterNames(e.target.value)}
+                placeholder="Paste one golfer name per line when a tournament field is available..."
+                rows={7}
+                style={{ ...styles.input, minHeight: 150, resize: "vertical" }}
+              />
+
+              {rosterStatus ? (
+                <p style={{ ...styles.message, marginBottom: 12 }}>{rosterStatus}</p>
+              ) : null}
+
+              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 10 }}>
+                Field golfers: <strong style={{ color: "#f8fafc" }}>{rosterGolfers.length}</strong>
+              </div>
+
+              {rosterGolfers.length > 0 ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+                  {rosterGolfers.slice(0, 80).map((g) => (
+                    <div
+                      key={g.id}
+                      style={{
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        borderRadius: 12,
+                        padding: "8px 10px",
+                        background: "rgba(2,6,23,0.35)",
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {g.name}
+                    </div>
+                  ))}
+                  {rosterGolfers.length > 80 ? (
+                    <div style={{ color: "#94a3b8", padding: "8px 10px" }}>
+                      +{rosterGolfers.length - 80} more
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
             <section style={styles.card}>
