@@ -511,7 +511,7 @@ export default function TeeOffPage() {
       note = "TREE ON APPROACH - 150 LEFT";
     }
 
-    if (holeIndex === 4 && adjustedCarry >= 210 && adjustedCarry <= 245 && offline > 8) {
+    if (holeIndex === 4 && isTeeShot && adjustedCarry >= 210 && adjustedCarry <= 245 && offline > 8) {
       adjustedCarry = 75;
       newRemaining = Math.max(180, Math.round(remaining - adjustedCarry));
       nextLie = "fairway";
