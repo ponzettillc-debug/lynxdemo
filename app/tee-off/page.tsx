@@ -608,6 +608,10 @@ export default function TeeOffPage() {
   const completedPar = holeScores.reduce((sum, _, idx) => sum + COURSE[idx].par, 0);
   const completedStrokes = holeScores.reduce((sum, s) => sum + s, 0);
   const relScore = completedStrokes - completedPar;
+  const finalRoundScore = phase === "complete" ? completedStrokes : totalStrokes;
+  const finalRoundRel = finalRoundScore - totalPar;
+  const finalRoundLabel = relativeScore(finalRoundScore, totalPar);
+  const finalScoreColor = finalRoundRel < 0 ? "#dc2626" : "#020617";
   const onGreen = remaining > 0 && (lie === "green" || (remaining <= 20 && lie !== "sand"));
   const puttFeet = currentPuttFeet;
   const puttMeterMax = puttMeterMaxFeet(puttFeet);
@@ -637,6 +641,7 @@ export default function TeeOffPage() {
     if (remaining <= 0) return message;
     return `${message} | ${remainingLabel} LEFT`;
   }, [phase, holeScores, totalPar, remaining, remainingLabel, message]);
+  const lastShotWasCup = lastShot.includes("IN THE CUP");
 
   const page: React.CSSProperties = {
     minHeight: "100vh",
@@ -716,7 +721,7 @@ export default function TeeOffPage() {
           <div style={{ marginTop: 8, color: "#7cff9b", fontSize: 13, fontWeight: 800, letterSpacing: 0.2 }}>{status}</div>
           {lastShot ? (
             <div style={{ marginTop: 8, border: "2px solid #fde047", background: "#1f2937", color: "#fef3c7", padding: "8px 10px", boxShadow: "0 0 16px rgba(250,204,21,0.22)", fontSize: 12, lineHeight: 1.45 }}>
-              PREVIOUS SHOT: {lastShot} | NOW: {remainingLabel} LEFT
+              PREVIOUS SHOT: {lastShot}{lastShotWasCup ? "" : ` | NOW: ${remainingLabel} LEFT`}
             </div>
           ) : null}
           {club.putter ? (
@@ -1002,6 +1007,46 @@ export default function TeeOffPage() {
               <div style={{ position: "absolute", left: "50%", top: `${miniBallY}%`, width: 7, height: 7, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 8px #bae6fd", transform: "translate(-50%, -50%)" }} />
             </div>
           </div>
+          {phase === "complete" ? (
+            <div style={{ position: "absolute", inset: 0, zIndex: 12, pointerEvents: "none", background: "linear-gradient(180deg, rgba(2,6,23,0.02), rgba(2,6,23,0.28))" }}>
+              {[18, 30, 42, 69, 81].map((left, idx) => (
+                <div key={left} style={{ position: "absolute", left: `${left}%`, top: `${12 + (idx % 2) * 8}%`, width: 54, height: 54, transform: "translate(-50%, -50%)" }}>
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+                    <div
+                      key={deg}
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: "50%",
+                        width: 4,
+                        height: 28,
+                        background: idx % 2 === 0 ? "#fde047" : "#38bdf8",
+                        boxShadow: `0 0 9px ${idx % 2 === 0 ? "#fde047" : "#38bdf8"}`,
+                        transform: `translate(-50%, -100%) rotate(${deg}deg)`,
+                        transformOrigin: "50% 100%",
+                      }}
+                    />
+                  ))}
+                </div>
+              ))}
+
+              <div style={{ position: "absolute", right: 26, top: 22, minWidth: 192, border: "3px solid #f8fafc", background: "rgba(254,243,199,0.93)", color: finalScoreColor, padding: "12px 14px", textAlign: "center", boxShadow: "0 0 26px rgba(248,250,252,0.28)" }}>
+                <div style={{ color: "#020617", fontSize: 12, fontWeight: 900, letterSpacing: 1.4 }}>FINAL SCORE</div>
+                <div style={{ fontSize: 50, lineHeight: 1, fontWeight: 900 }}>{finalRoundLabel}</div>
+                <div style={{ color: "#020617", fontSize: 12, fontWeight: 900 }}>{finalRoundScore} STROKES</div>
+              </div>
+
+              <div style={{ position: "absolute", left: "50%", bottom: 38, transform: "translateX(-50%)", border: "3px solid #fde047", background: "rgba(7,17,31,0.88)", color: "#fde68a", padding: "12px 18px", textAlign: "center", boxShadow: "0 0 30px rgba(250,204,21,0.35)" }}>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#d9ffe2" }}>ROUND COMPLETE</div>
+                <div style={{ marginTop: 6, fontSize: 13, color: "#bae6fd" }}>BEERS CLINKING AT THE CLUBHOUSE</div>
+                <div style={{ position: "relative", width: 112, height: 54, margin: "8px auto 0" }}>
+                  <div style={{ position: "absolute", left: 24, top: 8, width: 28, height: 36, background: "#f59e0b", border: "3px solid #fef3c7", borderRadius: "3px 3px 8px 8px", transform: "rotate(-13deg)", boxShadow: "inset 0 9px 0 rgba(254,243,199,0.55)" }} />
+                  <div style={{ position: "absolute", right: 24, top: 8, width: 28, height: 36, background: "#f59e0b", border: "3px solid #fef3c7", borderRadius: "3px 3px 8px 8px", transform: "rotate(13deg)", boxShadow: "inset 0 9px 0 rgba(254,243,199,0.55)" }} />
+                  <div style={{ position: "absolute", left: 47, top: 18, width: 18, height: 4, background: "#fef3c7", transform: "rotate(-18deg)" }} />
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(124px, 1fr))", gap: 8, marginTop: 14 }}>
