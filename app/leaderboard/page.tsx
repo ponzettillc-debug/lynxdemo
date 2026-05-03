@@ -347,7 +347,7 @@ export default function LeaderboardPage() {
     loadLeaderboard(selectedTournamentId, poolId);
     const interval = setInterval(
       () => loadLeaderboard(selectedTournamentId, poolId),
-      120000
+      300000
     );
     return () => clearInterval(interval);
   }, [session, poolId, selectedTournamentId]);
@@ -495,7 +495,8 @@ export default function LeaderboardPage() {
     display: "flex",
     gap: isCompactNav ? 6 : 10,
     flexWrap: "wrap",
-    marginBottom: 14,
+    justifyContent: isCompactNav ? "flex-start" : "flex-end",
+    alignItems: "center",
   };
 
   const navLink: React.CSSProperties = {
@@ -537,31 +538,99 @@ export default function LeaderboardPage() {
   };
   const usedRoundMinWidth = isCompactNav ? 0 : 142;
   const usedTileNameMaxWidth = isCompactNav ? 58 : 116;
+  const headerBand: React.CSSProperties = {
+    marginBottom: 14,
+    padding: isCompactNav ? "12px" : "16px 18px",
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.14)",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.94), rgba(30,41,59,0.74) 58%, rgba(2,6,23,0.9))",
+    boxShadow: "0 16px 36px rgba(2,6,23,0.28), inset 0 1px 0 rgba(255,255,255,0.06)",
+  };
+  const headerGrid: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: isCompactNav ? "1fr" : "minmax(180px, 1fr) auto",
+    gap: isCompactNav ? 12 : 18,
+    alignItems: "center",
+  };
+  const eyebrow: React.CSSProperties = {
+    margin: 0,
+    color: "#7dd3fc",
+    fontSize: isCompactNav ? 10 : 11,
+    fontWeight: 900,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  };
+  const titleRow: React.CSSProperties = {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 10,
+    flexWrap: "wrap",
+    marginTop: 3,
+  };
+  const pageTitle: React.CSSProperties = {
+    margin: 0,
+    color: "#f8fafc",
+    fontSize: isCompactNav ? 26 : 34,
+    lineHeight: 1,
+    letterSpacing: 0,
+    textShadow: "0 0 18px rgba(125,211,252,0.18)",
+  };
+  const roundPill: React.CSSProperties = {
+    border: "1px solid rgba(125,211,252,0.28)",
+    background: "rgba(14,165,233,0.10)",
+    color: "#bae6fd",
+    borderRadius: 999,
+    padding: isCompactNav ? "4px 8px" : "5px 10px",
+    fontSize: isCompactNav ? 11 : 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
+  const headerSubline: React.CSSProperties = {
+    margin: "7px 0 0",
+    color: "#94a3b8",
+    fontSize: isCompactNav ? 12 : 14,
+  };
 
   return (
     <main style={shell}>
       <div style={content}>
-      <h1 style={{ marginTop: 0, marginBottom: 4 }}>Leaderboard</h1>
+      <header style={headerBand}>
+        <div style={headerGrid}>
+          <div>
+            <p style={eyebrow}>4Play Golf Pool</p>
+            <div style={titleRow}>
+              <h1 style={pageTitle}>Leaderboard</h1>
+              <span style={roundPill}>
+                {lockedRound ? `Round ${lockedRound} locked` : "Awaiting lock"}
+              </span>
+            </div>
+            <p style={headerSubline}>
+              {selectedTournament?.name || "Select a tournament"} · standings update every 5 minutes
+            </p>
+          </div>
 
-      <div style={nav}>
-        <a href="/picks" style={navLink}>
-          Picks
-        </a>
-        <a href="/trophy-room" style={navLink}>
-          Trophy Room
-        </a>
-        {isAdmin ? (
-          <a href="/admin" style={navLink}>
-            Admin
-          </a>
-        ) : null}
-        <a href="/" style={navLink}>
-          Home
-        </a>
-        <a href="/driver" style={gamesNavLink}>
-          4Play Games
-        </a>
-      </div>
+          <div style={nav}>
+            <a href="/picks" style={navLink}>
+              Picks
+            </a>
+            <a href="/trophy-room" style={navLink}>
+              Trophy Room
+            </a>
+            {isAdmin ? (
+              <a href="/admin" style={navLink}>
+                Admin
+              </a>
+            ) : null}
+            <a href="/" style={navLink}>
+              Home
+            </a>
+            <a href="/driver" style={gamesNavLink}>
+              4Play Games
+            </a>
+          </div>
+        </div>
+      </header>
 
       <div style={{ ...card, marginBottom: 14 }}>
         <div style={selectorRow}>
@@ -637,12 +706,12 @@ export default function LeaderboardPage() {
             <colgroup>
               <col style={{ width: isCompactNav ? 26 : 52 }} />
               <col style={{ width: isCompactNav ? 78 : 178 }} />
-              <col style={{ width: isCompactNav ? 48 : 92 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
               <col style={{ width: isCompactNav ? 38 : 76 }} />
-              <col style={{ width: isCompactNav ? 32 : 70 }} />
-              <col style={{ width: isCompactNav ? 32 : 70 }} />
-              <col style={{ width: isCompactNav ? 32 : 70 }} />
-              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 48 : 92 }} />
             </colgroup>
             <thead>
               <tr>
@@ -651,12 +720,6 @@ export default function LeaderboardPage() {
                 </th>
                 <th style={headerCell}>
                   Player
-                </th>
-                <th style={headerCell}>
-                  {isCompactNav ? "Bhd" : "Behind"}
-                </th>
-                <th style={headerCell}>
-                  {isCompactNav ? "Tot" : "Total"}
                 </th>
                 <th style={headerCell}>
                   R1
@@ -669,6 +732,12 @@ export default function LeaderboardPage() {
                 </th>
                 <th style={headerCell}>
                   R4
+                </th>
+                <th style={headerCell}>
+                  {isCompactNav ? "Tot" : "Total"}
+                </th>
+                <th style={headerCell}>
+                  {isCompactNav ? "Bhd" : "Behind"}
                 </th>
               </tr>
             </thead>
@@ -751,30 +820,6 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           ...bodyCell,
-                          fontWeight: 700,
-                          color: scoreColor(r.behind),
-                        }}
-                      >
-                        {r.behind === 0
-                          ? isCompactNav
-                            ? "Lead"
-                            : "Leader"
-                          : r.behind > 0
-                          ? `+${r.behind}`
-                          : r.behind}
-                      </td>
-                      <td
-                        style={{
-                          ...bodyCell,
-                          fontWeight: 800,
-                          color: scoreColor(r.total_strokes),
-                        }}
-                      >
-                        {fmtScore(r.total_strokes)}
-                      </td>
-                      <td
-                        style={{
-                          ...bodyCell,
                           color: scoreColor(r.r1_strokes),
                           fontWeight: r.r1_strokes < 0 ? 700 : 400,
                         }}
@@ -807,6 +852,30 @@ export default function LeaderboardPage() {
                         }}
                       >
                         {fmtScore(r.r4_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          ...bodyCell,
+                          fontWeight: 800,
+                          color: scoreColor(r.total_strokes),
+                        }}
+                      >
+                        {fmtScore(r.total_strokes)}
+                      </td>
+                      <td
+                        style={{
+                          ...bodyCell,
+                          fontWeight: 700,
+                          color: scoreColor(r.behind),
+                        }}
+                      >
+                        {r.behind === 0
+                          ? isCompactNav
+                            ? "Lead"
+                            : "Leader"
+                          : r.behind > 0
+                          ? `+${r.behind}`
+                          : r.behind}
                       </td>
                     </tr>
 
@@ -950,7 +1019,7 @@ export default function LeaderboardPage() {
       {!loading && !message ? (
         <div style={{ marginTop: 12, opacity: 0.7 }}>
           <p style={{ margin: 0 }}>Click Player Name to Show Players Used</p>
-          <p style={{ margin: "4px 0 0" }}>Auto-refreshes every 2 minutes.</p>
+          <p style={{ margin: "4px 0 0" }}>Auto-refreshes every 5 minutes.</p>
         </div>
       ) : null}
 
