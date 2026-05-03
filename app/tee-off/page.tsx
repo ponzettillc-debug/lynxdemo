@@ -441,7 +441,7 @@ export default function TeeOffPage() {
     let note = teeDriverBonus > 1 ? `TEE DRIVER BONUS +${Math.round((teeDriverBonus - 1) * 100)}%` : "";
     if (isRaining) note = note ? `${note} | RAIN -10%` : "RAIN -10%";
 
-    if (adjustedCarry > remaining + 50) {
+    if (forwardYards > remaining + 50) {
       const penaltyStroke = nextStroke + 1;
       setStrokes(penaltyStroke);
       setRemaining(remaining);
@@ -511,7 +511,7 @@ export default function TeeOffPage() {
       return;
     }
 
-    if (holeIndex === 3 && !isTeeShot && accuracyScore < 80 && Math.random() < 0.45) {
+    if (holeIndex === 3 && strokes === 1 && accuracyScore < 80 && Math.random() < 0.45) {
       newRemaining = 150;
       nextLie = "fairway";
       note = "TREE ON APPROACH - 150 LEFT";
@@ -836,8 +836,6 @@ export default function TeeOffPage() {
                 <>
                   <div style={{ position: "absolute", left: "7%", top: "20%", width: 52, height: "64%", background: "linear-gradient(105deg, transparent 0 45%, rgba(132,204,22,0.35) 45% 100%)" }} />
                   {[18, 36, 54].map((top) => <div key={top} style={{ position: "absolute", left: "22%", top: `${top}%`, width: 28, height: 28, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 8px #14532d" }} />)}
-                  <div style={{ position: "absolute", left: "46%", top: "53%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
-                  <div style={{ position: "absolute", left: "56%", top: "51%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
                 </>
               ) : null}
               {holeIndex === 4 ? <div style={{ position: "absolute", right: "18%", top: "46%", width: 38, height: 38, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 10px #14532d" }} /> : null}
@@ -849,9 +847,21 @@ export default function TeeOffPage() {
               ) : null}
             </>
           ) : null}
+          {holeIndex === 3 && strokes === 1 ? (
+            <>
+              <div style={{ position: "absolute", left: "43%", top: "50%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
+              <div style={{ position: "absolute", left: "59%", top: "50%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
+            </>
+          ) : null}
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82, transform: "translate(-50%, -50%)" }} />
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2", transform: "translate(-50%, -100%)" }} />
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24 - 12 * targetScale}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
+          {holeIndex === 3 && strokes >= 2 && !onGreen ? (
+            <div style={{ position: "absolute", left: `calc(${targetCenterX}% - ${55 * targetScale}px)`, top: `calc(${targetTop + 24}% - ${24 * targetScale}px)`, width: 18 * targetScale, height: 32 * targetScale, background: "#38bdf8", border: "2px solid #bae6fd", boxShadow: "inset 0 -5px 0 rgba(15,23,42,0.28)", transform: "translate(-50%, -50%)" }}>
+              <div style={{ position: "absolute", left: "18%", top: "14%", width: "64%", height: "18%", background: "#0f172a" }} />
+              <div style={{ position: "absolute", left: "38%", bottom: 0, width: "24%", height: "34%", background: "#075985" }} />
+            </div>
+          ) : null}
           {holeIndex === 8 && strokes >= 1 ? (
             <div style={{ position: "absolute", left: `${61 + hole.dogleg * 0.18}%`, top: `${Math.max(8, targetTop - 5)}%`, width: 90, height: 54, opacity: 0.92 }}>
               <div style={{ position: "absolute", left: 8, top: 18, width: 72, height: 30, background: "#7f5539", border: "2px solid #facc15" }} />
