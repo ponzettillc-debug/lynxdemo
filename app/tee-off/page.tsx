@@ -131,6 +131,20 @@ function puttSettings(feet: number) {
   return { speed: 2.75, makeRange: 1 };
 }
 
+function puttMeterMaxFeet(feet: number) {
+  if (feet <= 15) return 15;
+  if (feet <= 25) return 25;
+  if (feet <= 50) return 50;
+  return 60;
+}
+
+function puttMeterTicks(maxFeet: number) {
+  if (maxFeet <= 15) return [5, 10, 15];
+  if (maxFeet <= 25) return [5, 10, 15, 20, 25];
+  if (maxFeet <= 50) return [5, 10, 15, 20, 25, 30, 40, 50];
+  return [5, 10, 15, 20, 25, 30, 45, 60];
+}
+
 function puttSpeedLabel(feet: number) {
   if (feet <= 10) return "EASY";
   if (feet <= 15) return "QUICK";
@@ -385,7 +399,7 @@ export default function TeeOffPage() {
 
     if (club.putter) {
       const remainingFeet = Math.round(remaining * 3);
-      const puttRollFeet = Math.round((power / 100) * effectiveClub.max);
+      const puttRollFeet = Math.round((power / 100) * puttMeterMaxFeet(remainingFeet));
       const missFeet = Math.abs(remainingFeet - puttRollFeet);
       const { makeRange } = puttSettings(remainingFeet);
       if (missFeet <= makeRange || remainingFeet <= makeRange) {
@@ -591,11 +605,8 @@ export default function TeeOffPage() {
   const relScore = completedStrokes - completedPar;
   const onGreen = remaining > 0 && (lie === "green" || (remaining <= 20 && lie !== "sand"));
   const puttFeet = currentPuttFeet;
-  const idealWindBoost = club.putter ? 0 : wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
-  const expectedTeeDriverBonus = club.name === "DRIVER" && strokes === 0 ? 1.06 : 1;
-  const idealPower = club.putter
-    ? clamp((puttFeet / Math.max(1, effectiveClub.max)) * 100, 0, 100)
-    : clamp((((remaining / expectedTeeDriverBonus) - idealWindBoost - effectiveClub.min) / Math.max(1, effectiveClub.max - effectiveClub.min)) * 100, 0, 100);
+  const puttMeterMax = puttMeterMaxFeet(puttFeet);
+  const puttTicks = puttMeterTicks(puttMeterMax);
   const remainingLabel = onGreen || club.putter ? `${puttFeet} FT` : `${Math.round(remaining)} YDS`;
   const miniBallY = clamp(92 - (1 - remaining / Math.max(1, hole.yards)) * 76, 12, 92);
   const fairwayProgress = clamp(1 - remaining / Math.max(1, hole.yards), 0, 0.95);
@@ -656,7 +667,7 @@ export default function TeeOffPage() {
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>{phase === "accuracy" ? "ACCURACY" : club.putter ? "PUTT DISTANCE" : "POWER"}</span>
-            <span>{meterLabel} | IDEAL {Math.round(idealPower)}%</span>
+            <span>{meterLabel}</span>
           </div>
           <div style={{ position: "relative", height: 22, border: "2px solid #7cff9b", background: "#020617", marginTop: 6, overflow: "hidden" }}>
             {phase === "accuracy" ? (
@@ -667,7 +678,6 @@ export default function TeeOffPage() {
               </>
             ) : (
               <>
-                <div style={{ position: "absolute", left: `${clamp(idealPower - 4, 0, 100)}%`, top: 0, width: `${idealPower < 4 || idealPower > 96 ? 4 : 8}%`, height: "100%", background: "rgba(250,204,21,0.45)", boxShadow: "0 0 10px rgba(250,204,21,0.65)" }} />
                 <div style={{ position: "relative", width: `${clamp(power, 0, 100)}%`, height: "100%", background: "linear-gradient(90deg, #22c55e, #facc15, #ef4444)" }} />
               </>
             )}
@@ -680,8 +690,8 @@ export default function TeeOffPage() {
           ) : null}
           {club.putter ? (
             <div style={{ position: "relative", height: 18, marginTop: 4, color: "#bae6fd", fontSize: 10 }}>
-              {[5, 10, 15, 20, 25, 30, 45, 60].map((ft) => (
-                <span key={ft} style={{ position: "absolute", left: `${clamp((ft / Math.max(1, effectiveClub.max)) * 100, 0, 100)}%`, opacity: ft > effectiveClub.max ? 0.35 : 1, transform: "translateX(-50%)" }}>
+              {puttTicks.map((ft) => (
+                <span key={ft} style={{ position: "absolute", left: `${clamp((ft / Math.max(1, puttMeterMax)) * 100, 0, 100)}%`, transform: "translateX(-50%)" }}>
                   {ft}'
                 </span>
               ))}
@@ -689,7 +699,7 @@ export default function TeeOffPage() {
           ) : null}
           {club.putter ? (
             <div style={{ marginTop: 4, color: "#fde68a", fontSize: 12 }}>
-              {puttFeet}' PUTT | MADE IF WITHIN {currentPuttSettings.makeRange}' | METER SPEED {puttSpeedLabel(puttFeet)}
+              {puttFeet}' PUTT | 100% = {puttMeterMax}' | MADE IF WITHIN {currentPuttSettings.makeRange}' | METER SPEED {puttSpeedLabel(puttFeet)}
             </div>
           ) : null}
         </div>
