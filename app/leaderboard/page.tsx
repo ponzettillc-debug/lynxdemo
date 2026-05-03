@@ -411,8 +411,8 @@ export default function LeaderboardPage() {
     border: "1px solid rgba(148,163,184,0.14)",
     borderRadius: 18,
     padding: 12,
-    background: "rgba(15,23,42,0.48)",
-    backdropFilter: "blur(1px)",
+    background: "rgba(15,23,42,0.24)",
+    backdropFilter: "blur(0.5px)",
   };
 
   const leaderboardTableWrap: React.CSSProperties = {
@@ -441,12 +441,15 @@ export default function LeaderboardPage() {
   };
 
   const leaderboardWatermarkImage: React.CSSProperties = {
-    width: "min(68%, 620px)",
-    maxHeight: "88%",
-    objectFit: "contain",
-    opacity: 0.46,
-    filter: "saturate(0.95) contrast(1.02) brightness(1.24)",
+    width: isCompactNav ? "96%" : "94%",
+    height: isCompactNav ? "72%" : "78%",
+    maxHeight: isCompactNav ? 260 : 460,
+    objectFit: "cover",
+    objectPosition: "center 38%",
+    opacity: 0.54,
+    filter: "saturate(1.02) contrast(1.04) brightness(1.28)",
     mixBlendMode: "screen",
+    borderRadius: 18,
   };
 
   const selectorRow: React.CSSProperties = {
@@ -848,7 +851,7 @@ export default function LeaderboardPage() {
                                       minWidth: usedRoundMinWidth,
                                       border: "1px solid rgba(148,163,184,0.14)",
                                       borderRadius: isCompactNav ? 7 : 12,
-                                      background: roundVisible ? "rgba(15,23,42,0.42)" : "rgba(51,65,85,0.28)",
+                                      background: roundVisible ? "rgba(15,23,42,0.22)" : "rgba(51,65,85,0.16)",
                                       padding: isCompactNav ? 3 : 7,
                                     }}
                                   >
@@ -892,7 +895,7 @@ export default function LeaderboardPage() {
                                             style={{
                                               border: "1px solid rgba(148,163,184,0.12)",
                                               borderRadius: isCompactNav ? 5 : 8,
-                                              background: hidden ? "rgba(51,65,85,0.34)" : "rgba(2,6,23,0.46)",
+                                              background: hidden ? "rgba(51,65,85,0.2)" : "rgba(2,6,23,0.28)",
                                               padding: isCompactNav ? "4px 2px" : "7px 8px",
                                             }}
                                           >
