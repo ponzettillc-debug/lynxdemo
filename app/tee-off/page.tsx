@@ -626,53 +626,6 @@ export default function TeeOffPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(124px, 1fr))", gap: 8, marginTop: 16 }}>
-          {CLUBS.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              disabled={phase === "power" || phase === "accuracy" || phase === "flight" || phase === "complete"}
-              onClick={() => setClubName(c.name)}
-              style={{
-                minHeight: 38,
-                border: `2px solid ${clubName === c.name ? "#fde047" : "#7cff9b"}`,
-                background: clubName === c.name ? "#17351f" : "#020617",
-                color: "#d9ffe2",
-                fontFamily: "inherit",
-                cursor: "pointer",
-                padding: 8,
-                textAlign: "left",
-              }}
-            >
-              <span style={{ display: "block", color: "#d9ffe2" }}>{c.name}</span>
-              <span style={{ display: "block", marginTop: 4, color: "#7cff9b", fontSize: 12 }}>
-                100%: {clubDisplayMax(c)} {c.putter ? "FT" : "YDS"}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          {(["full", "half", "quarter"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              disabled={phase === "power" || phase === "accuracy" || phase === "flight" || phase === "complete"}
-              onClick={() => setSwingMode(mode)}
-              style={{
-                minHeight: 34,
-                minWidth: 96,
-                border: `2px solid ${swingMode === mode ? "#fde047" : "#7cff9b"}`,
-                background: swingMode === mode ? "#17351f" : "#020617",
-                color: "#d9ffe2",
-                fontFamily: "inherit",
-                cursor: "pointer",
-              }}
-            >
-              {mode.toUpperCase()}
-            </button>
-          ))}
-        </div>
 
         <div style={{ marginTop: 14, color: "#fde68a" }}>
           HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | LIE {lie.toUpperCase()} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
@@ -894,6 +847,54 @@ export default function TeeOffPage() {
               <div style={{ position: "absolute", left: "50%", top: `${miniBallY}%`, width: 7, height: 7, borderRadius: 999, background: "#f8fafc", boxShadow: "0 0 8px #bae6fd", transform: "translate(-50%, -50%)" }} />
             </div>
           </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(124px, 1fr))", gap: 8, marginTop: 14 }}>
+          {CLUBS.map((c) => (
+            <button
+              key={c.name}
+              type="button"
+              disabled={phase === "power" || phase === "accuracy" || phase === "flight" || phase === "complete"}
+              onClick={() => setClubName(c.name)}
+              style={{
+                minHeight: 38,
+                border: `2px solid ${clubName === c.name ? "#fde047" : "#7cff9b"}`,
+                background: clubName === c.name ? "#17351f" : "#020617",
+                color: "#d9ffe2",
+                fontFamily: "inherit",
+                cursor: "pointer",
+                padding: 8,
+                textAlign: "left",
+              }}
+            >
+              <span style={{ display: "block", color: "#d9ffe2" }}>{c.name}</span>
+              <span style={{ display: "block", marginTop: 4, color: "#7cff9b", fontSize: 12 }}>
+                100%: {clubDisplayMax(c)} {c.putter ? "FT" : "YDS"}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {(["full", "half", "quarter"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              disabled={phase === "power" || phase === "accuracy" || phase === "flight" || phase === "complete"}
+              onClick={() => setSwingMode(mode)}
+              style={{
+                minHeight: 34,
+                minWidth: 96,
+                border: `2px solid ${swingMode === mode ? "#fde047" : "#7cff9b"}`,
+                background: swingMode === mode ? "#17351f" : "#020617",
+                color: "#d9ffe2",
+                fontFamily: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              {mode.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         <section style={{ marginTop: 18 }}>
