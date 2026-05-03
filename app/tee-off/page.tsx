@@ -853,6 +853,26 @@ export default function TeeOffPage() {
               <div style={{ position: "absolute", left: "59%", top: "50%", width: 34, height: 34, borderRadius: 999, background: "#166534", boxShadow: "0 0 0 9px #14532d" }} />
             </>
           ) : null}
+          {holeIndex === 4 && strokes >= 1 && !onGreen ? (
+            <>
+              {[-42, 0, 42].map((offset) => (
+                <div
+                  key={offset}
+                  style={{
+                    position: "absolute",
+                    left: `calc(${targetCenterX}% + ${offset * targetScale}px)`,
+                    top: `calc(${targetTop + 24}% - ${29 * targetScale}px)`,
+                    width: 30 * targetScale,
+                    height: 30 * targetScale,
+                    borderRadius: 999,
+                    background: "#166534",
+                    boxShadow: `0 0 0 ${8 * targetScale}px #14532d`,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              ))}
+            </>
+          ) : null}
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82, transform: "translate(-50%, -50%)" }} />
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2", transform: "translate(-50%, -100%)" }} />
           <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24 - 12 * targetScale}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
