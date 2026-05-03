@@ -387,7 +387,7 @@ export default function LeaderboardPage() {
     minHeight: "100vh",
     background:
       "radial-gradient(circle at top, rgba(34,197,94,0.08) 0%, rgba(15,23,42,1) 22%, rgba(2,6,23,1) 100%)",
-    padding: "18px 14px 40px",
+    padding: isCompactNav ? "14px 8px 32px" : "18px 14px 40px",
     fontFamily: "Inter, system-ui, sans-serif",
     color: "#f8fafc",
   };
@@ -428,7 +428,7 @@ export default function LeaderboardPage() {
     position: "absolute",
     inset: "0 auto 0 0",
     width: "100%",
-    minWidth: 940,
+    minWidth: isCompactNav ? 320 : 760,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -517,6 +517,21 @@ export default function LeaderboardPage() {
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(2,6,23,0.24)",
   };
 
+  const tableMinWidth = isCompactNav ? 320 : 760;
+  const tablePadding = isCompactNav ? "5px 2px" : 8;
+  const tableFontSize = isCompactNav ? 10 : 14;
+  const headerCell: React.CSSProperties = {
+    textAlign: "left",
+    borderBottom: "1px solid rgba(148,163,184,0.22)",
+    padding: tablePadding,
+    whiteSpace: "nowrap",
+  };
+  const bodyCell: React.CSSProperties = {
+    padding: tablePadding,
+    borderBottom: "1px solid rgba(148,163,184,0.12)",
+    whiteSpace: "nowrap",
+  };
+
   return (
     <main style={shell}>
       <div style={content}>
@@ -587,7 +602,7 @@ export default function LeaderboardPage() {
 
       {!loading && !message && rankedRows.length > 0 ? (
         <div style={leaderboardTableWrap}>
-          <div style={{ position: "relative", minWidth: 940 }}>
+          <div style={{ position: "relative", minWidth: tableMinWidth }}>
             <div style={leaderboardWatermark} aria-hidden="true">
               <img
                 className="soft-logo-watermark"
@@ -601,82 +616,46 @@ export default function LeaderboardPage() {
                 position: "relative",
                 zIndex: 1,
                 width: "100%",
+                tableLayout: "fixed",
                 borderCollapse: "collapse",
                 background: "rgba(2,6,23,0.62)",
+                fontSize: tableFontSize,
               }}
             >
+            <colgroup>
+              <col style={{ width: isCompactNav ? 26 : 52 }} />
+              <col style={{ width: isCompactNav ? 78 : 178 }} />
+              <col style={{ width: isCompactNav ? 48 : 92 }} />
+              <col style={{ width: isCompactNav ? 38 : 76 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+              <col style={{ width: isCompactNav ? 32 : 70 }} />
+            </colgroup>
             <thead>
               <tr>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Rank
+                <th style={headerCell}>
+                  {isCompactNav ? "#" : "Rank"}
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
+                <th style={headerCell}>
                   Player
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Behind
+                <th style={headerCell}>
+                  {isCompactNav ? "Bhd" : "Behind"}
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
-                  Total
+                <th style={headerCell}>
+                  {isCompactNav ? "Tot" : "Total"}
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
+                <th style={headerCell}>
                   R1
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
+                <th style={headerCell}>
                   R2
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
+                <th style={headerCell}>
                   R3
                 </th>
-                <th
-                  style={{
-                    textAlign: "left",
-                    borderBottom: "1px solid rgba(148,163,184,0.22)",
-                    padding: 8,
-                  }}
-                >
+                <th style={headerCell}>
                   R4
                 </th>
               </tr>
@@ -717,8 +696,7 @@ export default function LeaderboardPage() {
                     >
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           fontWeight: isLeader ? 800 : 500,
                         }}
                       >
@@ -726,21 +704,30 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           fontWeight: isLeader ? 800 : 500,
                         }}
                       >
-                        <span>{userLabel(r.display_name, r.user_id)}</span>
+                        <span
+                          style={{
+                            display: "inline-block",
+                            maxWidth: isCompactNav ? 58 : 128,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            verticalAlign: "bottom",
+                          }}
+                        >
+                          {userLabel(r.display_name, r.user_id)}
+                        </span>
                         {isCurrentUser ? (
                           <span
                             style={{
-                              marginLeft: 8,
-                              padding: "2px 7px",
+                              marginLeft: isCompactNav ? 3 : 8,
+                              padding: isCompactNav ? "1px 4px" : "2px 7px",
                               borderRadius: 999,
                               background: "#fed7aa",
                               color: "#7c2d12",
-                              fontSize: 11,
+                              fontSize: isCompactNav ? 9 : 11,
                               fontWeight: 900,
                               whiteSpace: "nowrap",
                             }}
@@ -751,22 +738,22 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           fontWeight: 700,
                           color: scoreColor(r.behind),
                         }}
                       >
                         {r.behind === 0
-                          ? "Leader"
+                          ? isCompactNav
+                            ? "Lead"
+                            : "Leader"
                           : r.behind > 0
                           ? `+${r.behind}`
                           : r.behind}
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           fontWeight: 800,
                           color: scoreColor(r.total_strokes),
                         }}
@@ -775,8 +762,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           color: scoreColor(r.r1_strokes),
                           fontWeight: r.r1_strokes < 0 ? 700 : 400,
                         }}
@@ -785,8 +771,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           color: scoreColor(r.r2_strokes),
                           fontWeight: r.r2_strokes < 0 ? 700 : 400,
                         }}
@@ -795,8 +780,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           color: scoreColor(r.r3_strokes),
                           fontWeight: r.r3_strokes < 0 ? 700 : 400,
                         }}
@@ -805,8 +789,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          padding: 8,
-                          borderBottom: "1px solid rgba(148,163,184,0.12)",
+                          ...bodyCell,
                           color: scoreColor(r.r4_strokes),
                           fontWeight: r.r4_strokes < 0 ? 700 : 400,
                         }}
@@ -963,5 +946,3 @@ export default function LeaderboardPage() {
     </main>
   );
 }
-
-
