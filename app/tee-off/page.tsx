@@ -18,6 +18,7 @@ type Club = {
 };
 type SwingMode = "full" | "half" | "quarter";
 type Lie = "fairway" | "green" | "sand";
+type GolferLook = "flagBack" | "forwardCap" | "topHat" | "oldSchoolCap" | "longHair";
 type Hole = {
   yards: number;
   par: number;
@@ -65,9 +66,18 @@ const COURSE: Hole[] = [
   { yards: 251, par: 4, dogleg: 6, water: "none", green: "wide" },
   { yards: 404, par: 4, dogleg: -15, water: "none", green: "crown" },
 ];
+const GOLFER_LOOKS: GolferLook[] = ["flagBack", "forwardCap", "topHat", "oldSchoolCap", "longHair"];
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
+}
+
+function randomGolferLook() {
+  return GOLFER_LOOKS[Math.floor(Math.random() * GOLFER_LOOKS.length)] ?? "flagBack";
+}
+
+function randomRain() {
+  return Math.random() < 0.05;
 }
 
 function scoreName(strokes: number, par: number) {
@@ -146,6 +156,8 @@ export default function TeeOffPage() {
   const [message, setMessage] = useState("SELECT CLUB, CLICK / TAP TO START SWING");
   const [lastShot, setLastShot] = useState("");
   const [wind, setWind] = useState(() => Math.round(Math.random() * 25 - 12));
+  const [isRaining, setIsRaining] = useState(() => randomRain());
+  const [golferLook, setGolferLook] = useState<GolferLook>(() => randomGolferLook());
   const [lie, setLie] = useState<Lie>("fairway");
   const [ballX, setBallX] = useState(BALL_START_X);
   const [ballY, setBallY] = useState(BALL_START_Y);
@@ -393,7 +405,8 @@ export default function TeeOffPage() {
     const accuracyScore = Math.round(clamp(100 - centerMiss * 2, 0, 100));
     const windBoost = wind * clamp(effectiveClub.max / 260, 0.12, 1) * (effectiveClub.max >= 160 ? 1 : 0.42);
     const teeDriverBonus = club.name === "DRIVER" && isTeeShot ? teeDriverBonusFactor(accuracyScore) : 1;
-    const carry = Math.round(clamp((effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) + windBoost) * teeDriverBonus, 1, effectiveClub.max * teeDriverBonus + 18));
+    const weatherFactor = isRaining ? 0.9 : 1;
+    const carry = Math.round(clamp((effectiveClub.min + (effectiveClub.max - effectiveClub.min) * (power / 100) + windBoost) * teeDriverBonus * weatherFactor, 1, effectiveClub.max * teeDriverBonus + 18));
     const missRatio = centerMiss / 50;
     const lateralYards = Math.round(
       carry * missRatio * 0.8 * (accuracy < 50 ? -1 : 1) +
@@ -406,6 +419,7 @@ export default function TeeOffPage() {
     let newRemaining = Math.max(0, Math.round(distanceToTarget(remaining - forwardYards, lateralYards)));
     let nextLie: Lie = newRemaining <= 20 ? "green" : "fairway";
     let note = teeDriverBonus > 1 ? `TEE DRIVER BONUS +${Math.round((teeDriverBonus - 1) * 100)}%` : "";
+    if (isRaining) note = note ? `${note} | RAIN -10%` : "RAIN -10%";
 
     if (adjustedCarry > remaining + 50) {
       const penaltyStroke = nextStroke + 1;
@@ -561,6 +575,8 @@ export default function TeeOffPage() {
     setHoleScores([]);
     setLastShot("");
     setWind(Math.round(Math.random() * 25 - 12));
+    setIsRaining(randomRain());
+    setGolferLook(randomGolferLook());
     setLie("fairway");
     setClubName(CLUBS[0].name);
     setSwingMode("full");
@@ -585,8 +601,14 @@ export default function TeeOffPage() {
   const fairwayProgress = clamp(1 - remaining / Math.max(1, hole.yards), 0, 0.95);
   const targetTop = clamp(10 + fairwayProgress * 48, 10, 58);
   const targetScale = 1 + fairwayProgress * 1.15;
+  const targetCenterX = 50 + hole.dogleg * 0.18;
   const showTeeObstacles = strokes === 0;
   const swingActive = phase === "flight";
+  const clubVisual = club.putter ? "putter" : club.name === "DRIVER" ? "driver" : club.name === "3 WOOD" ? "wood" : "iron";
+  const clubLength = clubVisual === "driver" ? 86 : clubVisual === "wood" ? 72 : clubVisual === "putter" ? 36 : 58;
+  const clubLeftOffset = clubLength - 62;
+  const clubRestAngle = clubVisual === "putter" ? -22 : clubVisual === "driver" ? -62 : -54;
+  const clubSwingAngle = clubVisual === "putter" ? -70 : clubVisual === "driver" ? -138 : -122;
   const puttBallLeft = clamp(50 - puttFeet * 0.65, 18, 82);
   const status = useMemo(() => {
     if (phase === "complete") return `ROUND COMPLETE: ${holeScores.reduce((sum, s) => sum + s, 0)} ON PAR ${totalPar}`;
@@ -628,9 +650,8 @@ export default function TeeOffPage() {
 
 
         <div style={{ marginTop: 14, color: "#fde68a" }}>
-          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)} | LIE {lie.toUpperCase()} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
+          HOLE {holeIndex + 1} / 9 | PAR {hole.par} | {hole.yards} YDS | WIND {windText(wind)}{isRaining ? " | RAIN -10%" : ""} | LIE {lie.toUpperCase()} | STROKES {strokes} | TOTAL {totalStrokes} ({relScore >= 0 ? "+" : ""}{relScore})
         </div>
-        <div style={{ marginTop: 8 }}>{status}</div>
 
         <div style={{ marginTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -651,6 +672,7 @@ export default function TeeOffPage() {
               </>
             )}
           </div>
+          <div style={{ marginTop: 8, color: "#7cff9b", fontSize: 13, fontWeight: 800, letterSpacing: 0.2 }}>{status}</div>
           {lastShot ? (
             <div style={{ marginTop: 8, border: "2px solid #fde047", background: "#1f2937", color: "#fef3c7", padding: "8px 10px", boxShadow: "0 0 16px rgba(250,204,21,0.22)", fontSize: 12, lineHeight: 1.45 }}>
               PREVIOUS SHOT: {lastShot} | NOW: {remainingLabel} LEFT
@@ -684,6 +706,25 @@ export default function TeeOffPage() {
             cursor: phase === "flight" || phase === "complete" ? "default" : "crosshair",
           }}
         >
+          {isRaining ? (
+            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3, opacity: 0.75 }}>
+              {Array.from({ length: 34 }).map((_, idx) => (
+                <div
+                  key={`rain-${idx}`}
+                  style={{
+                    position: "absolute",
+                    left: `${(idx * 17) % 100}%`,
+                    top: `${(idx * 29) % 100}%`,
+                    width: 2,
+                    height: 16,
+                    background: "rgba(125,211,252,0.58)",
+                    transform: "rotate(18deg)",
+                    boxShadow: "0 0 5px rgba(186,230,253,0.4)",
+                  }}
+                />
+              ))}
+            </div>
+          ) : null}
           <div style={{ position: "absolute", left: "18%", top: "6%", width: "64%", height: "94%", background: "#1e7b35", clipPath: "polygon(46% 0, 54% 0, 100% 100%, 0 100%)" }} />
           <div style={{ position: "absolute", left: "36%", top: "10%", width: "28%", height: "90%", background: "repeating-linear-gradient(180deg, rgba(217,255,226,0.12) 0 2px, transparent 2px 24px)", clipPath: "polygon(46% 0, 54% 0, 100% 100%, 0 100%)" }} />
           {hole.water !== "none" ? (
@@ -752,9 +793,9 @@ export default function TeeOffPage() {
               ) : null}
             </>
           ) : null}
-          <div style={{ position: "absolute", left: `${49 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: `${49.4 + hole.dogleg * 0.18}%`, top: `${targetTop}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
-          <div style={{ position: "absolute", left: `${45.2 + hole.dogleg * 0.18 - fairwayProgress * 5}%`, top: `${targetTop + 12}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82 }} />
+          <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 86 * targetScale, height: 28 * targetScale, border: "2px solid #d9ffe2", background: "rgba(34,197,94,0.28)", borderRadius: "50%", opacity: 0.82, transform: "translate(-50%, -50%)" }} />
+          <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24}%`, width: 3, height: 42 * targetScale, background: "#d9ffe2", transform: "translate(-50%, -100%)" }} />
+          <div style={{ position: "absolute", left: `${targetCenterX}%`, top: `${targetTop + 24 - 12 * targetScale}%`, width: 26 * targetScale, height: 15 * targetScale, background: "#ef4444", clipPath: "polygon(0 0, 100% 34%, 0 68%)" }} />
           {holeIndex === 8 && strokes >= 1 ? (
             <div style={{ position: "absolute", left: `${61 + hole.dogleg * 0.18}%`, top: `${Math.max(8, targetTop - 5)}%`, width: 90, height: 54, opacity: 0.92 }}>
               <div style={{ position: "absolute", left: 8, top: 18, width: 72, height: 30, background: "#7f5539", border: "2px solid #facc15" }} />
@@ -770,11 +811,39 @@ export default function TeeOffPage() {
             <div>HOLE {holeIndex + 1}</div>
             <div>{hole.yards} YARDS</div>
           </div>
-          <div style={{ position: "absolute", left: `${GOLFER_LEFT}%`, bottom: 42, width: 92, height: 18, background: "#22543d" }} />
-          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 33px)`, bottom: 80, width: 12, height: 62, background: "#d9ffe2", transform: swingActive ? "rotate(-7deg)" : "rotate(0deg)", transformOrigin: "bottom center", transition: "transform 180ms ease-out" }} />
-          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 26px)`, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2" }} />
-          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 11px)`, bottom: 102, width: 52, height: 4, background: "#d9ffe2", transform: swingActive ? "rotate(-76deg)" : "rotate(-24deg)", transformOrigin: "44px 2px", transition: "transform 220ms cubic-bezier(.2,.8,.2,1)" }} />
-          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% - 1px)`, bottom: 116, width: 64, height: 3, background: "#bae6fd", transform: swingActive ? "rotate(-122deg)" : "rotate(-54deg)", transformOrigin: "60px 1px", opacity: 0.92, transition: "transform 220ms cubic-bezier(.2,.8,.2,1)" }} />
+          <div style={{ position: "absolute", left: `${GOLFER_LEFT}%`, bottom: 42, width: 92, height: 18, background: "#22543d", zIndex: 5 }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 33px)`, bottom: 80, width: 12, height: 62, background: "#d9ffe2", transform: swingActive ? "rotate(-7deg)" : "rotate(0deg)", transformOrigin: "bottom center", transition: "transform 180ms ease-out", zIndex: 5 }} />
+          {golferLook === "longHair" ? (
+            <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 20px)`, bottom: 127, width: 38, height: 38, borderRadius: "50% 50% 42% 42%", background: "#3f1f13", zIndex: 5 }} />
+          ) : null}
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 26px)`, bottom: 133, width: 26, height: 26, borderRadius: 999, background: "#d9ffe2", zIndex: 6 }} />
+          {golferLook === "flagBack" ? (
+            <>
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 24px)`, bottom: 154, width: 30, height: 12, background: "#1d4ed8", borderRadius: "10px 10px 3px 3px", overflow: "hidden", transform: "rotate(-8deg)", zIndex: 7 }}>
+                <div style={{ position: "absolute", left: 0, top: 0, width: 9, height: 12, background: "#1e3a8a" }} />
+                <div style={{ position: "absolute", left: 9, top: 2, width: 21, height: 2, background: "#ef4444" }} />
+                <div style={{ position: "absolute", left: 9, top: 6, width: 21, height: 2, background: "#f8fafc" }} />
+                <div style={{ position: "absolute", left: 9, top: 10, width: 21, height: 2, background: "#ef4444" }} />
+              </div>
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 17px)`, bottom: 151, width: 14, height: 5, background: "#1d4ed8", borderRadius: 999, transform: "rotate(-18deg)", zIndex: 7 }} />
+            </>
+          ) : golferLook === "forwardCap" ? (
+            <>
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 24px)`, bottom: 154, width: 30, height: 12, background: "#0ea5e9", borderRadius: "10px 10px 3px 3px", transform: "rotate(4deg)", zIndex: 7 }} />
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 48px)`, bottom: 151, width: 18, height: 5, background: "#0ea5e9", borderRadius: 999, transform: "rotate(12deg)", zIndex: 7 }} />
+            </>
+          ) : golferLook === "topHat" ? (
+            <>
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 23px)`, bottom: 153, width: 32, height: 5, background: "#020617", zIndex: 7 }} />
+              <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 29px)`, bottom: 157, width: 20, height: 24, background: "#020617", border: "1px solid #94a3b8", zIndex: 7 }} />
+            </>
+          ) : golferLook === "oldSchoolCap" ? (
+            <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 22px)`, bottom: 153, width: 36, height: 14, background: "#92400e", borderRadius: "50% 50% 20% 20%", transform: "rotate(-5deg)", zIndex: 7 }} />
+          ) : null}
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 11px)`, bottom: 102, width: 52, height: 4, background: "#d9ffe2", transform: swingActive ? "rotate(-76deg)" : "rotate(-24deg)", transformOrigin: "44px 2px", transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", zIndex: 5 }} />
+          <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% ${clubLeftOffset >= 0 ? "-" : "+"} ${Math.abs(clubLeftOffset)}px)`, bottom: clubVisual === "putter" ? 106 : 116, width: clubLength, height: clubVisual === "driver" ? 4 : 3, background: clubVisual === "driver" ? "#e5e7eb" : "#bae6fd", transform: swingActive ? `rotate(${clubSwingAngle}deg)` : `rotate(${clubRestAngle}deg)`, transformOrigin: `${clubLength - 4}px 1px`, opacity: 0.95, transition: "transform 220ms cubic-bezier(.2,.8,.2,1)", zIndex: 5 }}>
+            <div style={{ position: "absolute", left: 0, top: clubVisual === "putter" ? -2 : -4, width: clubVisual === "driver" ? 15 : clubVisual === "wood" ? 12 : clubVisual === "putter" ? 13 : 9, height: clubVisual === "putter" ? 7 : clubVisual === "iron" ? 12 : 14, background: clubVisual === "driver" ? "#f8fafc" : "#94a3b8", borderRadius: clubVisual === "driver" || clubVisual === "wood" ? "50%" : 2 }} />
+          </div>
           <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 41px)`, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(-18deg)" }} />
           <div style={{ position: "absolute", left: `calc(${GOLFER_LEFT}% + 31px)`, bottom: 43, width: 4, height: 48, background: "#d9ffe2", transform: "rotate(18deg)" }} />
 
