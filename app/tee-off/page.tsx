@@ -66,6 +66,12 @@ const COURSE: Hole[] = [
   { yards: 251, par: 4, dogleg: 6, water: "none", green: "wide" },
   { yards: 404, par: 4, dogleg: -15, water: "none", green: "crown" },
 ];
+const SAND_JOKES = [
+  "GUY SPENDS MORE TIME IN THE SAND THAN A BEACH CHAIR",
+  "BRING A RAKE AND A COOLER",
+  "THAT ONE NEEDED SPF 50",
+  "WELCOME TO THE PRIVATE BEACH",
+];
 const GOLFER_LOOKS: GolferLook[] = ["flagBack", "forwardCap", "topHat", "oldSchoolCap", "longHair"];
 
 function clamp(v: number, min: number, max: number) {
@@ -191,7 +197,7 @@ export default function TeeOffPage() {
   const hole = COURSE[holeIndex];
   const club = CLUBS.find((c) => c.name === clubName) || CLUBS[0];
   const modeFactor = club.name === "CHIPPER" && swingMode === "half" ? 0.6 : swingMode === "quarter" ? 0.25 : swingMode === "half" ? 0.5 : 1;
-  const lieFactor = lie === "sand" && !club.putter ? 0.6 : 1;
+  const lieFactor = lie === "sand" && !club.putter ? 0.55 : 1;
   const offTeeDriverFactor = club.name === "DRIVER" && strokes > 0 ? 0.8 : 1;
   const effectiveClub = {
     ...club,
@@ -204,7 +210,7 @@ export default function TeeOffPage() {
   const totalStrokes = holeScores.reduce((sum, s) => sum + s, 0) + (phase === "complete" ? 0 : strokes);
   function clubDisplayMax(c: Club) {
     const displayModeFactor = c.name === "CHIPPER" && swingMode === "half" ? 0.6 : swingMode === "quarter" ? 0.25 : swingMode === "half" ? 0.5 : 1;
-    const displayLieFactor = lie === "sand" && !c.putter ? 0.6 : 1;
+    const displayLieFactor = lie === "sand" && !c.putter ? 0.55 : 1;
     const displayOffTeeDriverFactor = c.name === "DRIVER" && strokes > 0 ? 0.8 : 1;
     return Math.round(c.max * displayModeFactor * displayLieFactor * displayOffTeeDriverFactor);
   }
@@ -518,10 +524,9 @@ export default function TeeOffPage() {
       note = "BIG TREE RIGHT - KNOCKED DOWN";
     }
 
-    if (holeIndex === 6 && newRemaining <= 22 && Math.abs(offline) > 8) {
-      newRemaining = Math.max(8, Math.min(20, newRemaining));
+    if (holeIndex === 6 && newRemaining >= 25 && newRemaining <= 40 && Math.abs(offline) > 6) {
       nextLie = "sand";
-      note = "GREENSIDE BUNKER";
+      note = SAND_JOKES[Math.floor(Math.random() * SAND_JOKES.length)];
     }
 
     if (holeIndex === 8 && offline < -9) {
@@ -798,8 +803,23 @@ export default function TeeOffPage() {
             <>
               <div style={{ position: "absolute", right: 0, top: "30%", width: "16%", height: "70%", background: "#475569" }} />
               <div style={{ position: "absolute", right: "16%", top: "32%", width: 10, height: "68%", background: "#94a3b8" }} />
-              <div style={{ position: "absolute", left: `${38 + hole.dogleg * 0.18}%`, top: "24%", width: 34, height: 16, borderRadius: "50%", background: "#d6a94a", border: "2px solid #facc15" }} />
-              <div style={{ position: "absolute", left: `${60 + hole.dogleg * 0.18}%`, top: "24%", width: 34, height: 16, borderRadius: "50%", background: "#d6a94a", border: "2px solid #facc15" }} />
+              {[-29, 29].map((offset) => (
+                <div
+                  key={offset}
+                  style={{
+                    position: "absolute",
+                    left: `calc(${targetCenterX}% + ${offset * targetScale}px)`,
+                    top: `calc(${targetTop + 24}% + ${17 * targetScale}px)`,
+                    width: 34 * targetScale,
+                    height: 16 * targetScale,
+                    borderRadius: "50%",
+                    background: "#d6a94a",
+                    border: "2px solid #facc15",
+                    boxShadow: "inset 0 -4px 0 rgba(120,53,15,0.28)",
+                    transform: "translate(-50%, -50%)",
+                  }}
+                />
+              ))}
             </>
           ) : null}
           {holeIndex === 7 ? (
