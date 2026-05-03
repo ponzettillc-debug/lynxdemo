@@ -786,18 +786,30 @@ export default function AdminPage() {
 
     setStatus("Creating tournament...");
 
-    const { error } = await supabase.from("tournaments").insert({
-      pool_id: pool.id,
-      name: tName.trim(),
-      round1_lock: r1 ? new Date().toISOString() : null,
-      round2_lock: r2 ? new Date().toISOString() : null,
-      round3_lock: r3 ? new Date().toISOString() : null,
-      round4_lock: r4 ? new Date().toISOString() : null,
-      final_lock: finalLock ? new Date().toISOString() : null,
+    const token = await getAccessToken();
+    const r = await fetch("/api/admin/tournaments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        pool_id: pool.id,
+        name: tName.trim(),
+        locks: {
+          round1: r1,
+          round2: r2,
+          round3: r3,
+          round4: r4,
+          final: finalLock,
+        },
+      }),
     });
 
-    if (error) {
-      setStatus(error.message);
+    const j = await r.json().catch(() => ({}));
+
+    if (!r.ok) {
+      setStatus(j?.error || "Create tournament failed.");
       return;
     }
 
@@ -868,20 +880,31 @@ export default function AdminPage() {
     setStatus("Saving tournament...");
 
     try {
-      const { error } = await supabase
-        .from("tournaments")
-        .update({
+      const token = await getAccessToken();
+      const r = await fetch("/api/admin/tournaments", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          pool_id: pool.id,
+          tournament_id: tournamentId,
           name: editTName.trim(),
-          round1_lock: editR1 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round1_lock) : null,
-          round2_lock: editR2 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round2_lock) : null,
-          round3_lock: editR3 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round3_lock) : null,
-          round4_lock: editR4 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round4_lock) : null,
-          final_lock: editFinalLock ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.final_lock) : null,
-        })
-        .eq("id", tournamentId);
+          locks: {
+            round1: editR1,
+            round2: editR2,
+            round3: editR3,
+            round4: editR4,
+            final: editFinalLock,
+          },
+        }),
+      });
 
-      if (error) {
-        setStatus(`Save tournament failed: ${error.message}`);
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "Save tournament failed.");
         return;
       }
 
