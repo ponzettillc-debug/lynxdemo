@@ -5,6 +5,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
+const PENALTY_SCORE = 10;
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
@@ -214,18 +215,10 @@ export async function GET(req: NextRequest) {
     });
 
     const scoreByGolferRound = new Map<string, number>();
-    const worstScoreByRound = new Map<1 | 2 | 3 | 4, number>();
     scores.forEach((s: any) => {
       const round = Number(s.round) as 1 | 2 | 3 | 4;
       const strokes = Number(s.strokes) || 0;
       scoreByGolferRound.set(`${s.golfer_id}:${round}`, strokes);
-
-      if ([1, 2, 3, 4].includes(round)) {
-        const currentWorst = worstScoreByRound.get(round);
-        if (typeof currentWorst !== "number" || strokes > currentWorst) {
-          worstScoreByRound.set(round, strokes);
-        }
-      }
     });
 
     const picksByUserRound = new Map<string, any[]>();
@@ -288,7 +281,6 @@ export async function GET(req: NextRequest) {
           if (round > lockedRound) return;
 
           const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
-          const worstScore = worstScoreByRound.get(round);
 
           for (let slot = 0; slot < 4; slot += 1) {
             const pick = roundPicks[slot];
@@ -296,9 +288,7 @@ export async function GET(req: NextRequest) {
               ? scoreByGolferRound.get(`${pick.golfer_id}:${round}`)
               : undefined;
             const hasPickedScore = typeof pickedScore === "number";
-            const score = hasPickedScore ? pickedScore : worstScore;
-
-            if (typeof score !== "number") continue;
+            const score = hasPickedScore ? pickedScore : PENALTY_SCORE;
 
             const name = hasPickedScore
               ? golferNameById.get(pick.golfer_id) ?? "Unknown Golfer"

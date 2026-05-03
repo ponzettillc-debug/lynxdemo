@@ -805,7 +805,7 @@ export default function PicksPage() {
               </div>
               <h1 style={styles.title}>Make your picks</h1>
               <p style={styles.subtitle}>
-                Rules: Lock in 4 golfers each round. Used golfers from earlier rounds stay off the board. If selected golfer does not record a score (DNS / Missed Cut / No Player Selected) you take the worst round score.
+                Rules: Lock in 4 golfers each round. Used golfers from earlier rounds stay off the board. If selected golfer does not record a score (DNS / Missed Cut / No Player Selected) you take a +10 penalty score.
               </p>
             </div>
 

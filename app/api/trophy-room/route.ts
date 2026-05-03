@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const PENALTY_SCORE = 10;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
@@ -171,19 +173,10 @@ export async function GET(req: NextRequest) {
     });
 
     const scoreByTournamentGolferRound = new Map<string, number>();
-    const worstScoreByTournamentRound = new Map<string, number>();
     scores.forEach((score) => {
       const round = Number(score.round);
       const strokes = Number(score.strokes) || 0;
       scoreByTournamentGolferRound.set(`${score.tournament_id}:${score.golfer_id}:${round}`, strokes);
-
-      if ([1, 2, 3, 4].includes(round)) {
-        const worstKey = `${score.tournament_id}:${round}`;
-        const currentWorst = worstScoreByTournamentRound.get(worstKey);
-        if (typeof currentWorst !== "number" || strokes > currentWorst) {
-          worstScoreByTournamentRound.set(worstKey, strokes);
-        }
-      }
     });
 
     const winnerRows = tournaments
@@ -208,16 +201,13 @@ export async function GET(req: NextRequest) {
         totalsByUserId.forEach((row, userId) => {
           ([1, 2, 3, 4] as const).forEach((round) => {
             const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
-            const worstScore = worstScoreByTournamentRound.get(`${tournament.id}:${round}`);
 
             for (let slot = 0; slot < 4; slot += 1) {
               const pick = roundPicks[slot];
               const pickedScore = pick
                 ? scoreByTournamentGolferRound.get(`${pick.tournament_id}:${pick.golfer_id}:${round}`)
                 : undefined;
-              const score = typeof pickedScore === "number" ? pickedScore : worstScore;
-
-              if (typeof score !== "number") continue;
+              const score = typeof pickedScore === "number" ? pickedScore : PENALTY_SCORE;
 
               row.total += score;
               row.scoredPicks += 1;
