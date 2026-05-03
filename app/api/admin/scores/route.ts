@@ -11,6 +11,10 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+function isMissingFinalLockColumn(message?: string | null) {
+  return /final_lock|schema cache|column/i.test(message || "");
+}
+
 async function requireAdmin(req: NextRequest) {
   if (!supabaseUrl) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500) };
   if (!supabaseAnonKey) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500) };
@@ -87,6 +91,23 @@ export async function POST(req: NextRequest) {
 
     if (!poolId || !tournamentId) {
       return jsonError("pool_id and tournament_id are required.", 400);
+    }
+
+    let finalLocked = false;
+    const { data: tournament, error: tournamentErr } = await supabaseAdmin
+      .from("tournaments")
+      .select("id,final_lock")
+      .eq("id", tournamentId)
+      .eq("pool_id", poolId)
+      .maybeSingle();
+
+    if (tournamentErr && !isMissingFinalLockColumn(tournamentErr.message)) {
+      return jsonError(`Failed to verify tournament lock: ${tournamentErr.message}`, 400);
+    }
+
+    finalLocked = !!tournament?.final_lock;
+    if (finalLocked) {
+      return jsonError("Tournament is Final/Locked. Uncheck Final/Lock before editing scores.", 423);
     }
 
     const normalizedRows = rows

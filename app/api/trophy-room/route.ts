@@ -12,6 +12,7 @@ type TournamentRow = {
   id: string;
   name: string;
   round4_lock: string | null;
+  final_lock?: string | null;
   created_at?: string | null;
 };
 
@@ -40,6 +41,10 @@ function jsonError(message: string, status = 400) {
 
 function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
+}
+
+function isMissingFinalLockColumn(message?: string | null) {
+  return /final_lock|schema cache|column/i.test(message || "");
 }
 
 function parseLockTime(value?: string | null) {
@@ -75,9 +80,9 @@ async function requireUser(req: NextRequest) {
   return { supabaseAdmin, user };
 }
 
-function isPastTournament(tournament: { round4_lock?: string | null }) {
-  if (!tournament.round4_lock) return false;
-  const lockTime = parseLockTime(tournament.round4_lock);
+function isPastTournament(tournament: { final_lock?: string | null }) {
+  if (!tournament.final_lock) return false;
+  const lockTime = parseLockTime(tournament.final_lock);
   return Number.isFinite(lockTime) && lockTime <= Date.now();
 }
 
@@ -137,12 +142,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const [tournamentsRes, picksRes, scoresRes, namesRes] = await Promise.all([
-      supabaseAdmin
-        .from("tournaments")
-        .select("id,name,round4_lock,created_at")
-        .eq("pool_id", poolId)
-        .order("created_at", { ascending: false }),
+    const tournamentsRes = await supabaseAdmin
+      .from("tournaments")
+      .select("id,name,round4_lock,final_lock,created_at")
+      .eq("pool_id", poolId)
+      .order("created_at", { ascending: false });
+
+    let tournamentData: any[] = tournamentsRes.data ?? [];
+    let tournamentError = tournamentsRes.error;
+    if (tournamentsRes.error && isMissingFinalLockColumn(tournamentsRes.error.message)) {
+      tournamentData = [];
+      tournamentError = null;
+    }
+
+    const [picksRes, scoresRes, namesRes] = await Promise.all([
       supabaseAdmin
         .from("picks")
         .select("user_id,golfer_id,round,tournament_id")
@@ -157,12 +170,12 @@ export async function GET(req: NextRequest) {
         .eq("pool_id", poolId),
     ]);
 
-    if (tournamentsRes.error) return jsonError(`Error loading tournaments: ${tournamentsRes.error.message}`, 400);
+    if (tournamentError) return jsonError(`Error loading tournaments: ${tournamentError.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
     if (namesRes.error) return jsonError(`Error loading names: ${namesRes.error.message}`, 400);
 
-    const tournaments = (tournamentsRes.data ?? []) as TournamentRow[];
+    const tournaments = tournamentData as TournamentRow[];
     const picks = (picksRes.data ?? []) as PickRow[];
     const scores = (scoresRes.data ?? []) as ScoreRow[];
     const names = (namesRes.data ?? []) as NameRow[];
@@ -237,7 +250,7 @@ export async function GET(req: NextRequest) {
         return {
           tournament_id: tournament.id,
           tournament_name: tournament.name,
-          completed_at: tournament.round4_lock,
+          completed_at: tournament.final_lock,
           winners,
         };
       })

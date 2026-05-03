@@ -48,6 +48,10 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+function isMissingFinalLockColumn(message?: string | null) {
+  return /final_lock|schema cache|column/i.test(message || "");
+}
+
 function normalizeName(name: string) {
   return name
     .toLowerCase()
@@ -190,14 +194,30 @@ export async function POST(req: NextRequest) {
       return jsonError("pool_id and tournament_id are required.", 400);
     }
 
-    const { data: tournament, error: tournamentError } = await supabaseAdmin
+    let tournament: any = null;
+    let tournamentError: any = null;
+    const tournamentResult = await supabaseAdmin
       .from("tournaments")
-      .select("id,name")
+      .select("id,name,final_lock")
       .eq("id", tournamentId)
       .maybeSingle();
+    tournament = tournamentResult.data;
+    tournamentError = tournamentResult.error;
 
+    if (tournamentError && isMissingFinalLockColumn(tournamentError.message)) {
+      const fallback = await supabaseAdmin
+        .from("tournaments")
+        .select("id,name")
+        .eq("id", tournamentId)
+        .maybeSingle();
+      tournament = fallback.data;
+      tournamentError = fallback.error;
+    }
     if (tournamentError) return jsonError(`Failed to load tournament: ${tournamentError.message}`, 400);
     if (!tournament) return jsonError("Tournament was not found.", 404);
+    if (tournament.final_lock) {
+      return jsonError("Tournament is Final/Locked. Uncheck Final/Lock before syncing scores.", 423);
+    }
 
     const leaderboardId = leaderboardIdForTournament(tournament.name, explicitLeaderboardId);
     if (!leaderboardId) {

@@ -11,6 +11,10 @@ const supabase = createClient(
 
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
+function isMissingFinalLockColumn(message?: string | null) {
+  return /final_lock|schema cache|column/i.test(message || "");
+}
+
 type Pool = { id: string; name: string };
 
 type Tournament = {
@@ -20,6 +24,7 @@ type Tournament = {
   round2_lock?: string | null;
   round3_lock?: string | null;
   round4_lock?: string | null;
+  final_lock?: string | null;
 };
 
 type Golfer = { id: string; name: string };
@@ -114,6 +119,7 @@ export default function AdminPage() {
   const [r2, setR2] = useState(false);
   const [r3, setR3] = useState(false);
   const [r4, setR4] = useState(false);
+  const [finalLock, setFinalLock] = useState(false);
 
   const [gName, setGName] = useState("");
 
@@ -123,6 +129,7 @@ export default function AdminPage() {
   const [editR2, setEditR2] = useState(false);
   const [editR3, setEditR3] = useState(false);
   const [editR4, setEditR4] = useState(false);
+  const [editFinalLock, setEditFinalLock] = useState(false);
 
   const [editingGolferId, setEditingGolferId] = useState<string>("");
   const [editGolferName, setEditGolferName] = useState("");
@@ -413,11 +420,27 @@ export default function AdminPage() {
     const activePoolId = poolId || pool?.id;
     if (!activePoolId) return;
 
-    const { data: tData, error: tErr } = await supabase
+    let finalLockColumnMissing = false;
+    let tData: any[] | null = null;
+    let tErr: any = null;
+    const tournamentResult = await supabase
       .from("tournaments")
-      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
       .eq("pool_id", activePoolId)
       .order("created_at", { ascending: false });
+    tData = tournamentResult.data;
+    tErr = tournamentResult.error;
+
+    if (tErr && isMissingFinalLockColumn(tErr.message)) {
+      const fallback = await supabase
+        .from("tournaments")
+        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+        .eq("pool_id", activePoolId)
+        .order("created_at", { ascending: false });
+      tData = fallback.data;
+      tErr = fallback.error;
+      finalLockColumnMissing = !tErr;
+    }
 
     const { data: gData, error: gErr } = await supabase
       .from("golfers")
@@ -429,6 +452,8 @@ export default function AdminPage() {
       setStatus(`Error loading tournaments: ${tErr.message}`);
     } else if (gErr) {
       setStatus(`Error loading golfers: ${gErr.message}`);
+    } else if (finalLockColumnMissing) {
+      setStatus("Run supabase/final_lock.sql to enable Final/Lock tournaments.");
     } else {
       setStatus("");
     }
@@ -768,6 +793,7 @@ export default function AdminPage() {
       round2_lock: r2 ? new Date().toISOString() : null,
       round3_lock: r3 ? new Date().toISOString() : null,
       round4_lock: r4 ? new Date().toISOString() : null,
+      final_lock: finalLock ? new Date().toISOString() : null,
     });
 
     if (error) {
@@ -781,6 +807,7 @@ export default function AdminPage() {
     setR2(false);
     setR3(false);
     setR4(false);
+    setFinalLock(false);
     await refresh(pool.id);
   }
 
@@ -816,6 +843,7 @@ export default function AdminPage() {
     setEditR2(!!t.round2_lock);
     setEditR3(!!t.round3_lock);
     setEditR4(!!t.round4_lock);
+    setEditFinalLock(!!t.final_lock);
   }
 
   function cancelEditTournament() {
@@ -825,6 +853,7 @@ export default function AdminPage() {
     setEditR2(false);
     setEditR3(false);
     setEditR4(false);
+    setEditFinalLock(false);
   }
 
   async function saveTournamentEdits(tournamentId: string) {
@@ -847,6 +876,7 @@ export default function AdminPage() {
           round2_lock: editR2 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round2_lock) : null,
           round3_lock: editR3 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round3_lock) : null,
           round4_lock: editR4 ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.round4_lock) : null,
+          final_lock: editFinalLock ? tLockValue(tournaments.find((t) => t.id === tournamentId)?.final_lock) : null,
         })
         .eq("id", tournamentId);
 
@@ -869,6 +899,10 @@ export default function AdminPage() {
     const tournament = tournaments.find((t) => t.id === scoreTournamentId);
     if (!tournament) {
       setStatus("Select a tournament before changing locks.");
+      return;
+    }
+    if (tournament.final_lock) {
+      setStatus("Tournament is Final/Locked. Uncheck Final/Lock in Create/Edit Tournament before changing round locks.");
       return;
     }
 
@@ -1061,6 +1095,10 @@ export default function AdminPage() {
       setStatus("Select a tournament for scoring.");
       return;
     }
+    if (scoreTournament?.final_lock) {
+      setStatus("Tournament is Final/Locked. Uncheck Final/Lock before editing scores.");
+      return;
+    }
 
     setScoresBusy(true);
     setStatus("Saving scores...");
@@ -1140,6 +1178,10 @@ export default function AdminPage() {
 
   async function clearScores() {
     if (!pool || !scoreTournamentId) return;
+    if (scoreTournament?.final_lock) {
+      setStatus("Tournament is Final/Locked. Uncheck Final/Lock before clearing scores.");
+      return;
+    }
 
     const t = tournaments.find((x) => x.id === scoreTournamentId);
     const ok = window.confirm(
@@ -1173,6 +1215,10 @@ export default function AdminPage() {
   async function syncPgaTourScores() {
     if (!pool || !scoreTournamentId) {
       setStatus("Select a tournament before syncing scores.");
+      return;
+    }
+    if (scoreTournament?.final_lock) {
+      setScoreSyncStatus("Tournament is Final/Locked. Uncheck Final/Lock before syncing scores.");
       return;
     }
 
@@ -1858,6 +1904,10 @@ export default function AdminPage() {
                   <input type="checkbox" checked={r4} onChange={(e) => setR4(e.target.checked)} />
                   Lock Round 4
                 </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input type="checkbox" checked={finalLock} onChange={(e) => setFinalLock(e.target.checked)} />
+                  Final/Lock
+                </label>
               </div>
 
               <button onClick={createTournament} style={styles.primaryButton}>
@@ -2021,6 +2071,11 @@ export default function AdminPage() {
                 This table now only shows golfers who are actively selected by at least one user in a locked round.
                 Lock R1 first and only R1-selected golfers appear. As R2, R3, and R4 are locked, those selected golfers are added automatically.
               </p>
+              {scoreTournament?.final_lock ? (
+                <p style={{ ...styles.sectionText, color: "#fde68a" }}>
+                  Tournament is Final/Locked. Uncheck Final/Lock in Create/Edit Tournament before changing locks, syncing, clearing, or saving scores.
+                </p>
+              ) : null}
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
                 <select
@@ -2036,15 +2091,15 @@ export default function AdminPage() {
                   ))}
                 </select>
 
-                <button onClick={saveScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoresBusy || lockedRounds.length === 0}>
+                <button onClick={saveScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoresBusy || lockedRounds.length === 0 || !!scoreTournament?.final_lock}>
                   {scoresBusy ? "Saving…" : "Save Scores"}
                 </button>
 
-                <button onClick={syncPgaTourScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoreSyncBusy}>
+                <button onClick={syncPgaTourScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoreSyncBusy || !!scoreTournament?.final_lock}>
                   {scoreSyncBusy ? "Syncing..." : "Sync PGA TOUR"}
                 </button>
 
-                <button onClick={clearScores} style={styles.dangerButton} disabled={!scoreTournamentId || scoresBusy}>
+                <button onClick={clearScores} style={styles.dangerButton} disabled={!scoreTournamentId || scoresBusy || !!scoreTournament?.final_lock}>
                   Clear Scores
                 </button>
               </div>
@@ -2085,7 +2140,7 @@ export default function AdminPage() {
                         <input
                           type="checkbox"
                           checked={isLocked}
-                          disabled={!scoreTournamentId || busyTournamentId === scoreTournamentId}
+                          disabled={!scoreTournamentId || busyTournamentId === scoreTournamentId || !!scoreTournament?.final_lock}
                           onChange={(e) => setScoreRoundLock(round as RoundNumber, e.target.checked)}
                         />
                         {isLocked ? "Unlock here" : "Lock here"}
@@ -2293,7 +2348,8 @@ export default function AdminPage() {
                                 R1: {fmtLock(t.round1_lock)}<br />
                                 R2: {fmtLock(t.round2_lock)}<br />
                                 R3: {fmtLock(t.round3_lock)}<br />
-                                R4: {fmtLock(t.round4_lock)}
+                                R4: {fmtLock(t.round4_lock)}<br />
+                                Final: {fmtLock(t.final_lock)}
                               </div>
                             </div>
 
@@ -2320,20 +2376,24 @@ export default function AdminPage() {
 
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={editR1} onChange={(e) => setEditR1(e.target.checked)} />
+                                <input type="checkbox" checked={editR1} onChange={(e) => setEditR1(e.target.checked)} disabled={editFinalLock} />
                                 Lock Round 1
                               </label>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={editR2} onChange={(e) => setEditR2(e.target.checked)} />
+                                <input type="checkbox" checked={editR2} onChange={(e) => setEditR2(e.target.checked)} disabled={editFinalLock} />
                                 Lock Round 2
                               </label>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={editR3} onChange={(e) => setEditR3(e.target.checked)} />
+                                <input type="checkbox" checked={editR3} onChange={(e) => setEditR3(e.target.checked)} disabled={editFinalLock} />
                                 Lock Round 3
                               </label>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={editR4} onChange={(e) => setEditR4(e.target.checked)} />
+                                <input type="checkbox" checked={editR4} onChange={(e) => setEditR4(e.target.checked)} disabled={editFinalLock} />
                                 Lock Round 4
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <input type="checkbox" checked={editFinalLock} onChange={(e) => setEditFinalLock(e.target.checked)} />
+                                Final/Lock
                               </label>
                             </div>
 
