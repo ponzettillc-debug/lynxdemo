@@ -863,6 +863,41 @@ export default function AdminPage() {
     }
   }
 
+  async function setScoreRoundLock(round: RoundNumber, locked: boolean) {
+    if (!pool || !scoreTournamentId) return;
+
+    const tournament = tournaments.find((t) => t.id === scoreTournamentId);
+    if (!tournament) {
+      setStatus("Select a tournament before changing locks.");
+      return;
+    }
+
+    const field = `round${round}_lock` as keyof Tournament;
+    setBusyTournamentId(scoreTournamentId);
+    setStatus(`${locked ? "Locking" : "Unlocking"} Round ${round}...`);
+
+    try {
+      const { error } = await supabase
+        .from("tournaments")
+        .update({
+          [field]: locked ? tLockValue(tournament[field] as string | null) : null,
+        })
+        .eq("id", scoreTournamentId);
+
+      if (error) {
+        setStatus(`Round lock update failed: ${error.message}`);
+        return;
+      }
+
+      await refresh(pool.id);
+      await loadScoresForTournament(scoreTournamentId);
+      await loadPickUsageForTournament(scoreTournamentId);
+      setStatus(`Round ${round} ${locked ? "locked" : "unlocked"}.`);
+    } finally {
+      setBusyTournamentId("");
+    }
+  }
+
   async function deleteTournament(tournamentId: string, tournamentName: string) {
     if (!pool) return;
 
@@ -1389,6 +1424,26 @@ export default function AdminPage() {
       verticalAlign: "top" as const,
       textAlign: "left" as const,
     } as React.CSSProperties,
+
+    tileSummary: {
+      cursor: "pointer",
+      listStyle: "none",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      fontSize: 20,
+      fontWeight: 900,
+      color: "#f8fafc",
+    } as React.CSSProperties,
+
+    tileHint: {
+      marginTop: 8,
+      marginBottom: 18,
+      color: "#94a3b8",
+      lineHeight: 1.5,
+      fontSize: 14,
+    } as React.CSSProperties,
   };
 
   if (loading) {
@@ -1498,10 +1553,13 @@ export default function AdminPage() {
           </div>
         </div>
 
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>User Management</h2>
-            <p style={styles.sectionText}>
-            Create users, repair pool access for existing emails, edit email/display name, reset passwords, and delete users.
+          <details style={styles.card}>
+            <summary style={styles.tileSummary}>
+              <span>User Management</span>
+              <span style={{ color: "#94a3b8", fontSize: 14 }}>{users.length} users</span>
+            </summary>
+            <p style={styles.tileHint}>
+              Create users, repair pool access for existing emails, edit email/display name, reset passwords, and delete users.
             </p>
 
           <div
@@ -1753,7 +1811,7 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </details>
 
         {loading || !isReady ? (
           <div style={styles.card}>
@@ -1763,8 +1821,14 @@ export default function AdminPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Create Tournament</h2>
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Create Tournament</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>{tournaments.length} tournaments</span>
+              </summary>
+              <p style={styles.tileHint}>
+                Create tournaments here. Edit existing tournament names and lock rounds in the Current Data tile.
+              </p>
 
               <label>Name</label>
               <input
@@ -1799,10 +1863,16 @@ export default function AdminPage() {
               <button onClick={createTournament} style={styles.primaryButton}>
                 Create Tournament
               </button>
-            </section>
+            </details>
 
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Add Golfer</h2>
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Add Golfer</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>{golfers.length} golfers</span>
+              </summary>
+              <p style={styles.tileHint}>
+                Add golfers to the master list. Edit/remove existing golfers in the Current Data tile.
+              </p>
 
               <div style={{ display: "flex", gap: 8 }}>
                 <input
@@ -1835,10 +1905,13 @@ export default function AdminPage() {
               <p style={{ marginTop: 12, color: "#94a3b8", fontSize: 14 }}>
                 Total golfers: <strong style={{ color: "#f8fafc" }}>{golfers.length}</strong>
               </p>
-            </section>
+            </details>
 
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Tournament Field</h2>
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Tournament Field</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>{rosterGolfers.length} rostered</span>
+              </summary>
               <p style={styles.sectionText}>
                 Set which golfers are available for a specific tournament. If a tournament has no field set, picks fall back to the full golfer pool.
               </p>
@@ -1937,10 +2010,13 @@ export default function AdminPage() {
                   ) : null}
                 </div>
               ) : null}
-            </section>
+            </details>
 
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Locked Pick Scoring Table</h2>
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Scoring Table</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>{scoreTournament?.name || "Select tournament"}</span>
+              </summary>
               <p style={styles.sectionText}>
                 This table now only shows golfers who are actively selected by at least one user in a locked round.
                 Lock R1 first and only R1-selected golfers appear. As R2, R3, and R4 are locked, those selected golfers are added automatically.
@@ -2005,6 +2081,15 @@ export default function AdminPage() {
                       <div style={{ marginTop: 5, fontWeight: 900, color: isLocked ? "#86efac" : "#cbd5e1" }}>
                         {isLocked ? "Locked" : "Unlocked"}
                       </div>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13, color: "#cbd5e1" }}>
+                        <input
+                          type="checkbox"
+                          checked={isLocked}
+                          disabled={!scoreTournamentId || busyTournamentId === scoreTournamentId}
+                          onChange={(e) => setScoreRoundLock(round as RoundNumber, e.target.checked)}
+                        />
+                        {isLocked ? "Unlock here" : "Lock here"}
+                      </label>
                     </div>
                   );
                 })}
@@ -2134,10 +2219,16 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </details>
 
-            <section style={styles.card}>
-              <h2 style={styles.sectionTitle}>Current Data</h2>
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Current Data / Edit Existing</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>Edit / cleanup</span>
+              </summary>
+              <p style={styles.tileHint}>
+                Edit existing tournaments and golfers, delete records, and review pool totals.
+              </p>
 
               <div
                 style={{
@@ -2321,11 +2412,10 @@ export default function AdminPage() {
                   })}
                 </div>
               )}
-            </section>
+            </details>
           </div>
         )}
       </div>
     </main>
   );
 }
-
