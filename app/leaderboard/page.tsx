@@ -531,6 +531,8 @@ export default function LeaderboardPage() {
     borderBottom: "1px solid rgba(148,163,184,0.12)",
     whiteSpace: "nowrap",
   };
+  const usedRoundMinWidth = isCompactNav ? 0 : 142;
+  const usedTileNameMaxWidth = isCompactNav ? 58 : 116;
 
   return (
     <main style={shell}>
@@ -812,20 +814,20 @@ export default function LeaderboardPage() {
                             <div
                               style={{
                                 fontWeight: 800,
-                                marginBottom: 10,
-                                fontSize: 15,
+                                marginBottom: isCompactNav ? 6 : 10,
+                                fontSize: isCompactNav ? 10 : 15,
                               }}
                             >
-                              {userLabel(r.display_name, r.user_id)} — Used Picks by Round
+                              {isCompactNav ? "Used Picks" : `${userLabel(r.display_name, r.user_id)} — Used Picks by Round`}
                             </div>
 
                             <div
                               style={{
                                 display: "grid",
                                 gridTemplateColumns:
-                                  "repeat(4, minmax(142px, 1fr))",
-                                gap: 8,
-                                overflowX: "auto",
+                                  isCompactNav ? "repeat(4, minmax(0, 1fr))" : "repeat(4, minmax(142px, 1fr))",
+                                gap: isCompactNav ? 3 : 8,
+                                overflowX: "hidden",
                               }}
                             >
                               {[1, 2, 3, 4].map((roundNum) => {
@@ -839,29 +841,29 @@ export default function LeaderboardPage() {
                                   <div
                                     key={`${r.user_id}-round-${round}`}
                                     style={{
-                                      minWidth: 142,
+                                      minWidth: usedRoundMinWidth,
                                       border: "1px solid rgba(148,163,184,0.14)",
-                                      borderRadius: 12,
+                                      borderRadius: isCompactNav ? 7 : 12,
                                       background: roundVisible ? "rgba(15,23,42,0.78)" : "rgba(51,65,85,0.45)",
-                                      padding: 7,
+                                      padding: isCompactNav ? 3 : 7,
                                     }}
                                   >
                                     <div
                                       style={{
                                         fontWeight: 800,
-                                        marginBottom: 7,
+                                        marginBottom: isCompactNav ? 4 : 7,
                                         textAlign: "center",
-                                        fontSize: 13,
+                                        fontSize: isCompactNav ? 9 : 13,
                                       }}
                                     >
-                                      Round {round}
+                                      {isCompactNav ? `R${round}` : `Round ${round}`}
                                     </div>
 
                                     <div
                                       style={{
                                         display: "grid",
                                         gridTemplateColumns: "1fr",
-                                        gap: 6,
+                                        gap: isCompactNav ? 3 : 6,
                                       }}
                                     >
                                       {Array.from({ length: 4 }).map((_, idx) => {
@@ -885,25 +887,29 @@ export default function LeaderboardPage() {
                                             key={`${r.user_id}-round-${round}-tile-${idx}`}
                                             style={{
                                               border: "1px solid rgba(148,163,184,0.12)",
-                                              borderRadius: 8,
+                                              borderRadius: isCompactNav ? 5 : 8,
                                               background: hidden ? "rgba(51,65,85,0.6)" : "rgba(2,6,23,0.72)",
-                                              padding: "7px 8px",
+                                              padding: isCompactNav ? "4px 2px" : "7px 8px",
                                             }}
                                           >
                                             <div
                                               style={{
-                                                fontSize: 12,
+                                                fontSize: isCompactNav ? 8 : 12,
                                                 fontWeight: 700,
-                                                marginBottom: 3,
+                                                marginBottom: isCompactNav ? 1 : 3,
                                                 lineHeight: 1.15,
                                                 color: hidden ? "#94a3b8" : "#f8fafc",
+                                                maxWidth: usedTileNameMaxWidth,
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
                                               }}
                                             >
                                               {title}
                                             </div>
                                             <div
                                               style={{
-                                                fontSize: 11,
+                                                fontSize: isCompactNav ? 8 : 11,
                                                 fontWeight: 800,
                                                 color: hidden ? "#6b7280" : tileColor,
                                               }}
