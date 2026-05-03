@@ -468,7 +468,7 @@ export default function TeeOffPage() {
       note = "TREE LEFT - KNOCKED DOWN";
     }
 
-    if (holeIndex === 2 && ((isTeeShot && adjustedCarry >= 150 && adjustedCarry <= 170) || (!isTeeShot && remaining <= 105 && adjustedCarry < 85))) {
+    if (holeIndex === 2 && isTeeShot && adjustedCarry >= 150 && adjustedCarry <= 170) {
       const penaltyStroke = nextStroke + 1;
       setStrokes(penaltyStroke);
       setRemaining(100);
@@ -607,6 +607,12 @@ export default function TeeOffPage() {
   const puttFeet = currentPuttFeet;
   const puttMeterMax = puttMeterMaxFeet(puttFeet);
   const puttTicks = puttMeterTicks(puttMeterMax);
+  const powerTicks = [25, 50, 75, 100].map((pct) => ({
+    pct,
+    value: club.putter
+      ? Math.round((puttMeterMax * pct) / 100)
+      : Math.round(effectiveClub.min + ((effectiveClub.max - effectiveClub.min) * pct) / 100),
+  }));
   const remainingLabel = onGreen || club.putter ? `${puttFeet} FT` : `${Math.round(remaining)} YDS`;
   const miniBallY = clamp(92 - (1 - remaining / Math.max(1, hole.yards)) * 76, 12, 92);
   const fairwayProgress = clamp(1 - remaining / Math.max(1, hole.yards), 0, 0.95);
@@ -679,6 +685,26 @@ export default function TeeOffPage() {
             ) : (
               <>
                 <div style={{ position: "relative", width: `${clamp(power, 0, 100)}%`, height: "100%", background: "linear-gradient(90deg, #22c55e, #facc15, #ef4444)" }} />
+                {powerTicks.map(({ pct, value }) => (
+                  <div
+                    key={pct}
+                    style={{
+                      position: "absolute",
+                      left: `${pct}%`,
+                      top: "50%",
+                      transform: pct === 100 ? "translate(-100%, -50%)" : "translate(-50%, -50%)",
+                      zIndex: 2,
+                      color: "#f8fafc",
+                      fontSize: 10,
+                      fontWeight: 900,
+                      lineHeight: 1,
+                      textShadow: "0 1px 2px #020617, 0 0 5px #020617",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {value}{club.putter ? "'" : "y"}
+                  </div>
+                ))}
               </>
             )}
           </div>
