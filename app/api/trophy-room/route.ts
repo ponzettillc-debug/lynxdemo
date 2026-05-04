@@ -151,8 +151,7 @@ export async function GET(req: NextRequest) {
     let tournamentData: any[] = tournamentsRes.data ?? [];
     let tournamentError = tournamentsRes.error;
     if (tournamentsRes.error && isMissingFinalLockColumn(tournamentsRes.error.message)) {
-      tournamentData = [];
-      tournamentError = null;
+      return jsonError("Final/Lock is not enabled yet. Run supabase/final_lock.sql in Supabase SQL Editor before Trophy Room winners can appear.", 400);
     }
 
     const [picksRes, scoresRes, namesRes] = await Promise.all([

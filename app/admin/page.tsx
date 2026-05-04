@@ -146,6 +146,7 @@ export default function AdminPage() {
   const [scoreEdits, setScoreEdits] = useState<ScoreMap>({});
   const [pickUsage, setPickUsage] = useState<PickUsageMap>({});
   const [pickUsageLoading, setPickUsageLoading] = useState(false);
+  const [finalLockSchemaMissing, setFinalLockSchemaMissing] = useState(false);
   const [rosterTournamentId, setRosterTournamentId] = useState<string>("");
   const [rosterGolfers, setRosterGolfers] = useState<Golfer[]>([]);
   const [rosterUrl, setRosterUrl] = useState("https://www.pgachampionship.com/players");
@@ -441,6 +442,7 @@ export default function AdminPage() {
       tErr = fallback.error;
       finalLockColumnMissing = !tErr;
     }
+    setFinalLockSchemaMissing(finalLockColumnMissing);
 
     const { data: gData, error: gErr } = await supabase
       .from("golfers")
@@ -453,7 +455,7 @@ export default function AdminPage() {
     } else if (gErr) {
       setStatus(`Error loading golfers: ${gErr.message}`);
     } else if (finalLockColumnMissing) {
-      setStatus("Run supabase/final_lock.sql to enable Final/Lock tournaments.");
+      setStatus("Run supabase/final_lock.sql in Supabase SQL Editor to enable Final/Lock tournaments.");
     } else {
       setStatus("");
     }
@@ -1898,6 +1900,11 @@ export default function AdminPage() {
               <p style={styles.tileHint}>
                 Create tournaments here. Edit existing tournament names and lock rounds in the Current Data tile.
               </p>
+              {finalLockSchemaMissing ? (
+                <p style={{ ...styles.tileHint, color: "#fde68a" }}>
+                  Final/Lock is not active yet. Run supabase/final_lock.sql in Supabase SQL Editor, then reload this page.
+                </p>
+              ) : null}
 
               <label>Name</label>
               <input
@@ -1928,7 +1935,7 @@ export default function AdminPage() {
                   Lock Round 4
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input type="checkbox" checked={finalLock} onChange={(e) => setFinalLock(e.target.checked)} />
+                  <input type="checkbox" checked={finalLock} disabled={finalLockSchemaMissing} onChange={(e) => setFinalLock(e.target.checked)} />
                   Final/Lock
                 </label>
               </div>
@@ -2396,6 +2403,11 @@ export default function AdminPage() {
                             <p style={{ margin: "0 0 10px", color: "#94a3b8", fontSize: 14 }}>
                               Check a round to lock it. Uncheck to unlock it. Click Save to apply changes.
                             </p>
+                            {finalLockSchemaMissing ? (
+                              <p style={{ margin: "0 0 10px", color: "#fde68a", fontSize: 14 }}>
+                                Final/Lock needs supabase/final_lock.sql before it can be saved.
+                              </p>
+                            ) : null}
 
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 14 }}>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2415,7 +2427,7 @@ export default function AdminPage() {
                                 Lock Round 4
                               </label>
                               <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <input type="checkbox" checked={editFinalLock} onChange={(e) => setEditFinalLock(e.target.checked)} />
+                                <input type="checkbox" checked={editFinalLock} disabled={finalLockSchemaMissing} onChange={(e) => setEditFinalLock(e.target.checked)} />
                                 Final/Lock
                               </label>
                             </div>
