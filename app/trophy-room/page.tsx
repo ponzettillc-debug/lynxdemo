@@ -230,11 +230,33 @@ export default function TrophyRoomPage() {
     position: "relative",
     width: 34,
     height: 30,
+    display: "grid",
+    placeItems: "center",
     borderRadius: "5px 5px 15px 15px",
     background:
       "linear-gradient(135deg, #fef3c7 0%, #facc15 36%, #a16207 72%, #fde68a 100%)",
     border: "1px solid rgba(253,230,138,0.88)",
     boxShadow: "inset 0 4px 8px rgba(255,255,255,0.34), 0 0 18px rgba(250,204,21,0.24)",
+  };
+
+  const mastersCupInscription: React.CSSProperties = {
+    width: 25,
+    minHeight: 17,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 5,
+    background: "linear-gradient(180deg, rgba(22,101,52,0.94), rgba(20,83,45,0.92))",
+    border: "1px solid rgba(254,243,199,0.55)",
+    color: "#fef3c7",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 4.6,
+    fontWeight: 900,
+    lineHeight: 0.92,
+    textAlign: "center",
+    textTransform: "uppercase",
+    textShadow: "0 1px 1px rgba(0,0,0,0.46)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+    transform: "translateY(1px)",
   };
 
   const mastersHandleBase: React.CSSProperties = {
@@ -389,7 +411,13 @@ export default function TrophyRoomPage() {
                                 }}
                               />
                               <div style={mastersGolfBall} />
-                              <div style={mastersCup} />
+                              <div style={mastersCup}>
+                                <div style={mastersCupInscription}>
+                                  <span>4Play</span>
+                                  <span>Masters</span>
+                                  <span>Champ 26</span>
+                                </div>
+                              </div>
                               <div style={mastersStem} />
                               <div style={mastersBase} />
                             </div>
