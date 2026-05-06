@@ -41,6 +41,10 @@ function errorMessage(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
 }
 
+function isMasters2026(tournamentName: string) {
+  return /masters/i.test(tournamentName) && /2026/.test(tournamentName);
+}
+
 export default function TrophyRoomPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,6 +200,85 @@ export default function TrophyRoomPage() {
     padding: 12,
   };
 
+  const mastersWinnerTile: React.CSSProperties = {
+    ...winnerTile,
+    background:
+      "linear-gradient(135deg, rgba(2,44,34,0.92), rgba(3,7,18,0.84) 54%, rgba(78,58,14,0.54))",
+    border: "1px solid rgba(250,204,21,0.28)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), 0 12px 28px rgba(0,0,0,0.20)",
+  };
+
+  const mastersTrophyWrap: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "auto auto",
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "end",
+    minWidth: 122,
+  };
+
+  const mastersTrophy: React.CSSProperties = {
+    position: "relative",
+    width: 54,
+    height: 62,
+    display: "grid",
+    justifyItems: "center",
+    alignItems: "end",
+  };
+
+  const mastersCup: React.CSSProperties = {
+    position: "relative",
+    width: 34,
+    height: 30,
+    borderRadius: "5px 5px 15px 15px",
+    background:
+      "linear-gradient(135deg, #fef3c7 0%, #facc15 36%, #a16207 72%, #fde68a 100%)",
+    border: "1px solid rgba(253,230,138,0.88)",
+    boxShadow: "inset 0 4px 8px rgba(255,255,255,0.34), 0 0 18px rgba(250,204,21,0.24)",
+  };
+
+  const mastersHandleBase: React.CSSProperties = {
+    position: "absolute",
+    top: 8,
+    width: 14,
+    height: 18,
+    border: "3px solid rgba(250,204,21,0.82)",
+    borderBottomColor: "transparent",
+  };
+
+  const mastersStem: React.CSSProperties = {
+    width: 8,
+    height: 14,
+    background: "linear-gradient(180deg, #facc15, #92400e)",
+    borderRadius: 3,
+  };
+
+  const mastersBase: React.CSSProperties = {
+    width: 42,
+    height: 9,
+    borderRadius: "8px 8px 4px 4px",
+    background: "linear-gradient(135deg, #14532d, #166534 54%, #facc15)",
+    border: "1px solid rgba(250,204,21,0.38)",
+  };
+
+  const mastersGolfBall: React.CSSProperties = {
+    position: "absolute",
+    right: -1,
+    top: -2,
+    width: 13,
+    height: 13,
+    borderRadius: 999,
+    background:
+      "radial-gradient(circle at 32% 30%, #ffffff 0 16%, #dbeafe 17% 100%)",
+    border: "1px solid rgba(255,255,255,0.86)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.24)",
+  };
+
+  const mastersScoreWrap: React.CSSProperties = {
+    textAlign: "right",
+    minWidth: 44,
+  };
+
   return (
     <main style={shell}>
       <div style={content}>
@@ -261,33 +344,70 @@ export default function TrophyRoomPage() {
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
-                  {row.winners.map((winner) => (
-                    <div
-                      key={`${row.tournament_id}-${winner.user_id}`}
-                      style={winnerTile}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 18,
-                            fontWeight: 900,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {winner.user_name}
-                        </div>
-                        <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>
-                          {winner.scored_picks} scored pick{winner.scored_picks === 1 ? "" : "s"}
-                        </div>
-                      </div>
+                  {row.winners.map((winner) => {
+                    const useMastersTheme = isMasters2026(row.tournament_name);
 
-                      <div style={{ fontSize: 22, fontWeight: 900 }}>
-                        {fmtScore(winner.total_strokes)}
+                    return (
+                      <div
+                        key={`${row.tournament_id}-${winner.user_id}`}
+                        style={useMastersTheme ? mastersWinnerTile : winnerTile}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 18,
+                              fontWeight: 900,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {winner.user_name}
+                          </div>
+                          <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>
+                            {winner.scored_picks} scored pick{winner.scored_picks === 1 ? "" : "s"}
+                          </div>
+                        </div>
+
+                        <div style={useMastersTheme ? mastersTrophyWrap : undefined}>
+                          {useMastersTheme ? (
+                            <div style={mastersTrophy} aria-hidden="true">
+                              <div
+                                style={{
+                                  ...mastersHandleBase,
+                                  left: 1,
+                                  borderRight: "none",
+                                  borderRadius: "12px 0 0 12px",
+                                }}
+                              />
+                              <div
+                                style={{
+                                  ...mastersHandleBase,
+                                  right: 1,
+                                  borderLeft: "none",
+                                  borderRadius: "0 12px 12px 0",
+                                }}
+                              />
+                              <div style={mastersGolfBall} />
+                              <div style={mastersCup} />
+                              <div style={mastersStem} />
+                              <div style={mastersBase} />
+                            </div>
+                          ) : null}
+
+                          <div
+                            style={
+                              useMastersTheme
+                                ? { ...mastersScoreWrap, fontSize: 22, fontWeight: 900 }
+                                : { fontSize: 22, fontWeight: 900 }
+                            }
+                          >
+                            {fmtScore(winner.total_strokes)}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </section>
             ))}
