@@ -25,6 +25,7 @@ type Tournament = {
   round2_lock?: string | null;
   round3_lock?: string | null;
   round4_lock?: string | null;
+  final_lock?: string | null;
 };
 
 type UsedPick = {
@@ -257,7 +258,7 @@ export default function LeaderboardPage() {
 
       const { data: tData, error: tErr } = await supabase
         .from("tournaments")
-        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
         .eq("pool_id", nextPoolId)
         .order("created_at", { ascending: false });
 
@@ -374,6 +375,11 @@ export default function LeaderboardPage() {
   const selectedTournament =
     tournaments.find((t) => t.id === selectedTournamentId) ?? null;
   const lockedRound = getLockedRound(selectedTournament);
+  const statusLabel = selectedTournament?.final_lock
+    ? "Tournament Complete"
+    : lockedRound
+    ? `Round ${lockedRound} locked`
+    : "Awaiting lock";
   const bannerSrc = getBannerForLockedRound(lockedRound);
 
   function toggleAllUsedExpanded(userId: string) {
@@ -536,6 +542,16 @@ export default function LeaderboardPage() {
     borderBottom: "1px solid rgba(148,163,184,0.12)",
     whiteSpace: "nowrap",
   };
+  const keyColumnHeaderCell: React.CSSProperties = {
+    ...headerCell,
+    background: "rgba(125,211,252,0.10)",
+    boxShadow: "inset 1px 0 0 rgba(125,211,252,0.12), inset -1px 0 0 rgba(125,211,252,0.10)",
+  };
+  const keyColumnBodyCell: React.CSSProperties = {
+    ...bodyCell,
+    background: "rgba(125,211,252,0.065)",
+    boxShadow: "inset 1px 0 0 rgba(125,211,252,0.09), inset -1px 0 0 rgba(125,211,252,0.08)",
+  };
   const usedRoundMinWidth = isCompactNav ? 0 : 142;
   const usedTileNameMaxWidth = isCompactNav ? 58 : 116;
   const headerBand: React.CSSProperties = {
@@ -602,7 +618,7 @@ export default function LeaderboardPage() {
             <div style={titleRow}>
               <h1 style={pageTitle}>Leaderboard</h1>
               <span style={roundPill}>
-                {lockedRound ? `Round ${lockedRound} locked` : "Awaiting lock"}
+                {statusLabel}
               </span>
             </div>
             <p style={headerSubline}>
@@ -733,10 +749,10 @@ export default function LeaderboardPage() {
                 <th style={headerCell}>
                   R4
                 </th>
-                <th style={headerCell}>
+                <th style={keyColumnHeaderCell}>
                   {isCompactNav ? "Tot" : "Total"}
                 </th>
-                <th style={headerCell}>
+                <th style={keyColumnHeaderCell}>
                   {isCompactNav ? "Bhd" : "Behind"}
                 </th>
               </tr>
@@ -855,7 +871,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          ...bodyCell,
+                          ...keyColumnBodyCell,
                           fontWeight: 800,
                           color: scoreColor(r.total_strokes),
                         }}
@@ -864,7 +880,7 @@ export default function LeaderboardPage() {
                       </td>
                       <td
                         style={{
-                          ...bodyCell,
+                          ...keyColumnBodyCell,
                           fontWeight: 700,
                           color: scoreColor(r.behind),
                         }}
