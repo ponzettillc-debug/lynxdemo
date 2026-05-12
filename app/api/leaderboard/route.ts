@@ -11,6 +11,31 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+async function getAuthUserLabels(supabaseAdmin: any) {
+  const labels = new Map<string, string>();
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) throw new Error(error.message || "Failed to load auth users.");
+
+    const users = data?.users || [];
+    users.forEach((user: any) => {
+      const displayName = String(user.user_metadata?.display_name || "").trim();
+      const email = String(user.email || "").trim();
+      const label = displayName || email;
+      if (user.id && label) labels.set(user.id, label);
+    });
+
+    if (users.length < 1000) break;
+  }
+
+  return labels;
+}
+
 function parseLockTime(value?: string | null) {
   if (!value) return NaN;
   const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
@@ -205,6 +230,7 @@ export async function GET(req: NextRequest) {
     const picks = picksRes.data ?? [];
     const scores = scoresRes.data ?? [];
     const leaderboardNames = leaderboardNamesRes.data ?? [];
+    const authUserLabels = await getAuthUserLabels(supabaseAdmin);
 
     const golferNameById = new Map<string, string>();
     golfers.forEach((g: any) => golferNameById.set(g.id, g.name));
@@ -255,7 +281,7 @@ export async function GET(req: NextRequest) {
     participantUserIds.forEach((userId) => {
       rowMap.set(userId, {
         user_id: userId,
-        display_name: displayNameByUserId.get(userId) ?? null,
+        display_name: displayNameByUserId.get(userId) || authUserLabels.get(userId) || null,
         r1_strokes: 0,
         r2_strokes: 0,
         r3_strokes: 0,
