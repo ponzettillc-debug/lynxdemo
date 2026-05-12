@@ -235,9 +235,6 @@ export default function UserManagementPage() {
 
         <section style={card}>
           <h2 style={{ marginTop: 0 }}>Password</h2>
-          <p style={{ color: "#94a3b8", marginTop: 0 }}>
-            Password changes work through Supabase while you are signed in.
-          </p>
           <div style={{ display: "grid", gap: 10 }}>
             <input
               type="password"
