@@ -33,6 +33,7 @@ export default function UserManagementPage() {
   const [savingName, setSavingName] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [results, setResults] = useState<PastResult[]>([]);
+  const [showFourPlayMe, setShowFourPlayMe] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -294,6 +295,46 @@ export default function UserManagementPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section style={card}>
+          <button
+            onClick={() => setShowFourPlayMe((current) => !current)}
+            style={{
+              ...button,
+              width: "100%",
+              minHeight: 54,
+              fontSize: 18,
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.92))",
+              border: "1px solid rgba(226,232,240,0.22)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+            }}
+          >
+            4Play Me!
+          </button>
+          {showFourPlayMe ? (
+            <div
+              style={{
+                marginTop: 14,
+                borderRadius: 20,
+                overflow: "hidden",
+                border: "1px solid rgba(148,163,184,0.18)",
+                background: "rgba(2,6,23,0.55)",
+                boxShadow: "0 18px 36px rgba(0,0,0,0.32)",
+              }}
+            >
+              <img
+                src="/4play-me.png"
+                alt="Cartoon golfer photo-op"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "auto",
+                }}
+              />
+            </div>
+          ) : null}
         </section>
       </div>
     </main>
