@@ -388,6 +388,15 @@ export default function Home() {
                   Trophy Room
                 </button>
 
+                {!isAdmin ? (
+                  <button
+                    onClick={() => router.push("/user-management")}
+                    style={secondaryButtonStyle}
+                  >
+                    User Management
+                  </button>
+                ) : null}
+
                 {isAdmin && (
                   <>
                     <hr
