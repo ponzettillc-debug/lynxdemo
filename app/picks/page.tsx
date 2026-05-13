@@ -23,6 +23,13 @@ type Tournament = {
 type Golfer = { id: string; name: string };
 type PickRow = { golfer_id: string; round: number };
 
+const ROUND_LABELS: Record<number, string> = {
+  1: "R1 - Thursday",
+  2: "R2 - Friday",
+  3: "R3 - Saturday",
+  4: "R4 - Sunday",
+};
+
 function getRoundLock(t: Tournament | null, round: number): string | null {
   if (!t) return null;
   if (round === 1) return t.round1_lock;
@@ -595,7 +602,7 @@ export default function PicksPage() {
 
     roundBtn: (active: boolean): React.CSSProperties => ({
       minWidth: 0,
-      padding: "12px 8px",
+      padding: "12px 6px",
       borderRadius: 14,
       border: active
         ? "1px solid rgba(34,197,94,0.65)"
@@ -605,7 +612,8 @@ export default function PicksPage() {
         : "rgba(2,6,23,0.76)",
       color: active ? "#dcfce7" : "#e2e8f0",
       fontWeight: 900,
-      fontSize: 13,
+      fontSize: 12,
+      lineHeight: 1.15,
       cursor: "pointer",
     }),
 
@@ -859,6 +867,30 @@ export default function PicksPage() {
             ) : null}
           </div>
 
+          <a
+            href="/rules"
+            style={{
+              ...styles.card,
+              marginBottom: 14,
+              display: "block",
+              textDecoration: "none",
+              color: "#f8fafc",
+              borderColor: "rgba(34,197,94,0.24)",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.84))",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900 }}>Rules</div>
+                <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13, fontWeight: 700 }}>
+                  Quick tournament pick format
+                </div>
+              </div>
+              <div style={{ color: "#86efac", fontWeight: 900 }}>View</div>
+            </div>
+          </a>
+
           <div style={{ ...styles.card, marginBottom: 14 }}>
             <div style={styles.sectionHeader}>
               <h2 style={styles.sectionTitle}>Tournament & Round</h2>
@@ -893,7 +925,7 @@ export default function PicksPage() {
                   }}
                   style={styles.roundBtn(round === r)}
                 >
-                  Round {r}
+                  {ROUND_LABELS[r]}
                 </button>
               ))}
             </div>
