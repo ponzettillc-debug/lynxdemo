@@ -77,6 +77,9 @@ export default function RulesPage() {
             <div style={ruleItem}>
               Total scores are accumulated until tournament completion.
             </div>
+            <div style={ruleItem}>
+              If a selected golfer does not record a score (DNS, missed cut, or no player selected), you take a +10 penalty score.
+            </div>
           </div>
         </section>
       </div>
