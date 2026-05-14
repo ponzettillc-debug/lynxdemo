@@ -11,8 +11,20 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
 
+function emailPrefix(email: string) {
+  const clean = String(email || "").trim();
+  if (!clean) return "";
+  return clean.includes("@") ? clean.split("@")[0] : clean;
+}
+
+function cleanLabel(label?: string | null) {
+  const clean = String(label || "").trim();
+  return clean ? emailPrefix(clean) : "";
+}
+
 async function getAuthUserLabels(supabaseAdmin: any) {
-  const labels = new Map<string, string>();
+  const displayNames = new Map<string, string>();
+  const emailFallbacks = new Map<string, string>();
 
   for (let page = 1; page <= 20; page += 1) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({
@@ -26,14 +38,16 @@ async function getAuthUserLabels(supabaseAdmin: any) {
     users.forEach((user: any) => {
       const displayName = String(user.user_metadata?.display_name || "").trim();
       const email = String(user.email || "").trim();
-      const label = displayName || email;
-      if (user.id && label) labels.set(user.id, label);
+      const fallback = emailPrefix(email);
+
+      if (user.id && displayName) displayNames.set(user.id, displayName);
+      if (user.id && fallback) emailFallbacks.set(user.id, fallback);
     });
 
     if (users.length < 1000) break;
   }
 
-  return labels;
+  return { displayNames, emailFallbacks };
 }
 
 function parseLockTime(value?: string | null) {
@@ -303,7 +317,11 @@ export async function GET(req: NextRequest) {
     participantUserIds.forEach((userId) => {
       rowMap.set(userId, {
         user_id: userId,
-        display_name: displayNameByUserId.get(userId) || authUserLabels.get(userId) || null,
+        display_name:
+          authUserLabels.displayNames.get(userId) ||
+          cleanLabel(displayNameByUserId.get(userId)) ||
+          authUserLabels.emailFallbacks.get(userId) ||
+          null,
         r1_strokes: 0,
         r2_strokes: 0,
         r3_strokes: 0,
