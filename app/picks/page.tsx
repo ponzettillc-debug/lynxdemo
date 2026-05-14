@@ -24,10 +24,10 @@ type Golfer = { id: string; name: string };
 type PickRow = { golfer_id: string; round: number };
 
 const ROUND_LABELS: Record<number, string> = {
-  1: "R1 - Thursday",
-  2: "R2 - Friday",
-  3: "R3 - Saturday",
-  4: "R4 - Sunday",
+  1: "R1 - Thurs",
+  2: "R2 - Fri",
+  3: "R3 - Sat",
+  4: "R4 - Sun",
 };
 
 function getRoundLock(t: Tournament | null, round: number): string | null {
@@ -890,7 +890,7 @@ export default function PicksPage() {
               <div>
                 <div style={{ fontSize: 18, fontWeight: 900 }}>Rules</div>
                 <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13, fontWeight: 700 }}>
-                  Quick tournament pick format
+                  Game play instructions
                 </div>
               </div>
               <div style={{ color: "#86efac", fontWeight: 900 }}>View</div>
