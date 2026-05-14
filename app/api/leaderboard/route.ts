@@ -1,11 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { gunzipSync } from "zlib";
+
+export const runtime = "nodejs";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 const PENALTY_SCORE = 10;
+const PGA_TOUR_API_KEY = "da2-gsrx5bibzbb4njvhl7t37wqyl4";
+const PGA_TOUR_GRAPHQL_URL = "https://orchestrator.pgatour.com/graphql";
+
+type PublicPlayer = {
+  player?: {
+    displayName?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+  scoringData?: {
+    currentRound?: number;
+    playerState?: string;
+    roundStatus?: string;
+    rounds?: string[];
+    thru?: string;
+  };
+};
+
+const PUBLIC_LEADERBOARDS = [
+  {
+    id: "R2026556",
+    matches: [/cadillac/i],
+  },
+  {
+    id: "R2026033",
+    matches: [/pga\s*championship/i, /pga\s*-\s*championship/i],
+  },
+];
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
@@ -20,6 +51,156 @@ function emailPrefix(email: string) {
 function cleanLabel(label?: string | null) {
   const clean = String(label || "").trim();
   return clean ? emailPrefix(clean) : "";
+}
+
+function normalizeName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(jr|sr|ii|iii|iv)\b/g, "")
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function nameMatchKeys(name: string) {
+  const normalized = normalizeName(name);
+  const parts = normalized.split(" ").filter(Boolean);
+  const first = parts[0] || "";
+  const last = parts[parts.length - 1] || "";
+  const keys = new Set<string>([normalized]);
+
+  if (first && last) {
+    keys.add(`${first[0]} ${last}`);
+    keys.add(`${first.slice(0, 3)} ${last}`);
+  }
+
+  return [...keys].filter(Boolean);
+}
+
+function publicLeaderboardIdForTournament(name?: string | null) {
+  const tournamentName = String(name || "");
+  return PUBLIC_LEADERBOARDS.find((config) =>
+    config.matches.some((pattern) => pattern.test(tournamentName))
+  )?.id ?? "";
+}
+
+function buildPublicPlayerByName(players: PublicPlayer[]) {
+  const sourceByName = new Map<string, PublicPlayer | null>();
+
+  players.forEach((player) => {
+    const displayName =
+      player.player?.displayName ||
+      `${player.player?.firstName ?? ""} ${player.player?.lastName ?? ""}`;
+
+    nameMatchKeys(displayName).forEach((key) => {
+      if (sourceByName.has(key) && sourceByName.get(key) !== player) {
+        sourceByName.set(key, null);
+      } else {
+        sourceByName.set(key, player);
+      }
+    });
+  });
+
+  return sourceByName;
+}
+
+function findPublicPlayer(sourceByName: Map<string, PublicPlayer | null>, golferName: string) {
+  for (const key of nameMatchKeys(golferName)) {
+    const player = sourceByName.get(key);
+    if (player) return player;
+  }
+
+  return null;
+}
+
+function publicRoundProgress(player: PublicPlayer, round: 1 | 2 | 3 | 4) {
+  const scoring = player.scoringData;
+  if (!scoring) return null;
+
+  const currentRound = Number(scoring.currentRound);
+  const state = String(scoring.playerState || scoring.roundStatus || "").toUpperCase();
+  const roundScore = String(scoring.rounds?.[round - 1] ?? "").trim();
+
+  if (roundScore && roundScore !== "-" && (round < currentRound || state === "COMPLETE" || state === "FINISHED")) {
+    return "F";
+  }
+
+  if (currentRound !== round) return null;
+  if (state === "COMPLETE" || state === "FINISHED") return "F";
+
+  const thru = String(scoring.thru || "").trim();
+  if (!thru) return state === "NOT_STARTED" ? "0" : null;
+  if (/^f$/i.test(thru)) return "F";
+
+  const holes = Number(thru.replace(/[^0-9]/g, ""));
+  if (!Number.isFinite(holes)) return null;
+  if (holes >= 18) return "F";
+  return String(holes);
+}
+
+async function fetchPublicLeaderboard(leaderboardId: string) {
+  const response = await fetch(PGA_TOUR_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0",
+      "x-api-key": PGA_TOUR_API_KEY,
+      "x-pgat-platform": "web",
+    },
+    body: JSON.stringify({
+      query: `
+        query LeaderboardCompressedV3($leaderboardCompressedV3Id: ID!) {
+          leaderboardCompressedV3(id: $leaderboardCompressedV3Id) {
+            id
+            payload
+          }
+        }
+      `,
+      variables: { leaderboardCompressedV3Id: leaderboardId },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Public leaderboard request failed (${response.status}).`);
+  }
+
+  const json = await response.json();
+  const payload = json?.data?.leaderboardCompressedV3?.payload;
+  if (!payload) return null;
+
+  return JSON.parse(gunzipSync(Buffer.from(payload, "base64")).toString("utf8"));
+}
+
+async function getPublicRoundProgressByGolferRound(tournament: any, golfers: any[]) {
+  const leaderboardId = publicLeaderboardIdForTournament(tournament?.name);
+  const progressByGolferRound = new Map<string, string>();
+  if (!leaderboardId) return progressByGolferRound;
+
+  try {
+    const leaderboard = await fetchPublicLeaderboard(leaderboardId);
+    const publicPlayers = ((leaderboard?.players ?? []) as PublicPlayer[]).filter(
+      (player) => player.player
+    );
+    const sourceByName = buildPublicPlayerByName(publicPlayers);
+
+    golfers.forEach((golfer: any) => {
+      const publicPlayer = findPublicPlayer(sourceByName, golfer.name);
+      if (!publicPlayer) return;
+
+      ([1, 2, 3, 4] as const).forEach((round) => {
+        const progress = publicRoundProgress(publicPlayer, round);
+        if (progress) {
+          progressByGolferRound.set(`${golfer.id}:${round}`, progress);
+        }
+      });
+    });
+  } catch (err) {
+    console.warn("Public leaderboard progress unavailable:", err);
+  }
+
+  return progressByGolferRound;
 }
 
 async function getAuthUserLabels(supabaseAdmin: any) {
@@ -132,16 +313,17 @@ function addRoundScore(row: any, round: number, score: number) {
 }
 
 function addRoundPickData(
-  target: Record<string, Array<{ name: string; score: number | null }>>,
+  target: Record<string, Array<{ name: string; score: number | null; thruLabel?: string | null }>>,
   userId: string,
   name: string,
-  score: number | null
+  score: number | null,
+  thruLabel?: string | null
 ) {
   if (!target[userId]) {
     target[userId] = [];
   }
 
-  target[userId].push({ name, score });
+  target[userId].push({ name, score, thruLabel: thruLabel ?? null });
 }
 
 function addUsedPick(
@@ -154,13 +336,15 @@ function addUsedPick(
       roundsUsed: Set<number>;
       totalScore: number;
       roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+      roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
     }
   >,
   userId: string,
   golferId: string,
   name: string,
   round: 1 | 2 | 3 | 4,
-  score: number | null
+  score: number | null,
+  thruLabel?: string | null
 ) {
   const key = `${userId}:${golferId}`;
   if (!accumulator.has(key)) {
@@ -171,12 +355,14 @@ function addUsedPick(
       roundsUsed: new Set<number>(),
       totalScore: 0,
       roundScores: {},
+      roundThruLabels: {},
     });
   }
 
   const entry = accumulator.get(key)!;
   entry.roundsUsed.add(round);
   entry.roundScores[round] = score;
+  entry.roundThruLabels[round] = thruLabel ?? null;
   if (typeof score === "number") {
     entry.totalScore += score;
   }
@@ -286,6 +472,7 @@ export async function GET(req: NextRequest) {
     const scores = scoresRes.data ?? [];
     const leaderboardNames = leaderboardNamesRes.data ?? [];
     const authUserLabels = await getAuthUserLabels(supabaseAdmin);
+    const publicProgressByGolferRound = await getPublicRoundProgressByGolferRound(tournament, golfers);
 
     const golferNameById = new Map<string, string>();
     golfers.forEach((g: any) => golferNameById.set(g.id, g.name));
@@ -308,7 +495,7 @@ export async function GET(req: NextRequest) {
     const picksByUserRound = new Map<string, any[]>();
     const roundPickDataByUser: Record<
       string,
-      Array<{ name: string; score: number | null }>
+      Array<{ name: string; score: number | null; thruLabel?: string | null }>
     > = {};
     const allUsedPicksByUser: Record<
       string,
@@ -317,6 +504,12 @@ export async function GET(req: NextRequest) {
         roundsUsed: number[];
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+        roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundDetails: Array<{
+          round: 1 | 2 | 3 | 4;
+          score: number | null;
+          thruLabel?: string | null;
+        }>;
       }>
     > = {};
 
@@ -329,6 +522,7 @@ export async function GET(req: NextRequest) {
         roundsUsed: Set<number>;
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+        roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
       }
     >();
 
@@ -402,6 +596,9 @@ export async function GET(req: NextRequest) {
             const shouldScorePenalty =
               !hasPickedScore && (pick ? applyMissingGolferPenalty : applyMissingPickPenalty);
             const score = hasPickedScore ? pickedScore : shouldScorePenalty ? PENALTY_SCORE : null;
+            const thruLabel = pick
+              ? publicProgressByGolferRound.get(`${pick.golfer_id}:${round}`) ?? null
+              : null;
 
             const name = hasPickedScore
               ? golferNameById.get(pick.golfer_id) ?? "Unknown Golfer"
@@ -428,7 +625,7 @@ export async function GET(req: NextRequest) {
             }
 
             if (round === lockedRound) {
-              addRoundPickData(roundPickDataByUser, userId, name, score);
+              addRoundPickData(roundPickDataByUser, userId, name, score, thruLabel);
             }
 
             addUsedPick(
@@ -437,7 +634,8 @@ export async function GET(req: NextRequest) {
               golferId,
               name,
               round,
-              score
+              score,
+              thruLabel
             );
           }
         });
@@ -492,6 +690,12 @@ export async function GET(req: NextRequest) {
         roundsUsed: [...entry.roundsUsed].sort((a, b) => a - b),
         totalScore: entry.totalScore,
         roundScores: entry.roundScores,
+        roundThruLabels: entry.roundThruLabels,
+        roundDetails: [...entry.roundsUsed].sort((a, b) => a - b).map((round) => ({
+          round: round as 1 | 2 | 3 | 4,
+          score: entry.roundScores[round as 1 | 2 | 3 | 4] ?? null,
+          thruLabel: entry.roundThruLabels[round as 1 | 2 | 3 | 4] ?? null,
+        })),
       });
     });
 

@@ -33,9 +33,11 @@ type UsedPick = {
   roundsUsed?: number[];
   totalScore?: number;
   roundScores?: Partial<Record<1 | 2 | 3 | 4, number | null>>;
+  roundThruLabels?: Partial<Record<1 | 2 | 3 | 4, string | null>>;
   roundDetails?: Array<{
     round: 1 | 2 | 3 | 4;
     score: number | null;
+    thruLabel?: string | null;
   }>;
 };
 
@@ -66,12 +68,19 @@ type RankedRow = Row & {
 type RoundTile = {
   golferName: string;
   score: number | null;
+  thruLabel?: string | null;
 };
 
 function fmtScore(v: number | null | undefined) {
   if (typeof v !== "number") return "—";
   if (v === 0) return "E";
   return v > 0 ? `+${v}` : String(v);
+}
+
+function fmtScoreWithProgress(score: number | null | undefined, thruLabel?: string | null) {
+  const base = fmtScore(score);
+  const cleanThru = String(thruLabel || "").trim();
+  return cleanThru ? `${base} (${cleanThru})` : base;
 }
 
 function userLabel(displayName: string | null | undefined, userId: string) {
@@ -176,6 +185,10 @@ function getRoundTilesForDisplay(
           explicitDetail?.score ??
           explicitScoreFromMap ??
           (isUsedInRound ? (pick.totalScore ?? null) : null),
+        thruLabel:
+          explicitDetail?.thruLabel ??
+          pick.roundThruLabels?.[round] ??
+          null,
       });
     }
   });
@@ -1096,7 +1109,7 @@ export default function LeaderboardPage() {
                                             ? ""
                                             : "*Hidden*"
                                           : tile
-                                          ? fmtScore(tile.score)
+                                          ? fmtScoreWithProgress(tile.score, tile.thruLabel)
                                           : "—";
                                         const tileColor =
                                           !hidden && typeof tile?.score === "number"
