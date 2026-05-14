@@ -321,6 +321,9 @@ export default function TrophyRoomPage() {
           <Link href="/picks" style={linkStyle}>
             Picks
           </Link>
+          <Link href="/driver" style={linkStyle}>
+            4Play Games
+          </Link>
           {isAdmin ? (
             <Link href="/admin" style={linkStyle}>
               Admin
