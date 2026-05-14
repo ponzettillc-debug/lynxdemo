@@ -848,17 +848,13 @@ export default function PicksPage() {
           <div style={styles.topBar}>
             <div style={styles.brand}>
               <div className="soft-logo-mark" style={{ marginBottom: 10 }}>
-                <a
-                  href={`/daily-logo?round=${lockedRoundForLogo ?? "default"}`}
-                  aria-label="View daily 4Play image"
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    lineHeight: 0,
-                  }}
-                >
-                  <AppLogo width={170} height={70} />
-                </a>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <AppLogo
+                    href={`/daily-logo?round=${lockedRoundForLogo ?? "default"}`}
+                    width={170}
+                    height={70}
+                  />
+                </div>
               </div>
               <h1 style={styles.title}>Make your picks</h1>
             </div>
