@@ -10,6 +10,11 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+const FOUR_PLAY_ME_IMAGES: Record<string, string> = {
+  "327aa886-564c-4ca8-8ef4-d5a338b06dec":
+    "/4play-me/327aa886-564c-4ca8-8ef4-d5a338b06dec.png",
+};
+
 type PastResult = {
   tournament_id: string;
   tournament_name: string;
@@ -34,6 +39,8 @@ export default function UserManagementPage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [results, setResults] = useState<PastResult[]>([]);
   const [showFourPlayMe, setShowFourPlayMe] = useState(false);
+  const fourPlayMeImage =
+    FOUR_PLAY_ME_IMAGES[session?.user?.id ?? ""] || "/4play-me.png";
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -325,7 +332,7 @@ export default function UserManagementPage() {
               }}
             >
               <img
-                src="/4play-me.png"
+                src={fourPlayMeImage}
                 alt="Cartoon golfer photo-op"
                 style={{
                   display: "block",
