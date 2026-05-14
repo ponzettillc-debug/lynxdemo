@@ -104,6 +104,37 @@ function getLockedRound(tournament: Tournament | null) {
   return latestLocked;
 }
 
+function getNextRoundLock(tournament: Tournament | null, nowMs: number) {
+  if (!tournament || tournament.final_lock) return null;
+
+  const locks: Array<{ round: 1 | 2 | 3 | 4; value?: string | null }> = [
+    { round: 1, value: tournament.round1_lock },
+    { round: 2, value: tournament.round2_lock },
+    { round: 3, value: tournament.round3_lock },
+    { round: 4, value: tournament.round4_lock },
+  ];
+
+  return (
+    locks
+      .map((lock) => ({ ...lock, ms: parseLockTime(lock.value) }))
+      .filter((lock) => Number.isFinite(lock.ms) && lock.ms > nowMs)
+      .sort((a, b) => a.ms - b.ms)[0] ?? null
+  );
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 function scoreColor(v: number) {
   if (v < 0) return "#15803d";
   if (v > 0) return "#b91c1c";
@@ -203,6 +234,7 @@ export default function LeaderboardPage() {
     Record<string, boolean>
   >({});
   const [isCompactNav, setIsCompactNav] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -236,6 +268,11 @@ export default function LeaderboardPage() {
     updateCompactNav();
     window.addEventListener("resize", updateCompactNav);
     return () => window.removeEventListener("resize", updateCompactNav);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const userEmail = session?.user?.email?.toLowerCase() ?? "";
@@ -417,6 +454,7 @@ export default function LeaderboardPage() {
   const selectedTournament =
     tournaments.find((t) => t.id === selectedTournamentId) ?? null;
   const lockedRound = getLockedRound(selectedTournament);
+  const nextRoundLock = getNextRoundLock(selectedTournament, nowMs);
   const statusLabel = selectedTournament?.final_lock
     ? "Tournament Complete"
     : lockedRound
@@ -666,6 +704,18 @@ export default function LeaderboardPage() {
             <p style={headerSubline}>
               {selectedTournament?.name || "Select a tournament"} · standings update every 5 minutes
             </p>
+            {nextRoundLock ? (
+              <p
+                style={{
+                  margin: "7px 0 0",
+                  color: "#bae6fd",
+                  fontSize: isCompactNav ? 12 : 14,
+                  fontWeight: 900,
+                }}
+              >
+                R{nextRoundLock.round} locks in {formatCountdown(nextRoundLock.ms - nowMs)}
+              </p>
+            ) : null}
           </div>
 
           <div style={nav}>
