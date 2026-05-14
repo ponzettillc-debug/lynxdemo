@@ -87,6 +87,29 @@ function getSetupStatus(user: AdminUser) {
   return "Ready";
 }
 
+function publicScoreSourceForTournament(name?: string | null) {
+  const tournamentName = name || "";
+  if (/cadillac/i.test(tournamentName)) {
+    return {
+      id: "R2026556",
+      label: "Cadillac Championship",
+      source: "PGA TOUR",
+      url: "https://www.pgatour.com/leaderboard",
+    };
+  }
+
+  if (/pga\s*championship/i.test(tournamentName) || /pga\s*-\s*championship/i.test(tournamentName)) {
+    return {
+      id: "R2026033",
+      label: "PGA Championship",
+      source: "PGA TOUR",
+      url: "https://www.pgatour.com/leaderboard",
+    };
+  }
+
+  return null;
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -200,6 +223,10 @@ export default function AdminPage() {
   const scoreTournament = useMemo(() => {
     return tournaments.find((t) => t.id === scoreTournamentId) || null;
   }, [tournaments, scoreTournamentId]);
+
+  const scoreSyncSource = useMemo(() => {
+    return publicScoreSourceForTournament(scoreTournament?.name);
+  }, [scoreTournament]);
 
   const lockedRounds = useMemo<RoundNumber[]>(() => {
     if (!scoreTournament) return [];
@@ -1274,8 +1301,11 @@ export default function AdminPage() {
 
       await loadScoresForTournament(scoreTournamentId);
       const unavailableCount = Array.isArray(j?.unavailable) ? j.unavailable.length : 0;
+      const sourceName = j?.source_label || j?.source || "public source";
+      const sourceId = j?.leaderboard_id ? ` ${j.leaderboard_id}` : "";
+      const roundLabel = j?.leaderboard_round ? `, ${j.leaderboard_round}` : "";
       setScoreSyncStatus(
-        `Synced ${j?.written_count ?? 0} score${j?.written_count === 1 ? "" : "s"} from ${j?.source ?? "public source"} (${j?.leaderboard_round ?? "leaderboard"}). ${unavailableCount} unavailable.`
+        `Synced ${j?.written_count ?? 0} score${j?.written_count === 1 ? "" : "s"} from ${sourceName}${sourceId}${roundLabel}. ${unavailableCount} unavailable.`
       );
     } catch (err: any) {
       setScoreSyncStatus(err?.message || "Unexpected score sync error.");
@@ -2126,13 +2156,34 @@ export default function AdminPage() {
                 </button>
 
                 <button onClick={syncPgaTourScores} style={styles.secondaryButton} disabled={!scoreTournamentId || scoreSyncBusy || !!scoreTournament?.final_lock}>
-                  {scoreSyncBusy ? "Syncing..." : "Sync PGA TOUR"}
+                  {scoreSyncBusy ? "Syncing..." : "Sync Public Scores"}
                 </button>
 
                 <button onClick={clearScores} style={styles.dangerButton} disabled={!scoreTournamentId || scoresBusy || !!scoreTournament?.final_lock}>
                   Clear Scores
                 </button>
               </div>
+
+              {scoreTournamentId ? (
+                <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12, lineHeight: 1.5 }}>
+                  {scoreSyncSource ? (
+                    <>
+                      Public source:{" "}
+                      <a
+                        href={scoreSyncSource.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#bae6fd", fontWeight: 800 }}
+                      >
+                        {scoreSyncSource.source} {scoreSyncSource.label}
+                      </a>{" "}
+                      ({scoreSyncSource.id}). Sync writes scores only for selected golfers with available round scores.
+                    </>
+                  ) : (
+                    "No public score source is configured for this tournament yet."
+                  )}
+                </div>
+              ) : null}
 
               {scoreSyncStatus ? (
                 <div style={{ fontSize: 13, color: "#bae6fd", marginBottom: 12, lineHeight: 1.5 }}>

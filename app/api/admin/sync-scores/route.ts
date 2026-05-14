@@ -12,6 +12,23 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+const PUBLIC_LEADERBOARDS = [
+  {
+    id: "R2026556",
+    label: "Cadillac Championship",
+    source: "PGA TOUR",
+    sourceUrl: "https://www.pgatour.com/leaderboard",
+    matches: [/cadillac/i],
+  },
+  {
+    id: "R2026033",
+    label: "PGA Championship",
+    source: "PGA TOUR",
+    sourceUrl: "https://www.pgatour.com/leaderboard",
+    matches: [/pga\s*championship/i, /pga\s*-\s*championship/i],
+  },
+];
+
 type PickRow = {
   golfer_id: string;
   round: number;
@@ -153,13 +170,19 @@ function scoreForRound(player: PgaTourPlayer, round: number, par: number) {
   return null;
 }
 
-function leaderboardIdForTournament(name: string, explicitId?: string) {
-  if (explicitId) return explicitId;
-  if (/cadillac/i.test(name)) return "R2026556";
-  if (/pga\s*championship/i.test(name) || /pga\s*-\s*championship/i.test(name)) {
-    return "R2026033";
+function leaderboardConfigForTournament(name: string, explicitId?: string) {
+  if (explicitId) {
+    return {
+      id: explicitId,
+      label: name,
+      source: "PGA TOUR",
+      sourceUrl: "https://www.pgatour.com/leaderboard",
+    };
   }
-  return "";
+
+  return PUBLIC_LEADERBOARDS.find((config) =>
+    config.matches.some((pattern) => pattern.test(name))
+  ) ?? null;
 }
 
 function createSupabaseAdmin() {
@@ -306,10 +329,11 @@ async function syncTournamentScores({
     };
   }
 
-  const leaderboardId = leaderboardIdForTournament(tournament.name, explicitLeaderboardId);
-  if (!leaderboardId) {
+  const leaderboardConfig = leaderboardConfigForTournament(tournament.name, explicitLeaderboardId);
+  if (!leaderboardConfig) {
     throw new Error("No public leaderboard id is configured for this tournament yet.");
   }
+  const leaderboardId = leaderboardConfig.id;
 
   const [{ data: picks, error: picksError }, { data: golfers, error: golfersError }] = await Promise.all([
     supabaseAdmin
@@ -394,7 +418,9 @@ async function syncTournamentScores({
 
   return {
     ok: true,
-    source: "pgatour",
+    source: leaderboardConfig.source,
+    source_label: leaderboardConfig.label,
+    source_url: leaderboardConfig.sourceUrl,
     leaderboard_id: leaderboardId,
     tournament: tournament.name,
     leaderboard_round: leaderboard.leaderboardRoundHeader ?? null,
