@@ -824,8 +824,14 @@ export default function PicksPage() {
               <a href="/leaderboard" style={styles.navLink}>
                 Leaderboard
               </a>
+              <a href="/trophy-room" style={styles.navLink}>
+                Trophy Room
+              </a>
               <a href="/" style={styles.navLink}>
                 Home
+              </a>
+              <a href="/driver" style={styles.navLink}>
+                4Play Games
               </a>
               {isAdmin ? (
                 <a href="/admin" style={styles.navLink}>
