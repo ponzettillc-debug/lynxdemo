@@ -48,6 +48,10 @@ type Row = {
   r4_strokes: number;
   total_strokes: number;
   scored_picks: number;
+  r1_pick_count?: number;
+  r2_pick_count?: number;
+  r3_pick_count?: number;
+  r4_pick_count?: number;
 };
 
 type RankedRow = Row & {
@@ -142,6 +146,44 @@ function getRoundTilesForDisplay(
   });
 
   return explicitRoundTiles.slice(0, 4);
+}
+
+function getRoundPickCount(row: Row, round: 1 | 2 | 3 | 4) {
+  if (round === 1) return row.r1_pick_count ?? 0;
+  if (round === 2) return row.r2_pick_count ?? 0;
+  if (round === 3) return row.r3_pick_count ?? 0;
+  return row.r4_pick_count ?? 0;
+}
+
+function getRoundScore(row: Row, round: 1 | 2 | 3 | 4) {
+  if (round === 1) return row.r1_strokes;
+  if (round === 2) return row.r2_strokes;
+  if (round === 3) return row.r3_strokes;
+  return row.r4_strokes;
+}
+
+function roundCellLabel(
+  row: Row,
+  round: 1 | 2 | 3 | 4,
+  lockedRound: 1 | 2 | 3 | 4 | null
+) {
+  if (lockedRound && round <= lockedRound) {
+    return fmtScore(getRoundScore(row, round));
+  }
+
+  return getRoundPickCount(row, round) > 0 ? "*Hidden*" : "NO PICKS";
+}
+
+function roundCellColor(
+  row: Row,
+  round: 1 | 2 | 3 | 4,
+  lockedRound: 1 | 2 | 3 | 4 | null
+) {
+  if (lockedRound && round <= lockedRound) {
+    return scoreColor(getRoundScore(row, round));
+  }
+
+  return getRoundPickCount(row, round) > 0 ? "#94a3b8" : "#fbbf24";
 }
 
 export default function LeaderboardPage() {
@@ -694,7 +736,7 @@ export default function LeaderboardPage() {
       {loading ? <p style={{ color: "#cbd5e1" }}>Loading leaderboard…</p> : null}
       {!loading && message ? <p style={{ color: "#cbd5e1" }}>{message}</p> : null}
       {!loading && !message && rankedRows.length === 0 ? (
-        <p style={{ color: "#cbd5e1" }}>No scored picks yet.</p>
+        <p style={{ color: "#cbd5e1" }}>No submitted picks yet.</p>
       ) : null}
 
       {!loading && !message && rankedRows.length > 0 ? (
@@ -763,7 +805,10 @@ export default function LeaderboardPage() {
                 const isCurrentUser = currentUserId === r.user_id;
                 const isAllUsedExpanded = !!expandedAllUsedUsers[r.user_id];
                 const usedPicks = allUsedPicks[r.user_id] ?? [];
-                const canExpandAllUsed = usedPicks.length > 0 || !!lockedRound;
+                const hasSubmittedPicks = ([1, 2, 3, 4] as const).some(
+                  (round) => getRoundPickCount(r, round) > 0
+                );
+                const canExpandAllUsed = usedPicks.length > 0 || !!lockedRound || hasSubmittedPicks;
 
                 return (
                   <Fragment key={r.user_id}>
@@ -836,38 +881,42 @@ export default function LeaderboardPage() {
                       <td
                         style={{
                           ...bodyCell,
-                          color: scoreColor(r.r1_strokes),
-                          fontWeight: r.r1_strokes < 0 ? 700 : 400,
+                          color: roundCellColor(r, 1, lockedRound),
+                          fontWeight: lockedRound && 1 <= lockedRound && r.r1_strokes < 0 ? 700 : 800,
+                          fontSize: isCompactNav && (!lockedRound || 1 > lockedRound) ? 8 : tableFontSize,
                         }}
                       >
-                        {fmtScore(r.r1_strokes)}
+                        {roundCellLabel(r, 1, lockedRound)}
                       </td>
                       <td
                         style={{
                           ...bodyCell,
-                          color: scoreColor(r.r2_strokes),
-                          fontWeight: r.r2_strokes < 0 ? 700 : 400,
+                          color: roundCellColor(r, 2, lockedRound),
+                          fontWeight: lockedRound && 2 <= lockedRound && r.r2_strokes < 0 ? 700 : 800,
+                          fontSize: isCompactNav && (!lockedRound || 2 > lockedRound) ? 8 : tableFontSize,
                         }}
                       >
-                        {fmtScore(r.r2_strokes)}
+                        {roundCellLabel(r, 2, lockedRound)}
                       </td>
                       <td
                         style={{
                           ...bodyCell,
-                          color: scoreColor(r.r3_strokes),
-                          fontWeight: r.r3_strokes < 0 ? 700 : 400,
+                          color: roundCellColor(r, 3, lockedRound),
+                          fontWeight: lockedRound && 3 <= lockedRound && r.r3_strokes < 0 ? 700 : 800,
+                          fontSize: isCompactNav && (!lockedRound || 3 > lockedRound) ? 8 : tableFontSize,
                         }}
                       >
-                        {fmtScore(r.r3_strokes)}
+                        {roundCellLabel(r, 3, lockedRound)}
                       </td>
                       <td
                         style={{
                           ...bodyCell,
-                          color: scoreColor(r.r4_strokes),
-                          fontWeight: r.r4_strokes < 0 ? 700 : 400,
+                          color: roundCellColor(r, 4, lockedRound),
+                          fontWeight: lockedRound && 4 <= lockedRound && r.r4_strokes < 0 ? 700 : 800,
+                          fontSize: isCompactNav && (!lockedRound || 4 > lockedRound) ? 8 : tableFontSize,
                         }}
                       >
-                        {fmtScore(r.r4_strokes)}
+                        {roundCellLabel(r, 4, lockedRound)}
                       </td>
                       <td
                         style={{
@@ -928,6 +977,7 @@ export default function LeaderboardPage() {
                               {[1, 2, 3, 4].map((roundNum) => {
                                 const round = roundNum as 1 | 2 | 3 | 4;
                                 const roundVisible = !!lockedRound && round <= lockedRound;
+                                const hasRoundPicks = getRoundPickCount(r, round) > 0;
                                 const roundTiles = roundVisible
                                   ? getRoundTilesForDisplay(usedPicks, round)
                                   : [];
@@ -964,11 +1014,18 @@ export default function LeaderboardPage() {
                                       {Array.from({ length: 4 }).map((_, idx) => {
                                         const tile = roundTiles[idx];
                                         const hidden = !roundVisible;
+                                        const noPicks = hidden && !hasRoundPicks;
                                         const title = hidden
-                                          ? "*Hidden*"
+                                          ? noPicks
+                                            ? idx === 0
+                                              ? "NO PICKS"
+                                              : ""
+                                            : "*Hidden*"
                                           : tile?.golferName ?? "—";
                                         const score = hidden
-                                          ? "*Hidden*"
+                                          ? noPicks
+                                            ? ""
+                                            : "*Hidden*"
                                           : tile
                                           ? fmtScore(tile.score)
                                           : "—";
@@ -993,7 +1050,7 @@ export default function LeaderboardPage() {
                                                 fontWeight: 700,
                                                 marginBottom: isCompactNav ? 1 : 3,
                                                 lineHeight: 1.15,
-                                                color: hidden ? "#94a3b8" : "#f8fafc",
+                                                color: noPicks ? "#fbbf24" : hidden ? "#94a3b8" : "#f8fafc",
                                                 maxWidth: usedTileNameMaxWidth,
                                                 overflow: "hidden",
                                                 textOverflow: "ellipsis",

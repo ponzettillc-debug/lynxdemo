@@ -288,6 +288,10 @@ export async function GET(req: NextRequest) {
         r4_strokes: 0,
         total_strokes: 0,
         scored_picks: 0,
+        r1_pick_count: 0,
+        r2_pick_count: 0,
+        r3_pick_count: 0,
+        r4_pick_count: 0,
       });
     });
 
@@ -299,6 +303,14 @@ export async function GET(req: NextRequest) {
       const key = `${pick.user_id}:${round}`;
       if (!picksByUserRound.has(key)) picksByUserRound.set(key, []);
       picksByUserRound.get(key)!.push(pick);
+
+      const row = rowMap.get(pick.user_id);
+      if (row) {
+        if (round === 1) row.r1_pick_count += 1;
+        if (round === 2) row.r2_pick_count += 1;
+        if (round === 3) row.r3_pick_count += 1;
+        if (round === 4) row.r4_pick_count += 1;
+      }
     });
 
     if (lockedRound) {
@@ -359,7 +371,12 @@ export async function GET(req: NextRequest) {
           row.r2_strokes !== 0 ||
           row.r3_strokes !== 0 ||
           row.r4_strokes !== 0;
-        return hasAnyScores;
+        const hasAnyPicks =
+          row.r1_pick_count > 0 ||
+          row.r2_pick_count > 0 ||
+          row.r3_pick_count > 0 ||
+          row.r4_pick_count > 0;
+        return hasAnyScores || hasAnyPicks;
       })
       .sort((a: any, b: any) => {
         if (a.total_strokes !== b.total_strokes) {
