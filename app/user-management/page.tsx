@@ -21,6 +21,8 @@ const FOUR_PLAY_ME_IMAGES: Record<string, string> = {
     "/4play-me/4b9cb0a3-0591-47d3-a87d-5624dacec3f5.png",
   "a2fc9c61-c935-4351-97ed-75397f0b7c5b":
     "/4play-me/a2fc9c61-c935-4351-97ed-75397f0b7c5b.png",
+  "9b76de88-272c-444c-9a03-b82de61afa72":
+    "/4play-me/9b76de88-272c-444c-9a03-b82de61afa72.png",
 };
 
 type PastResult = {
