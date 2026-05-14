@@ -38,6 +38,12 @@ function getRoundLock(t: Tournament | null, round: number): string | null {
   return t.round4_lock;
 }
 
+function parseLockTime(value?: string | null) {
+  if (!value) return NaN;
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
+}
+
 function formatMs(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
@@ -132,7 +138,7 @@ export default function PicksPage() {
 
   const lockMs = useMemo(() => {
     if (!lockIso) return null;
-    const ms = new Date(lockIso).getTime();
+    const ms = parseLockTime(lockIso);
     return Number.isFinite(ms) ? ms : null;
   }, [lockIso]);
 

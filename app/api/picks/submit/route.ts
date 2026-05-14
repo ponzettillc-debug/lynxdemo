@@ -16,6 +16,12 @@ function isMissingRosterTable(error: any) {
   return text.includes("42p01") || text.includes("tournament_golfers");
 }
 
+function parseLockTime(value?: string | null) {
+  if (!value) return NaN;
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
+  return new Date(normalized).getTime();
+}
+
 export async function POST(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
@@ -69,10 +75,10 @@ const lockField = `round${body.round}_lock` as keyof typeof tourn;
 const lockVal = tourn[lockField] as string | null;
 
 if (lockVal) {
-  const lockTime = new Date(lockVal).getTime();
+  const lockTime = parseLockTime(lockVal);
   const now = Date.now();
 
-  if (now >= lockTime) {
+  if (Number.isFinite(lockTime) && now >= lockTime) {
     return Response.json(
       { error: `Round ${body.round} is locked` },
       { status: 400 }
