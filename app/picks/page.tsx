@@ -38,6 +38,22 @@ function getRoundLock(t: Tournament | null, round: number): string | null {
   return t.round4_lock;
 }
 
+function getLockedRound(t: Tournament | null, nowMs: number) {
+  if (!t) return null;
+
+  let latestLocked: 1 | 2 | 3 | 4 | null = null;
+
+  ([1, 2, 3, 4] as const).forEach((roundNum) => {
+    const lockValue = getRoundLock(t, roundNum);
+    const lockTime = parseLockTime(lockValue);
+    if (Number.isFinite(lockTime) && lockTime <= nowMs) {
+      latestLocked = roundNum;
+    }
+  });
+
+  return latestLocked;
+}
+
 function parseLockTime(value?: string | null) {
   if (!value) return NaN;
   const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(value) ? value : `${value}Z`;
@@ -134,6 +150,10 @@ export default function PicksPage() {
   const lockIso = useMemo(
     () => getRoundLock(currentTournament, round),
     [currentTournament, round]
+  );
+  const lockedRoundForLogo = useMemo(
+    () => getLockedRound(currentTournament, nowMs),
+    [currentTournament, nowMs]
   );
 
   const lockMs = useMemo(() => {
@@ -815,7 +835,17 @@ export default function PicksPage() {
           <div style={styles.topBar}>
             <div style={styles.brand}>
               <div className="soft-logo-mark" style={{ marginBottom: 10 }}>
-                <AppLogo width={220} height={90} />
+                <a
+                  href={`/daily-logo?round=${lockedRoundForLogo ?? "default"}`}
+                  aria-label="View daily 4Play image"
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    lineHeight: 0,
+                  }}
+                >
+                  <AppLogo width={170} height={70} />
+                </a>
               </div>
               <h1 style={styles.title}>Make your picks</h1>
             </div>
