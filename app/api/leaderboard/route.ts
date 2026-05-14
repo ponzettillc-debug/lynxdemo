@@ -69,6 +69,28 @@ function getLockedRound(tournament: {
   return latestLocked;
 }
 
+function isFinalLocked(tournament: { final_lock?: string | null }) {
+  if (!tournament.final_lock) return false;
+  const t = parseLockTime(tournament.final_lock);
+  return Number.isFinite(t) ? t <= Date.now() : true;
+}
+
+function shouldApplyPenalty(
+  tournament: {
+    round1_lock?: string | null;
+    round2_lock?: string | null;
+    round3_lock?: string | null;
+    round4_lock?: string | null;
+    final_lock?: string | null;
+  } | null,
+  round: 1 | 2 | 3 | 4,
+  lockedRound: 1 | 2 | 3 | 4 | null
+) {
+  if (!tournament) return false;
+  if (round < 4) return !!lockedRound && lockedRound >= ((round + 1) as 1 | 2 | 3 | 4);
+  return isFinalLocked(tournament);
+}
+
 function addRoundScore(row: any, round: number, score: number) {
   if (round === 1) row.r1_strokes += score;
   if (round === 2) row.r2_strokes += score;
@@ -195,7 +217,7 @@ export async function GET(req: NextRequest) {
     ] = await Promise.all([
       supabaseAdmin
         .from("tournaments")
-        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
         .eq("id", tournamentId)
         .maybeSingle(),
       supabaseAdmin
@@ -288,6 +310,10 @@ export async function GET(req: NextRequest) {
         r4_strokes: 0,
         total_strokes: 0,
         scored_picks: 0,
+        r1_scored_count: 0,
+        r2_scored_count: 0,
+        r3_scored_count: 0,
+        r4_scored_count: 0,
         r1_pick_count: 0,
         r2_pick_count: 0,
         r3_pick_count: 0,
@@ -319,6 +345,7 @@ export async function GET(req: NextRequest) {
           if (round > lockedRound) return;
 
           const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
+          const applyPenalty = shouldApplyPenalty(tournament, round, lockedRound);
 
           for (let slot = 0; slot < 4; slot += 1) {
             const pick = roundPicks[slot];
@@ -326,17 +353,32 @@ export async function GET(req: NextRequest) {
               ? scoreByGolferRound.get(`${pick.golfer_id}:${round}`)
               : undefined;
             const hasPickedScore = typeof pickedScore === "number";
-            const score = hasPickedScore ? pickedScore : PENALTY_SCORE;
+            const shouldScorePenalty = !hasPickedScore && applyPenalty;
+            const score = hasPickedScore ? pickedScore : shouldScorePenalty ? PENALTY_SCORE : null;
 
             const name = hasPickedScore
               ? golferNameById.get(pick.golfer_id) ?? "Unknown Golfer"
-              : "Penalty";
+              : shouldScorePenalty
+              ? "Penalty"
+              : pick
+              ? golferNameById.get(pick.golfer_id) ?? "Pending"
+              : "Pending";
             const golferId = hasPickedScore
               ? String(pick.golfer_id)
-              : `penalty-r${round}-slot${slot + 1}`;
+              : shouldScorePenalty
+              ? `penalty-r${round}-slot${slot + 1}`
+              : pick
+              ? String(pick.golfer_id)
+              : `pending-r${round}-slot${slot + 1}`;
 
-            addRoundScore(row, round, score);
-            row.scored_picks += 1;
+            if (typeof score === "number") {
+              addRoundScore(row, round, score);
+              row.scored_picks += 1;
+              if (round === 1) row.r1_scored_count += 1;
+              if (round === 2) row.r2_scored_count += 1;
+              if (round === 3) row.r3_scored_count += 1;
+              if (round === 4) row.r4_scored_count += 1;
+            }
 
             if (round === lockedRound) {
               addRoundPickData(roundPickDataByUser, userId, name, score);

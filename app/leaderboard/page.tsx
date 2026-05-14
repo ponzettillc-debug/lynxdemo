@@ -48,6 +48,10 @@ type Row = {
   r4_strokes: number;
   total_strokes: number;
   scored_picks: number;
+  r1_scored_count?: number;
+  r2_scored_count?: number;
+  r3_scored_count?: number;
+  r4_scored_count?: number;
   r1_pick_count?: number;
   r2_pick_count?: number;
   r3_pick_count?: number;
@@ -186,6 +190,13 @@ function getRoundPickCount(row: Row, round: 1 | 2 | 3 | 4) {
   return row.r4_pick_count ?? 0;
 }
 
+function getRoundScoredCount(row: Row, round: 1 | 2 | 3 | 4) {
+  if (round === 1) return row.r1_scored_count ?? 0;
+  if (round === 2) return row.r2_scored_count ?? 0;
+  if (round === 3) return row.r3_scored_count ?? 0;
+  return row.r4_scored_count ?? 0;
+}
+
 function getRoundScore(row: Row, round: 1 | 2 | 3 | 4) {
   if (round === 1) return row.r1_strokes;
   if (round === 2) return row.r2_strokes;
@@ -199,6 +210,10 @@ function roundCellLabel(
   lockedRound: 1 | 2 | 3 | 4 | null
 ) {
   if (lockedRound && round <= lockedRound) {
+    const pickCount = getRoundPickCount(row, round);
+    const scoredCount = getRoundScoredCount(row, round);
+    if (pickCount === 0 && scoredCount === 0) return "NO PICKS";
+    if (pickCount > 0 && scoredCount === 0) return "PENDING";
     return fmtScore(getRoundScore(row, round));
   }
 
@@ -211,6 +226,10 @@ function roundCellColor(
   lockedRound: 1 | 2 | 3 | 4 | null
 ) {
   if (lockedRound && round <= lockedRound) {
+    const pickCount = getRoundPickCount(row, round);
+    const scoredCount = getRoundScoredCount(row, round);
+    if (pickCount === 0 && scoredCount === 0) return "#fbbf24";
+    if (pickCount > 0 && scoredCount === 0) return "#94a3b8";
     return scoreColor(getRoundScore(row, round));
   }
 
