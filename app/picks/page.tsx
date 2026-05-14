@@ -563,7 +563,7 @@ export default function PicksPage() {
 
     nav: {
       display: "flex",
-      gap: 10,
+      gap: 6,
       flexWrap: "wrap",
     } as React.CSSProperties,
 
@@ -571,11 +571,24 @@ export default function PicksPage() {
       textDecoration: "none",
       color: "#e2e8f0",
       fontWeight: 700,
-      fontSize: 14,
-      padding: "10px 14px",
+      fontSize: 11,
+      padding: "8px 8px",
       borderRadius: 999,
       background: "rgba(15,23,42,0.88)",
       border: "1px solid rgba(148,163,184,0.14)",
+    } as React.CSSProperties,
+
+    gamesNavLink: {
+      textDecoration: "none",
+      color: "#f8fafc",
+      fontWeight: 700,
+      fontSize: 11,
+      padding: "8px 8px",
+      borderRadius: 999,
+      border: "1px solid rgba(203,213,225,0.28)",
+      background:
+        "radial-gradient(circle at 18% 28%, rgba(203,213,225,0.42) 0 13%, transparent 14%), radial-gradient(circle at 72% 34%, rgba(59,130,246,0.28) 0 16%, transparent 17%), radial-gradient(circle at 42% 74%, rgba(15,23,42,0.64) 0 18%, transparent 19%), linear-gradient(135deg, rgba(30,41,59,0.9), rgba(71,85,105,0.62) 42%, rgba(15,23,42,0.86))",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(2,6,23,0.24)",
     } as React.CSSProperties,
 
     card: {
@@ -851,16 +864,16 @@ export default function PicksPage() {
             </div>
 
             <div style={styles.nav}>
+              <a href="/" style={styles.navLink}>
+                Home
+              </a>
               <a href="/leaderboard" style={styles.navLink}>
                 Leaderboard
               </a>
               <a href="/trophy-room" style={styles.navLink}>
                 Trophy Room
               </a>
-              <a href="/" style={styles.navLink}>
-                Home
-              </a>
-              <a href="/driver" style={styles.navLink}>
+              <a href="/driver" style={styles.gamesNavLink}>
                 4Play Games
               </a>
               {isAdmin ? (

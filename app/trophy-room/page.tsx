@@ -154,6 +154,15 @@ export default function TrophyRoomPage() {
     border: "1px solid rgba(148,163,184,0.14)",
   };
 
+  const gamesLinkStyle: React.CSSProperties = {
+    ...linkStyle,
+    color: "#f8fafc",
+    border: "1px solid rgba(203,213,225,0.28)",
+    background:
+      "radial-gradient(circle at 18% 28%, rgba(203,213,225,0.42) 0 13%, transparent 14%), radial-gradient(circle at 72% 34%, rgba(59,130,246,0.28) 0 16%, transparent 17%), radial-gradient(circle at 42% 74%, rgba(15,23,42,0.64) 0 18%, transparent 19%), linear-gradient(135deg, rgba(30,41,59,0.9), rgba(71,85,105,0.62) 42%, rgba(15,23,42,0.86))",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.16), 0 6px 18px rgba(2,6,23,0.24)",
+  };
+
   const navStyle: React.CSSProperties = {
     display: "flex",
     gap: 10,
@@ -321,7 +330,7 @@ export default function TrophyRoomPage() {
           <Link href="/picks" style={linkStyle}>
             Picks
           </Link>
-          <Link href="/driver" style={linkStyle}>
+          <Link href="/driver" style={gamesLinkStyle}>
             4Play Games
           </Link>
           {isAdmin ? (
