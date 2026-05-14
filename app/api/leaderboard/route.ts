@@ -105,6 +105,25 @@ function shouldApplyPenalty(
   return isFinalLocked(tournament);
 }
 
+function shouldApplyMissingGolferPenalty(
+  tournament: {
+    round1_lock?: string | null;
+    round2_lock?: string | null;
+    round3_lock?: string | null;
+    round4_lock?: string | null;
+    final_lock?: string | null;
+  } | null,
+  round: 1 | 2 | 3 | 4,
+  lockedRound: 1 | 2 | 3 | 4 | null,
+  scoredRounds: Set<1 | 2 | 3 | 4>
+) {
+  if (!tournament) return false;
+  if (round === 4) return isFinalLocked(tournament);
+
+  const nextRound = (round + 1) as 1 | 2 | 3 | 4;
+  return !!lockedRound && lockedRound >= nextRound && scoredRounds.has(nextRound);
+}
+
 function addRoundScore(row: any, round: number, score: number) {
   if (round === 1) row.r1_strokes += score;
   if (round === 2) row.r2_strokes += score;
@@ -277,10 +296,13 @@ export async function GET(req: NextRequest) {
     });
 
     const scoreByGolferRound = new Map<string, number>();
+    const scoredRounds = new Set<1 | 2 | 3 | 4>();
     scores.forEach((s: any) => {
       const round = Number(s.round) as 1 | 2 | 3 | 4;
       const strokes = Number(s.strokes) || 0;
+      if (![1, 2, 3, 4].includes(round)) return;
       scoreByGolferRound.set(`${s.golfer_id}:${round}`, strokes);
+      scoredRounds.add(round);
     });
 
     const picksByUserRound = new Map<string, any[]>();
@@ -363,7 +385,13 @@ export async function GET(req: NextRequest) {
           if (round > lockedRound) return;
 
           const roundPicks = (picksByUserRound.get(`${userId}:${round}`) ?? []).slice(0, 4);
-          const applyPenalty = shouldApplyPenalty(tournament, round, lockedRound);
+          const applyMissingPickPenalty = shouldApplyPenalty(tournament, round, lockedRound);
+          const applyMissingGolferPenalty = shouldApplyMissingGolferPenalty(
+            tournament,
+            round,
+            lockedRound,
+            scoredRounds
+          );
 
           for (let slot = 0; slot < 4; slot += 1) {
             const pick = roundPicks[slot];
@@ -371,7 +399,8 @@ export async function GET(req: NextRequest) {
               ? scoreByGolferRound.get(`${pick.golfer_id}:${round}`)
               : undefined;
             const hasPickedScore = typeof pickedScore === "number";
-            const shouldScorePenalty = !hasPickedScore && applyPenalty;
+            const shouldScorePenalty =
+              !hasPickedScore && (pick ? applyMissingGolferPenalty : applyMissingPickPenalty);
             const score = hasPickedScore ? pickedScore : shouldScorePenalty ? PENALTY_SCORE : null;
 
             const name = hasPickedScore
