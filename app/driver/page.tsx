@@ -308,7 +308,7 @@ export default function DriverPage() {
       <div style={panel}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
-            <h1 style={{ margin: 0, color: "#d9ffe2", fontSize: 28 }}>4PLAY DRIVER</h1>
+            <h1 style={{ margin: 0, color: "#d9ffe2", fontSize: 28 }}>4PLAY DRIVER & 9 HOLE SIM</h1>
             <div style={{ marginTop: 6 }}>DRIVING RANGE SIMULATOR v1.0</div>
           </div>
           <nav style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
