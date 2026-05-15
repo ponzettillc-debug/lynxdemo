@@ -16,6 +16,7 @@ type ScoreRow = {
   power: number;
   accuracy: number;
   created_at?: string;
+  display_name?: string;
 };
 type DriveFlag = {
   id: string;
@@ -25,7 +26,6 @@ type DriveFlag = {
 };
 
 const LOCAL_KEY = "4play_driver_scores_v1";
-const FLAG_KEY = "4play_driver_flags_v1";
 const HOLE_IN_ONE_MIN = 362;
 const HOLE_IN_ONE_MAX = 373;
 const BALL_START_X = 40;
@@ -38,6 +38,28 @@ function clamp(v: number, min: number, max: number) {
 function windText(wind: number) {
   if (wind === 0) return "CALM";
   return wind > 0 ? `TAILWIND +${wind}` : `HEADWIND ${wind}`;
+}
+
+function scoreDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function scoreFlag(row: ScoreRow, index: number): DriveFlag {
+  const drift = ((row.accuracy - 50) / 1.8) - ((row.wind_mph || 0) / 4);
+  return {
+    id: `top-${row.created_at || index}-${row.distance_yards}-${index}`,
+    distance_yards: row.distance_yards,
+    x: clamp(50 + drift * 0.58, 13, 88),
+    y: clamp(82 - (row.distance_yards / 390) * 63, 16, 82),
+  };
 }
 
 function isHoleInOne(score: ScoreRow | null) {
@@ -76,7 +98,7 @@ export default function DriverPage() {
   const [tail, setTail] = useState<Array<{ x: number; y: number }>>([]);
   const [result, setResult] = useState<ScoreRow | null>(null);
   const [scores, setScores] = useState<ScoreRow[]>([]);
-  const [driveFlags, setDriveFlags] = useState<DriveFlag[]>([]);
+  const [sessionDriveFlags, setSessionDriveFlags] = useState<DriveFlag[]>([]);
   const [storageMode, setStorageMode] = useState("local");
   const [swingNotice, setSwingNotice] = useState("");
   const flightRef = useRef({ started: 0, distance: 0, curve: 0 });
@@ -89,7 +111,6 @@ export default function DriverPage() {
       }
       setSession(data.session);
     });
-    setDriveFlags(JSON.parse(localStorage.getItem(FLAG_KEY) || "[]") as DriveFlag[]);
   }, []);
 
   useEffect(() => {
@@ -177,11 +198,7 @@ export default function DriverPage() {
       x: clamp(50 + curve * 0.58, 13, 88),
       y: clamp(82 - (row.distance_yards / 390) * 63, 16, 82),
     };
-    setDriveFlags((prev) => {
-      const next = [...prev, nextFlag].slice(-50);
-      localStorage.setItem(FLAG_KEY, JSON.stringify(next));
-      return next;
-    });
+    setSessionDriveFlags((prev) => [...prev, nextFlag].slice(-50));
   }
 
   async function saveScore(row: ScoreRow) {
@@ -234,12 +251,17 @@ export default function DriverPage() {
       const accuracyBonus = teeDriverBonusFactor(accuracyScore);
       const rawDistance = (145 + power * 2.25 + windBoost + bombBonus) * accuracyBonus;
       const distance = Math.round(clamp(rawDistance, 45, 430));
+      const currentUser = session?.user;
       const row = {
         distance_yards: distance,
         wind_mph: wind,
         power: Math.round(power),
         accuracy: accuracyScore,
         created_at: new Date().toISOString(),
+        display_name:
+          String(currentUser?.user_metadata?.display_name || "").trim() ||
+          String(currentUser?.email || "").split("@")[0] ||
+          "PLAYER",
       };
       const curve = (accuracy - 50) / 1.6 - wind / 3;
       flightRef.current.distance = distance;
@@ -288,6 +310,10 @@ export default function DriverPage() {
   const resultLine = result
     ? `LAST DRIVE: ${result.distance_yards} YDS | POWER ${result.power}% | ACC ${result.accuracy} | WIND ${result.wind_mph}${isOutOfBoundsDrive(result) ? " | OUT OF BOUNDS - LOST BALL" : ""}${!isOutOfBoundsDrive(result) && result.power >= 97 ? " | BOMB!" : ""}${isHoleInOne(result) ? " | HOLE IN 1!!!" : ""}`
     : "LAST DRIVE: --";
+  const displayFlags = [
+    ...scores.slice(0, 10).map(scoreFlag),
+    ...sessionDriveFlags,
+  ].slice(-60);
 
   return (
     <main style={page} onClick={swingClick}>
@@ -408,7 +434,7 @@ export default function DriverPage() {
             />
           </div>
 
-          {driveFlags.map((flag, idx) => (
+          {displayFlags.map((flag, idx) => (
             <div
               key={flag.id}
               style={{
@@ -462,14 +488,15 @@ export default function DriverPage() {
         </div>
 
         <section style={{ marginTop: 18 }}>
-          <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>YOUR TOP 10 DRIVES ({storageMode.toUpperCase()})</h2>
+          <h2 style={{ marginBottom: 8, color: "#d9ffe2" }}>TOP 10 DRIVES ({storageMode.toUpperCase()})</h2>
           {scores.length === 0 ? (
             <div>NO DRIVES RECORDED YET.</div>
           ) : (
             <ol style={{ margin: 0, paddingLeft: 26 }}>
               {scores.map((s, idx) => (
                 <li key={`${s.distance_yards}-${idx}`} style={{ marginBottom: 4 }}>
-                  {s.distance_yards} YDS | PWR {s.power}% | ACC {s.accuracy} | WIND {s.wind_mph}
+                  {(s.display_name || "PLAYER").toUpperCase()} | {s.distance_yards} YDS | PWR {s.power}% | ACC {s.accuracy} | WIND {s.wind_mph}
+                  {scoreDate(s.created_at) ? ` | ${scoreDate(s.created_at)}` : ""}
                   {isHoleInOne(s) ? " | HOLE IN 1!!!" : ""}
                 </li>
               ))}

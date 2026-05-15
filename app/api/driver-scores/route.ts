@@ -34,17 +34,62 @@ function isMissingScoresTable(message: string) {
   return /driver_scores|schema cache|does not exist|relation/i.test(message);
 }
 
+function emailPrefix(email?: string | null) {
+  const clean = String(email || "").trim();
+  if (!clean) return "";
+  return clean.includes("@") ? clean.split("@")[0] : clean;
+}
+
+function authUserLabel(user: any) {
+  return (
+    String(user?.user_metadata?.display_name || "").trim() ||
+    emailPrefix(user?.email) ||
+    `${String(user?.id || "").slice(0, 8)}...`
+  );
+}
+
+function isPlaceholderName(value?: string | null) {
+  const clean = String(value || "").trim();
+  return !clean || /^player$/i.test(clean);
+}
+
+async function getAuthUserLabels(supabaseAdmin: any, userIds: string[]) {
+  const neededIds = new Set(userIds.filter(Boolean));
+  const labels = new Map<string, string>();
+  if (neededIds.size === 0) return labels;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) throw new Error(error.message || "Failed to load auth users.");
+
+    const users = data?.users || [];
+    users.forEach((authUser: any) => {
+      if (neededIds.has(authUser.id)) {
+        labels.set(authUser.id, authUserLabel(authUser));
+      }
+    });
+
+    if (labels.size >= neededIds.size || users.length < 1000) break;
+  }
+
+  return labels;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authCheck = await requireUser(req);
     if ("error" in authCheck) return authCheck.error;
 
-    const { supabaseAdmin, user } = authCheck;
+    const { supabaseAdmin } = authCheck;
     const { data, error } = await supabaseAdmin
       .from("driver_scores")
       .select("id,user_id,display_name,distance_yards,wind_mph,power,accuracy,created_at")
-      .eq("user_id", user.id)
       .order("distance_yards", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(10);
 
     if (error) {
@@ -55,7 +100,22 @@ export async function GET(req: NextRequest) {
       return jsonError(message, 400);
     }
 
-    return NextResponse.json({ ok: true, storage: "supabase", scores: data ?? [] });
+    const rows = data ?? [];
+    const authLabels = await getAuthUserLabels(
+      supabaseAdmin,
+      rows.filter((row: any) => isPlaceholderName(row.display_name)).map((row: any) => row.user_id)
+    );
+
+    return NextResponse.json({
+      ok: true,
+      storage: "supabase",
+      scores: rows.map((row: any) => ({
+        ...row,
+        display_name: isPlaceholderName(row.display_name)
+          ? authLabels.get(row.user_id) || row.display_name || "Player"
+          : row.display_name,
+      })),
+    });
   } catch (err: any) {
     return jsonError(err?.message || "Unexpected error.", 500);
   }
@@ -77,10 +137,7 @@ export async function POST(req: NextRequest) {
       return jsonError("distance_yards is required.", 400);
     }
 
-    const displayName =
-      String(user.user_metadata?.display_name || "").trim() ||
-      user.email ||
-      `${user.id.slice(0, 8)}...`;
+    const displayName = authUserLabel(user);
 
     const insertRow = {
       user_id: user.id,
