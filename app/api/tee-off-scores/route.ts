@@ -34,6 +34,51 @@ function isMissingScoresTable(message: string) {
   return /tee_off_scores|schema cache|does not exist|relation/i.test(message);
 }
 
+function emailPrefix(email?: string | null) {
+  const clean = String(email || "").trim();
+  if (!clean) return "";
+  return clean.includes("@") ? clean.split("@")[0] : clean;
+}
+
+function authUserLabel(user: any) {
+  return (
+    String(user?.user_metadata?.display_name || "").trim() ||
+    emailPrefix(user?.email) ||
+    `${String(user?.id || "").slice(0, 8)}...`
+  );
+}
+
+function isPlaceholderName(value?: string | null) {
+  const clean = String(value || "").trim();
+  return !clean || /^player$/i.test(clean);
+}
+
+async function getAuthUserLabels(supabaseAdmin: any, userIds: string[]) {
+  const neededIds = new Set(userIds.filter(Boolean));
+  const labels = new Map<string, string>();
+  if (neededIds.size === 0) return labels;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) throw new Error(error.message || "Failed to load auth users.");
+
+    const users = data?.users || [];
+    users.forEach((user: any) => {
+      if (neededIds.has(user.id)) {
+        labels.set(user.id, authUserLabel(user));
+      }
+    });
+
+    if (labels.size >= neededIds.size || users.length < 1000) break;
+  }
+
+  return labels;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authCheck = await requireUser(req);
@@ -55,7 +100,22 @@ export async function GET(req: NextRequest) {
       return jsonError(message, 400);
     }
 
-    return NextResponse.json({ ok: true, storage: "supabase", scores: data ?? [] });
+    const rows = data ?? [];
+    const authLabels = await getAuthUserLabels(
+      supabaseAdmin,
+      rows.filter((row: any) => isPlaceholderName(row.display_name)).map((row: any) => row.user_id)
+    );
+
+    return NextResponse.json({
+      ok: true,
+      storage: "supabase",
+      scores: rows.map((row: any) => ({
+        ...row,
+        display_name: isPlaceholderName(row.display_name)
+          ? authLabels.get(row.user_id) || row.display_name || "Player"
+          : row.display_name,
+      })),
+    });
   } catch (err: any) {
     return jsonError(err?.message || "Unexpected error.", 500);
   }
@@ -82,10 +142,7 @@ export async function POST(req: NextRequest) {
       return jsonError("holes must contain 9 completed hole scores.", 400);
     }
 
-    const displayName =
-      String(user.user_metadata?.display_name || "").trim() ||
-      user.email ||
-      `${user.id.slice(0, 8)}...`;
+    const displayName = authUserLabel(user);
 
     const insertRow = {
       user_id: user.id,

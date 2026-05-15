@@ -101,6 +101,18 @@ function relativeScore(score: number, par: number) {
   return rel > 0 ? `+${rel}` : `${rel}`;
 }
 
+function scoreDate(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function windText(wind: number) {
   if (wind === 0) return "CALM";
   return wind > 0 ? `TAIL +${wind}` : `HEAD ${wind}`;
@@ -377,11 +389,16 @@ export default function TeeOffPage() {
     setHoleScores(nextScores);
     setMessage(`HOLE ${holeIndex + 1}: ${finalStrokes} (${scoreName(finalStrokes, hole.par)})`);
     if (holeIndex === COURSE.length - 1) {
+      const currentUser = session?.user;
       const row = {
         total_score: nextScores.reduce((sum, s) => sum + s, 0),
         total_par: totalPar,
         holes: nextScores,
         created_at: new Date().toISOString(),
+        display_name:
+          String(currentUser?.user_metadata?.display_name || "").trim() ||
+          String(currentUser?.email || "").split("@")[0] ||
+          "PLAYER",
       };
       saveRound(row);
       setPhase("complete");
@@ -1124,6 +1141,7 @@ export default function TeeOffPage() {
               {scores.map((s, idx) => (
                 <li key={`${s.total_score}-${idx}`} style={{ marginBottom: 6, border: "1px solid rgba(124,255,155,0.35)", padding: "7px 8px", overflowWrap: "anywhere" }}>
                   {(s.display_name || "PLAYER").toUpperCase()} | {s.total_score} STROKES | {relativeScore(s.total_score, s.total_par)}
+                  {scoreDate(s.created_at) ? ` | ${scoreDate(s.created_at)}` : ""}
                 </li>
               ))}
             </ol>
