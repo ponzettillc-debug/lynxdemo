@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 
@@ -212,6 +213,7 @@ function localTournaments() {
 }
 
 export default function Live4PlayPage() {
+  const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [storageMode, setStorageMode] = useState("local");
@@ -420,6 +422,7 @@ export default function Live4PlayPage() {
           setTournaments((prev) => [j.tournament, ...prev.filter((item) => item.id !== j.tournament.id)]);
           setSelectedId(j.tournament.id);
           setMessage("Tournament created and shared.");
+          router.push(`/live-4play/${j.tournament.id}`);
           return;
         }
       }
@@ -427,6 +430,7 @@ export default function Live4PlayPage() {
       saveLocal([localTournament, ...localTournaments()]);
       setSelectedId(localTournament.id);
       setMessage("Tournament created on this device.");
+      router.push(`/live-4play/${localTournament.id}`);
     } finally {
       setSaving(false);
     }
@@ -735,7 +739,7 @@ export default function Live4PlayPage() {
                     <button
                       key={tournament.id}
                       type="button"
-                      onClick={() => setSelectedId(tournament.id)}
+                      onClick={() => router.push(`/live-4play/${tournament.id}`)}
                       style={{
                         ...button,
                         textAlign: "left",
