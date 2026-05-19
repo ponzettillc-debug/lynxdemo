@@ -27,6 +27,18 @@ type Tournament = {
   final_lock?: string | null;
 };
 
+type Live4PlayTournament = {
+  id: string;
+  name: string;
+  format: string;
+  holes_count: number;
+  team_names: string[] | null;
+  status: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type Golfer = { id: string; name: string };
 
 type AdminUser = {
@@ -176,6 +188,10 @@ export default function AdminPage() {
   const [rosterNames, setRosterNames] = useState("");
   const [rosterBusy, setRosterBusy] = useState(false);
   const [rosterStatus, setRosterStatus] = useState("");
+  const [live4PlayTournaments, setLive4PlayTournaments] = useState<Live4PlayTournament[]>([]);
+  const [live4PlayLoading, setLive4PlayLoading] = useState(false);
+  const [live4PlayBusyId, setLive4PlayBusyId] = useState("");
+  const [live4PlayStorageMode, setLive4PlayStorageMode] = useState("local");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -288,6 +304,7 @@ export default function AdminPage() {
       }
 
       await loadUsers();
+      await loadLive4PlayTournaments();
       setStatus("");
     })();
   }, [session, isAdmin]);
@@ -1127,6 +1144,67 @@ export default function AdminPage() {
       await refresh(pool.id);
     } finally {
       setBusyGolferId("");
+    }
+  }
+
+  async function loadLive4PlayTournaments() {
+    try {
+      setLive4PlayLoading(true);
+      const token = await getAccessToken();
+
+      const r = await fetch("/api/admin/live-4play", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "Failed to load Live 4Play tournaments.");
+        return;
+      }
+
+      setLive4PlayStorageMode(j?.storage || "local");
+      setLive4PlayTournaments((j?.tournaments ?? []) as Live4PlayTournament[]);
+    } catch (err: unknown) {
+      setStatus(err instanceof Error ? err.message : "Failed to load Live 4Play tournaments.");
+    } finally {
+      setLive4PlayLoading(false);
+    }
+  }
+
+  async function deleteLive4PlayTournament(tournamentId: string, tournamentName: string) {
+    const ok = window.confirm(
+      `Delete Live 4Play tournament "${tournamentName}"?\n\nThis permanently removes the live scorecard and all entered team scores.`
+    );
+    if (!ok) return;
+
+    try {
+      setLive4PlayBusyId(tournamentId);
+      setStatus(`Deleting Live 4Play tournament "${tournamentName}"...`);
+      const token = await getAccessToken();
+
+      const r = await fetch(`/api/admin/live-4play?id=${encodeURIComponent(tournamentId)}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setStatus(j?.error || "Live 4Play tournament deletion failed.");
+        return;
+      }
+
+      setStatus("Live 4Play tournament deleted.");
+      await loadLive4PlayTournaments();
+    } catch (err: unknown) {
+      setStatus(err instanceof Error ? err.message : "Live 4Play tournament deletion failed.");
+    } finally {
+      setLive4PlayBusyId("");
     }
   }
 
@@ -2355,6 +2433,109 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+            </details>
+
+            <details style={styles.card}>
+              <summary style={styles.tileSummary}>
+                <span>Live 4Play</span>
+                <span style={{ color: "#94a3b8", fontSize: 14 }}>
+                  {live4PlayLoading ? "Loading..." : `${live4PlayTournaments.length} created`}
+                </span>
+              </summary>
+              <p style={styles.tileHint}>
+                Review and delete Live 4Play tournaments created from the live scorekeeping page.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>Storage</div>
+                  <div style={styles.statValue}>{live4PlayStorageMode.toUpperCase()}</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>Created Items</div>
+                  <div style={styles.statValue}>{live4PlayTournaments.length}</div>
+                </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>Admin Action</div>
+                  <button
+                    type="button"
+                    onClick={loadLive4PlayTournaments}
+                    disabled={live4PlayLoading}
+                    style={{ ...styles.secondaryButton, marginTop: 8 }}
+                  >
+                    {live4PlayLoading ? "Refreshing..." : "Refresh Live 4Play"}
+                  </button>
+                </div>
+              </div>
+
+              {live4PlayStorageMode !== "supabase" ? (
+                <p style={{ ...styles.tileHint, color: "#fde68a" }}>
+                  Live 4Play permanent storage is not installed yet. Run supabase/live_4play_tournaments.sql to make created tournaments manageable here.
+                </p>
+              ) : null}
+
+              {live4PlayTournaments.length === 0 ? (
+                <p style={{ color: "#94a3b8" }}>No Live 4Play tournaments found.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {live4PlayTournaments.map((tournament) => {
+                    const busy = live4PlayBusyId === tournament.id;
+                    const teams = Array.isArray(tournament.team_names)
+                      ? tournament.team_names.filter(Boolean).join(", ")
+                      : "";
+
+                    return (
+                      <div
+                        key={tournament.id}
+                        style={{
+                          border: "1px solid rgba(148,163,184,0.14)",
+                          borderRadius: 14,
+                          padding: 12,
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                          background: "rgba(2,6,23,0.35)",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontWeight: 800,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {tournament.name}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, lineHeight: 1.5 }}>
+                            Format: {tournament.format} | Holes: {tournament.holes_count} | Status: {tournament.status || "live"}<br />
+                            Teams: {teams || "No teams"}<br />
+                            Created by: {tournament.created_by || "Unknown"} | Updated: {fmtDate(tournament.updated_at)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => deleteLive4PlayTournament(tournament.id, tournament.name)}
+                          style={styles.dangerButton}
+                          disabled={busy || live4PlayStorageMode !== "supabase"}
+                        >
+                          {busy ? "Working..." : "Delete"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </details>
 
             <details style={styles.card}>

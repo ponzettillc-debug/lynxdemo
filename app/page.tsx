@@ -388,6 +388,13 @@ export default function Home() {
                   Trophy Room
                 </button>
 
+                <button
+                  onClick={() => router.push("/live-4play")}
+                  style={secondaryButtonStyle}
+                >
+                  Live 4Play
+                </button>
+
                 {!isAdmin ? (
                   <button
                     onClick={() => router.push("/user-management")}
