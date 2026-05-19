@@ -94,7 +94,8 @@ function teamTotal(scores: Array<number | null>) {
 
 function salmonPoints(strokes: number | null, par: number) {
   if (typeof strokes !== "number") return 0;
-  if (strokes <= par - 1) return 3;
+  if (strokes <= par - 2) return 4;
+  if (strokes === par - 1) return 3;
   if (strokes === par) return 2;
   if (strokes === par + 1) return 1;
   return 0;
@@ -798,7 +799,7 @@ export default function Live4PlayPage() {
                 {selected.format === SALMON_FORMAT ? (
                   <>
                     <div style={{ color: "#fde68a", fontSize: 14 }}>
-                      Enter gross strokes. Points: birdie or better 3, par 2, bogey 1, double bogey or worse 0.
+                      Enter gross strokes. Points: eagle or better 4, birdie 3, par 2, bogey 1, double bogey or worse 0.
                     </div>
 
                     <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>

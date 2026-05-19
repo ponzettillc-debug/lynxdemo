@@ -86,7 +86,8 @@ function teamTotal(scores: Array<number | null>) {
 
 function salmonPoints(strokes: number | null, par: number) {
   if (typeof strokes !== "number") return 0;
-  if (strokes <= par - 1) return 3;
+  if (strokes <= par - 2) return 4;
+  if (strokes === par - 1) return 3;
   if (strokes === par) return 2;
   if (strokes === par + 1) return 1;
   return 0;
