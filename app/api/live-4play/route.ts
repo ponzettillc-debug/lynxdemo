@@ -8,6 +8,7 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SALMON_FORMAT = "Salmon Falls - Regular";
 const VALID_FORMATS = new Set(["Points", "Skins", "Ryder Cup", "Coon", SALMON_FORMAT]);
 const VALID_HOLES = new Set([9, 18]);
+const VALID_SALMON_SCORING_MODES = new Set(["all", "top3", "top2"]);
 
 type AuthUser = {
   id?: string;
@@ -126,6 +127,9 @@ function cleanSalmonPayload(value: unknown, teamNames: string[]) {
 
   return {
     kind: "salmon_falls_regular",
+    scoring_mode: VALID_SALMON_SCORING_MODES.has(String(raw.scoring_mode || ""))
+      ? String(raw.scoring_mode)
+      : "all",
     player_options: Array.from(new Set([...playerOptions, ...teamPlayers.flat()])),
     team_player_counts: teamPlayers.map((players) => Math.max(1, Math.min(4, players.length || 1))),
     team_players: teamPlayers,

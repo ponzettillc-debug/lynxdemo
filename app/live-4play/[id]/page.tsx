@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import type { Session } from "@supabase/supabase-js";
 
@@ -15,11 +15,13 @@ type Format = "Points" | "Skins" | "Ryder Cup" | "Coon" | "Salmon Falls - Regula
 type ScoreGrid = Array<Array<number | null>>;
 type SalmonScores = {
   kind: "salmon_falls_regular";
+  scoring_mode: SalmonScoringMode;
   player_options: string[];
   team_player_counts: number[];
   team_players: string[][];
   player_scores: Array<Array<Array<number | null>>>;
 };
+type SalmonScoringMode = "all" | "top3" | "top2";
 type Tournament = {
   id: string;
   name: string;
@@ -36,6 +38,7 @@ type Tournament = {
 const LOCAL_KEY = "4play_live_tournaments_v1";
 const SALMON_FORMAT: Format = "Salmon Falls - Regular";
 const SALMON_PARS = [4, 4, 3, 5, 5, 3, 4, 4, 4];
+const VALID_SALMON_SCORING_MODES = new Set(["all", "top3", "top2"]);
 
 function isScoreGrid(scores: Tournament["scores"]): scores is ScoreGrid {
   return Array.isArray(scores);
@@ -58,6 +61,7 @@ function salmonScores(value: Tournament["scores"] | undefined, teamNames: string
     );
     return {
       kind: "salmon_falls_regular",
+      scoring_mode: VALID_SALMON_SCORING_MODES.has(value.scoring_mode) ? value.scoring_mode : "all",
       player_options: value.player_options || [],
       team_player_counts: counts,
       team_players: teamPlayers,
@@ -73,6 +77,7 @@ function salmonScores(value: Tournament["scores"] | undefined, teamNames: string
   }
   return {
     kind: "salmon_falls_regular",
+    scoring_mode: "all",
     player_options: [],
     team_player_counts: teamNames.map(() => 1),
     team_players: teamNames.map(() => [""]),
@@ -98,10 +103,11 @@ function salmonPlayerTotal(scores: Array<number | null>) {
 }
 
 function salmonTeamHoleTotal(salmon: SalmonScores, teamIndex: number, holeIndex: number) {
-  return (salmon.player_scores[teamIndex] || []).reduce<number>(
-    (total, playerScores) => total + salmonPoints(playerScores[holeIndex], SALMON_PARS[holeIndex]),
-    0
-  );
+  const points = (salmon.player_scores[teamIndex] || [])
+    .map((playerScores) => salmonPoints(playerScores[holeIndex], SALMON_PARS[holeIndex]))
+    .sort((a, b) => b - a);
+  const limit = salmon.scoring_mode === "top2" ? 2 : salmon.scoring_mode === "top3" ? 3 : points.length;
+  return points.slice(0, limit).reduce<number>((total, value) => total + value, 0);
 }
 
 function salmonTeamTotal(salmon: SalmonScores, teamIndex: number) {
@@ -177,6 +183,7 @@ function localTournaments() {
 
 export default function Live4PlayScoringPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const tournamentId = params.id;
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -295,6 +302,12 @@ export default function Live4PlayScoringPage() {
     updateTournament({ ...tournament, scores: nextSalmon });
   }
 
+  async function completeTournament() {
+    if (!tournament) return;
+    await updateTournament({ ...tournament, status: "complete" }, "Tournament completed.");
+    router.push("/live-4play");
+  }
+
   const leaderboard = useMemo(() => {
     if (!tournament) return [];
     if (tournament.format === SALMON_FORMAT) {
@@ -387,6 +400,13 @@ export default function Live4PlayScoringPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={() => loadTournament()} style={button}>Refresh</button>
+              {tournament.status !== "complete" ? (
+                <button type="button" onClick={completeTournament} style={{ ...button, background: "#22c55e", color: "#03120a" }}>
+                  COMPLETE
+                </button>
+              ) : (
+                <span style={{ ...button, cursor: "default", color: "#a7f3d0" }}>COMPLETED</span>
+              )}
               <Link href="/live-4play" style={button}>All Live</Link>
             </div>
           </div>

@@ -27,11 +27,13 @@ type Tournament = {
 type ScoreGrid = Array<Array<number | null>>;
 type SalmonScores = {
   kind: "salmon_falls_regular";
+  scoring_mode: SalmonScoringMode;
   player_options: string[];
   team_player_counts: number[];
   team_players: string[][];
   player_scores: Array<Array<Array<number | null>>>;
 };
+type SalmonScoringMode = "all" | "top3" | "top2";
 
 const LOCAL_KEY = "4play_live_tournaments_v1";
 const PLAYER_OPTIONS_KEY = "4play_live_player_options_v1";
@@ -39,6 +41,11 @@ const SALMON_FORMAT: Format = "Salmon Falls - Regular";
 const FORMATS: Format[] = ["Points", "Skins", "Ryder Cup", SALMON_FORMAT, "Coon"];
 const SALMON_PARS = [4, 4, 3, 5, 5, 3, 4, 4, 4];
 const BASE_SALMON_PLAYERS = ["Bird", "Owen", "Dyer", "Chapman", "Proper", "JR", "Jake", "Dan", "Justin"];
+const SALMON_SCORING_OPTIONS: Array<{ value: SalmonScoringMode; label: string }> = [
+  { value: "all", label: "Use All Scores" },
+  { value: "top3", label: "Use Top 3" },
+  { value: "top2", label: "Use Top 2" },
+];
 
 function blankScores(teamCount: number, holesCount: number): ScoreGrid {
   return Array.from({ length: teamCount }, () => Array.from({ length: holesCount }, () => null));
@@ -57,13 +64,14 @@ function isScoreGrid(scores: Tournament["scores"]): scores is ScoreGrid {
   return Array.isArray(scores);
 }
 
-function blankSalmonScores(teamCount: number, playerCounts: number[], playerOptions: string[], teamPlayers?: string[][]): SalmonScores {
+function blankSalmonScores(teamCount: number, playerCounts: number[], playerOptions: string[], teamPlayers?: string[][], scoringMode: SalmonScoringMode = "all"): SalmonScores {
   const players = Array.from({ length: teamCount }, (_team, teamIndex) =>
     Array.from({ length: playerCounts[teamIndex] || 1 }, (_player, playerIndex) => teamPlayers?.[teamIndex]?.[playerIndex] || "")
   );
 
   return {
     kind: "salmon_falls_regular",
+    scoring_mode: scoringMode,
     player_options: Array.from(new Set([...playerOptions, ...players.flat().filter(Boolean)])),
     team_player_counts: playerCounts.slice(0, teamCount),
     team_players: players,
@@ -74,7 +82,7 @@ function blankSalmonScores(teamCount: number, playerCounts: number[], playerOpti
 function salmonScores(value: Tournament["scores"] | undefined, teamNames: string[]): SalmonScores {
   if (value && !Array.isArray(value) && value.kind === "salmon_falls_regular") {
     const counts = teamNames.map((_, teamIndex) => Math.max(1, Math.min(4, value.team_player_counts?.[teamIndex] || value.team_players?.[teamIndex]?.length || 1)));
-    const normalized = blankSalmonScores(teamNames.length, counts, value.player_options || [], value.team_players || []);
+    const normalized = blankSalmonScores(teamNames.length, counts, value.player_options || [], value.team_players || [], value.scoring_mode || "all");
     normalized.player_scores = normalized.team_players.map((players, teamIndex) =>
       players.map((_player, playerIndex) =>
         Array.from({ length: 9 }, (_hole, holeIndex) => {
@@ -106,10 +114,11 @@ function salmonPlayerTotal(scores: Array<number | null>) {
 }
 
 function salmonTeamHoleTotal(salmon: SalmonScores, teamIndex: number, holeIndex: number) {
-  return (salmon.player_scores[teamIndex] || []).reduce<number>(
-    (total, playerScores) => total + salmonPoints(playerScores[holeIndex], SALMON_PARS[holeIndex]),
-    0
-  );
+  const points = (salmon.player_scores[teamIndex] || [])
+    .map((playerScores) => salmonPoints(playerScores[holeIndex], SALMON_PARS[holeIndex]))
+    .sort((a, b) => b - a);
+  const limit = salmon.scoring_mode === "top2" ? 2 : salmon.scoring_mode === "top3" ? 3 : points.length;
+  return points.slice(0, limit).reduce<number>((total, value) => total + value, 0);
 }
 
 function salmonTeamTotal(salmon: SalmonScores, teamIndex: number) {
@@ -233,6 +242,7 @@ export default function Live4PlayPage() {
     ["", ""],
     ["", ""],
   ]);
+  const [salmonScoringMode, setSalmonScoringMode] = useState<SalmonScoringMode>("all");
   const [playerOptions, setPlayerOptions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -381,7 +391,7 @@ export default function Live4PlayPage() {
     const nextPlayerOptions = format === SALMON_FORMAT
       ? savePlayerOptions([...playerOptions, ...salmonPlayerNames.flat()])
       : playerOptions;
-    const salmonPayload = blankSalmonScores(teamCount, salmonPlayerCounts, nextPlayerOptions, salmonPlayerNames);
+    const salmonPayload = blankSalmonScores(teamCount, salmonPlayerCounts, nextPlayerOptions, salmonPlayerNames, salmonScoringMode);
     const now = new Date().toISOString();
     const localTournament: Tournament = {
       id: `local-${Date.now()}`,
@@ -597,7 +607,7 @@ export default function Live4PlayPage() {
           </nav>
         </header>
 
-        <section style={{ display: "grid", gridTemplateColumns: "minmax(280px, 360px) 1fr", gap: 16 }}>
+        <section style={{ display: "grid", gridTemplateColumns: "minmax(280px, 620px)", gap: 16, justifyContent: "center" }}>
           <div style={{ display: "grid", gap: 16, alignContent: "start" }}>
             <div style={panel}>
               <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>Create Tournament</h2>
@@ -697,6 +707,21 @@ export default function Live4PlayPage() {
                       </label>
                     ))}
 
+                    <label style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
+                      Team Scoring Method
+                      <select
+                        value={salmonScoringMode}
+                        onChange={(e) => setSalmonScoringMode(e.target.value as SalmonScoringMode)}
+                        style={input}
+                      >
+                        {SALMON_SCORING_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
                     <div style={{ borderTop: "1px solid rgba(134,239,172,0.18)", paddingTop: 12, color: "#bbf7d0", fontSize: 13, fontWeight: 800 }}>
                       Assign Players
                     </div>
@@ -732,11 +757,11 @@ export default function Live4PlayPage() {
 
             <div style={panel}>
               <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>Live Tournaments</h2>
-              {tournaments.length === 0 ? (
+              {tournaments.filter((tournament) => tournament.status !== "complete").length === 0 ? (
                 <p style={{ margin: 0, color: "#94a3b8" }}>No tournaments yet.</p>
               ) : (
                 <div style={{ display: "grid", gap: 8 }}>
-                  {tournaments.map((tournament) => (
+                  {tournaments.filter((item) => item.status !== "complete").map((tournament) => (
                     <button
                       key={tournament.id}
                       type="button"
@@ -744,8 +769,8 @@ export default function Live4PlayPage() {
                       style={{
                         ...button,
                         textAlign: "left",
-                        borderColor: selected?.id === tournament.id ? "#86efac" : "rgba(134,239,172,0.22)",
-                        background: selected?.id === tournament.id ? "#17351f" : "#07111f",
+                        borderColor: "rgba(134,239,172,0.22)",
+                        background: "#07111f",
                       }}
                     >
                       <span style={{ display: "block" }}>{tournament.name}</span>
@@ -757,9 +782,39 @@ export default function Live4PlayPage() {
                 </div>
               )}
             </div>
+
+            <details style={panel}>
+              <summary style={{ cursor: "pointer", fontSize: 18, fontWeight: 900, color: "#f8fafc" }}>
+                View Completed Tournaments
+              </summary>
+              <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+                {tournaments.filter((item) => item.status === "complete").length === 0 ? (
+                  <p style={{ margin: 0, color: "#94a3b8" }}>No completed tournaments yet.</p>
+                ) : (
+                  tournaments.filter((item) => item.status === "complete").map((tournament) => (
+                    <button
+                      key={tournament.id}
+                      type="button"
+                      onClick={() => router.push(`/live-4play/${tournament.id}`)}
+                      style={{
+                        ...button,
+                        textAlign: "left",
+                        borderColor: "rgba(148,163,184,0.22)",
+                        background: "#07111f",
+                      }}
+                    >
+                      <span style={{ display: "block" }}>{tournament.name}</span>
+                      <span style={{ display: "block", marginTop: 4, color: "#a7f3d0", fontSize: 12 }}>
+                        {tournament.format} | {tournament.holes_count} holes | Completed | {scoreDate(tournament.updated_at)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </details>
           </div>
 
-          <div style={{ ...panel, minWidth: 0 }}>
+          <div style={{ ...panel, minWidth: 0, display: "none" }}>
             {!selected ? (
               <div style={{ color: "#94a3b8" }}>Create or select a tournament to begin live scoring.</div>
             ) : (
