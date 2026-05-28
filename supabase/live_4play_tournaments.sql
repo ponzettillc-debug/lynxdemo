@@ -3,7 +3,7 @@ create table if not exists public.live_4play_tournaments (
   owner_user_id uuid not null references auth.users(id) on delete cascade,
   created_by text,
   name text not null,
-  format text not null check (format in ('Points', 'Skins', 'Ryder Cup', 'Coon', 'Salmon Falls - Regular')),
+  format text not null check (format in ('Points', 'Skins', 'Ryder Cup', 'Coon', 'Salmon Falls - Regular', 'CMO Goes to Point Sebago')),
   holes_count integer not null check (holes_count in (9, 18)),
   team_names text[] not null check (array_length(team_names, 1) between 2 and 4),
   scores jsonb not null default '[]'::jsonb,
@@ -23,4 +23,4 @@ alter table public.live_4play_tournaments
 
 alter table public.live_4play_tournaments
   add constraint live_4play_tournaments_format_check
-  check (format in ('Points', 'Skins', 'Ryder Cup', 'Coon', 'Salmon Falls - Regular'));
+  check (format in ('Points', 'Skins', 'Ryder Cup', 'Coon', 'Salmon Falls - Regular', 'CMO Goes to Point Sebago'));

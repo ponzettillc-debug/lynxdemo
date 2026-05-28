@@ -6,7 +6,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const SALMON_FORMAT = "Salmon Falls - Regular";
-const VALID_FORMATS = new Set(["Points", "Skins", "Ryder Cup", "Coon", SALMON_FORMAT]);
+const CMO_FORMAT = "CMO Goes to Point Sebago";
+const VALID_FORMATS = new Set(["Points", "Skins", "Ryder Cup", "Coon", SALMON_FORMAT, CMO_FORMAT]);
 const VALID_HOLES = new Set([9, 18]);
 const VALID_SALMON_SCORING_MODES = new Set(["all", "top3", "top2"]);
 
@@ -141,11 +142,57 @@ function isSalmonFormat(format: string) {
   return format === SALMON_FORMAT;
 }
 
+function cleanCmoPayload(value: unknown, teamNames: string[]) {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const teamPlayers = cleanStringMatrix(raw.team_players, teamNames.length);
+  const playerOptions = Array.isArray(raw.player_options)
+    ? raw.player_options.map((name) => String(name || "").trim()).filter(Boolean).slice(0, 200)
+    : [];
+  const scrambleScores = cleanScores(raw.scramble_scores, teamNames.length, 6);
+  const pointScores = cleanSalmonScores(raw.point_scores, teamPlayers).map((team) => team.map((player) => player.slice(0, 6)));
+  const chipInsRaw = Array.isArray(raw.chip_ins) ? raw.chip_ins : [];
+  const chipIns = teamPlayers.map((players, teamIndex) => {
+    const rawTeam = Array.isArray(chipInsRaw[teamIndex]) ? chipInsRaw[teamIndex] : [];
+    return players.map((_player, playerIndex) => {
+      const rawPlayer = Array.isArray(rawTeam[playerIndex]) ? rawTeam[playerIndex] : [];
+      return Array.from({ length: 6 }, (_hole, holeIndex) => !!rawPlayer[holeIndex]);
+    });
+  });
+  const h2hRaw = Array.isArray(raw.h2h_scores) ? raw.h2h_scores : [];
+  const h2hScores = teamPlayers.map((players, teamIndex) => {
+    const rawTeam = Array.isArray(h2hRaw[teamIndex]) ? h2hRaw[teamIndex] : [];
+    return players.map((_player, playerIndex) => {
+      const rawPlayer = Array.isArray(rawTeam[playerIndex]) ? rawTeam[playerIndex] : [];
+      return Array.from({ length: 6 }, (_hole, holeIndex) => {
+        const score = Number(rawPlayer[holeIndex]);
+        return Number.isFinite(score) && score > 0 ? Math.round(score) : null;
+      });
+    });
+  });
+
+  return {
+    kind: "cmo_point_sebago",
+    player_options: Array.from(new Set([...playerOptions, ...teamPlayers.flat()])),
+    team_player_counts: teamPlayers.map((players) => Math.max(1, Math.min(4, players.length || 1))),
+    team_players: teamPlayers,
+    scramble_scores: scrambleScores,
+    point_scores: pointScores,
+    chip_ins: chipIns,
+    h2h_scores: h2hScores,
+  };
+}
+
+function isCmoFormat(format: string) {
+  return format === CMO_FORMAT;
+}
+
 function normalizeRow(row: LiveTournamentRow) {
   const teamNames = cleanTeamNames(row.team_names, 2);
   const holesCount = VALID_HOLES.has(Number(row.holes_count)) ? Number(row.holes_count) : 9;
   const scores = isSalmonFormat(row.format)
     ? cleanSalmonPayload(row.scores, teamNames)
+    : isCmoFormat(row.format)
+    ? cleanCmoPayload(row.scores, teamNames)
     : cleanScores(row.scores, teamNames.length, holesCount);
   return {
     id: row.id,
@@ -214,6 +261,8 @@ export async function POST(req: NextRequest) {
       const format = String(body?.format || "");
       const scores = isSalmonFormat(format)
         ? cleanSalmonPayload(body?.scores, teamNames)
+        : isCmoFormat(format)
+        ? cleanCmoPayload(body?.scores, teamNames)
         : cleanScores(body?.scores, teamNames.length, holesCount);
       const status = String(body?.status || "live") === "complete" ? "complete" : "live";
 
@@ -250,6 +299,8 @@ export async function POST(req: NextRequest) {
     if (!VALID_HOLES.has(holesCount)) return jsonError("Choose 9 or 18 holes.", 400);
     const scores = isSalmonFormat(format)
       ? cleanSalmonPayload(body?.scores, teamNames)
+      : isCmoFormat(format)
+      ? cleanCmoPayload(body?.scores, teamNames)
       : cleanScores([], teamNames.length, holesCount);
 
     const insertRow = {

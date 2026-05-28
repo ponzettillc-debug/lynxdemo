@@ -11,14 +11,14 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-type Format = "Points" | "Skins" | "Ryder Cup" | "Coon" | "Salmon Falls - Regular";
+type Format = "Points" | "Skins" | "Ryder Cup" | "Coon" | "Salmon Falls - Regular" | "CMO Goes to Point Sebago";
 type Tournament = {
   id: string;
   name: string;
   format: Format;
   holes_count: 9 | 18;
   team_names: string[];
-  scores: ScoreGrid | SalmonScores;
+  scores: ScoreGrid | SalmonScores | CmoScores;
   status: "live" | "complete";
   created_by?: string;
   created_at?: string;
@@ -34,11 +34,22 @@ type SalmonScores = {
   player_scores: Array<Array<Array<number | null>>>;
 };
 type SalmonScoringMode = "all" | "top3" | "top2";
+type CmoScores = {
+  kind: "cmo_point_sebago";
+  player_options: string[];
+  team_player_counts: number[];
+  team_players: string[][];
+  scramble_scores: ScoreGrid;
+  point_scores: Array<Array<Array<number | null>>>;
+  chip_ins: Array<Array<boolean[]>>;
+  h2h_scores: Array<Array<Array<number | null>>>;
+};
 
 const LOCAL_KEY = "4play_live_tournaments_v1";
 const PLAYER_OPTIONS_KEY = "4play_live_player_options_v1";
 const SALMON_FORMAT: Format = "Salmon Falls - Regular";
-const FORMATS: Format[] = ["Points", "Skins", "Ryder Cup", SALMON_FORMAT, "Coon"];
+const CMO_FORMAT: Format = "CMO Goes to Point Sebago";
+const FORMATS: Format[] = ["Points", "Skins", "Ryder Cup", SALMON_FORMAT, CMO_FORMAT, "Coon"];
 const SALMON_PARS = [4, 4, 3, 5, 5, 3, 4, 4, 4];
 const BASE_SALMON_PLAYERS = ["Bird", "Owen", "Dyer", "Chapman", "Proper", "JR", "Jake", "Dan", "Justin"];
 const SALMON_SCORING_OPTIONS: Array<{ value: SalmonScoringMode; label: string }> = [
@@ -94,6 +105,22 @@ function salmonScores(value: Tournament["scores"] | undefined, teamNames: string
     return normalized;
   }
   return blankSalmonScores(teamNames.length, teamNames.map(() => 1), [], []);
+}
+
+function blankCmoScores(teamCount: number, playerCounts: number[], playerOptions: string[], teamPlayers?: string[][]): CmoScores {
+  const players = Array.from({ length: teamCount }, (_team, teamIndex) =>
+    Array.from({ length: playerCounts[teamIndex] || 1 }, (_player, playerIndex) => teamPlayers?.[teamIndex]?.[playerIndex] || "")
+  );
+  return {
+    kind: "cmo_point_sebago",
+    player_options: Array.from(new Set([...playerOptions, ...players.flat().filter(Boolean)])),
+    team_player_counts: playerCounts.slice(0, teamCount),
+    team_players: players,
+    scramble_scores: blankScores(teamCount, 6),
+    point_scores: players.map((team) => team.map(() => Array.from({ length: 6 }, () => null))),
+    chip_ins: players.map((team) => team.map(() => Array.from({ length: 6 }, () => false))),
+    h2h_scores: players.map((team) => team.map(() => Array.from({ length: 6 }, () => null))),
+  };
 }
 
 function teamTotal(scores: Array<number | null>) {
@@ -273,8 +300,8 @@ export default function Live4PlayPage() {
   }, []);
 
   useEffect(() => {
-    if (format !== SALMON_FORMAT) return;
-    setHolesCount(9);
+    if (format === SALMON_FORMAT) setHolesCount(9);
+    if (format === CMO_FORMAT) setHolesCount(18);
   }, [format]);
 
   async function token() {
@@ -291,9 +318,14 @@ export default function Live4PlayPage() {
 
   const mergeTournamentPlayerOptions = useCallback((nextTournaments: Tournament[]) => {
     const names = nextTournaments.flatMap((tournament) => {
-      if (tournament.format !== SALMON_FORMAT) return [];
-      const salmon = salmonScores(tournament.scores, tournament.team_names);
-      return [...salmon.player_options, ...salmon.team_players.flat()];
+      if (tournament.format === SALMON_FORMAT) {
+        const salmon = salmonScores(tournament.scores, tournament.team_names);
+        return [...salmon.player_options, ...salmon.team_players.flat()];
+      }
+      if (tournament.format === CMO_FORMAT && !Array.isArray(tournament.scores) && tournament.scores.kind === "cmo_point_sebago") {
+        return [...tournament.scores.player_options, ...tournament.scores.team_players.flat()];
+      }
+      return [];
     });
     if (names.length > 0) savePlayerOptions([...playerOptions, ...names]);
   }, [playerOptions, savePlayerOptions]);
@@ -375,23 +407,25 @@ export default function Live4PlayPage() {
       return;
     }
 
-    const names = teamNames.slice(0, teamCount).map((teamName, index) => teamName.trim() || `Team ${index + 1}`);
-    const gameHoles = format === SALMON_FORMAT ? 9 : holesCount;
+    const gameHoles = format === SALMON_FORMAT ? 9 : format === CMO_FORMAT ? 18 : holesCount;
+    const effectiveTeamCount = format === CMO_FORMAT ? 2 : teamCount;
+    const names = teamNames.slice(0, effectiveTeamCount).map((teamName, index) => teamName.trim() || `Team ${index + 1}`);
     const salmonPlayerNames = salmonTeamPlayers
-      .slice(0, teamCount)
+      .slice(0, effectiveTeamCount)
       .map((players, teamIndex) =>
         Array.from({ length: salmonPlayerCounts[teamIndex] || 1 }, (_player, playerIndex) => players[playerIndex] || "")
       );
 
-    if (format === SALMON_FORMAT && salmonPlayerNames.flat().some((player) => !player.trim())) {
-      setMessage("Assign every Salmon Falls player before creating the game.");
+    if ((format === SALMON_FORMAT || format === CMO_FORMAT) && salmonPlayerNames.flat().some((player) => !player.trim())) {
+      setMessage("Assign every player before creating the game.");
       return;
     }
 
-    const nextPlayerOptions = format === SALMON_FORMAT
+    const nextPlayerOptions = format === SALMON_FORMAT || format === CMO_FORMAT
       ? savePlayerOptions([...playerOptions, ...salmonPlayerNames.flat()])
       : playerOptions;
-    const salmonPayload = blankSalmonScores(teamCount, salmonPlayerCounts, nextPlayerOptions, salmonPlayerNames, salmonScoringMode);
+    const salmonPayload = blankSalmonScores(effectiveTeamCount, salmonPlayerCounts, nextPlayerOptions, salmonPlayerNames, salmonScoringMode);
+    const cmoPayload = blankCmoScores(effectiveTeamCount, salmonPlayerCounts, nextPlayerOptions, salmonPlayerNames);
     const now = new Date().toISOString();
     const localTournament: Tournament = {
       id: `local-${Date.now()}`,
@@ -399,7 +433,7 @@ export default function Live4PlayPage() {
       format,
       holes_count: gameHoles,
       team_names: names,
-      scores: format === SALMON_FORMAT ? salmonPayload : blankScores(names.length, gameHoles),
+      scores: format === SALMON_FORMAT ? salmonPayload : format === CMO_FORMAT ? cmoPayload : blankScores(names.length, gameHoles),
       status: "live",
       created_by: session?.user?.email?.split("@")[0] || "Player",
       created_at: now,
@@ -422,9 +456,9 @@ export default function Live4PlayPage() {
             name: localTournament.name,
             format,
             holes_count: gameHoles,
-            team_count: teamCount,
+            team_count: effectiveTeamCount,
             team_names: names,
-            scores: format === SALMON_FORMAT ? salmonPayload : undefined,
+            scores: format === SALMON_FORMAT ? salmonPayload : format === CMO_FORMAT ? cmoPayload : undefined,
           }),
         });
         const j = await r.json().catch(() => ({}));
@@ -617,7 +651,7 @@ export default function Live4PlayPage() {
                   <input value={name} onChange={(e) => setName(e.target.value)} style={input} />
                 </label>
 
-                {format !== SALMON_FORMAT ? (
+                {format !== SALMON_FORMAT && format !== CMO_FORMAT ? (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {[9, 18].map((holes) => (
                       <button
@@ -632,7 +666,7 @@ export default function Live4PlayPage() {
                   </div>
                 ) : (
                   <div style={{ border: "1px solid rgba(134,239,172,0.22)", borderRadius: 7, padding: 10, color: "#a7f3d0", background: "rgba(2,6,23,0.35)" }}>
-                    Salmon Falls Regular uses the 9-hole 4Play course pars.
+                    {format === CMO_FORMAT ? "CMO Goes to Point Sebago uses the full 18-hole Point Sebago card." : "Salmon Falls Regular uses the 9-hole 4Play course pars."}
                   </div>
                 )}
 
@@ -644,6 +678,10 @@ export default function Live4PlayPage() {
                       const nextFormat = e.target.value as Format;
                       setFormat(nextFormat);
                       if (nextFormat === SALMON_FORMAT && name === "Saturday Nassau") setName(SALMON_FORMAT);
+                      if (nextFormat === CMO_FORMAT) {
+                        setName(CMO_FORMAT);
+                        setTeamCount(2);
+                      }
                     }}
                     style={input}
                   >
@@ -661,18 +699,24 @@ export default function Live4PlayPage() {
                   </div>
                 ) : null}
 
-                <label style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
-                  Teams
-                  <select value={teamCount} onChange={(e) => setTeamCount(Number(e.target.value))} style={input}>
-                    {[2, 3, 4].map((count) => (
-                      <option key={count} value={count}>
-                        {count} Teams
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                {format === CMO_FORMAT ? (
+                  <div style={{ border: "1px solid rgba(134,239,172,0.22)", borderRadius: 7, padding: 10, color: "#a7f3d0", background: "rgba(2,6,23,0.35)" }}>
+                    Two teams. Stage 1: scramble. Stage 2: player points with chip-in bonuses. Stage 3: head-to-head skins.
+                  </div>
+                ) : (
+                  <label style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
+                    Teams
+                    <select value={teamCount} onChange={(e) => setTeamCount(Number(e.target.value))} style={input}>
+                      {[2, 3, 4].map((count) => (
+                        <option key={count} value={count}>
+                          {count} Teams
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
 
-                {Array.from({ length: teamCount }, (_, index) => (
+                {Array.from({ length: format === CMO_FORMAT ? 2 : teamCount }, (_, index) => (
                   <label key={index} style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
                     Team {index + 1}
                     <input
@@ -685,12 +729,12 @@ export default function Live4PlayPage() {
                   </label>
                 ))}
 
-                {format === SALMON_FORMAT ? (
+                {format === SALMON_FORMAT || format === CMO_FORMAT ? (
                   <div style={{ display: "grid", gap: 12 }}>
                     <div style={{ borderTop: "1px solid rgba(134,239,172,0.18)", paddingTop: 12, color: "#bbf7d0", fontSize: 13, fontWeight: 800 }}>
                       Players Per Team
                     </div>
-                    {Array.from({ length: teamCount }, (_team, teamIndex) => (
+                    {Array.from({ length: format === CMO_FORMAT ? 2 : teamCount }, (_team, teamIndex) => (
                       <label key={teamIndex} style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
                         {teamNames[teamIndex] || `Team ${teamIndex + 1}`}
                         <select
@@ -707,6 +751,7 @@ export default function Live4PlayPage() {
                       </label>
                     ))}
 
+                    {format === SALMON_FORMAT ? (
                     <label style={{ display: "grid", gap: 5, color: "#bbf7d0", fontSize: 13 }}>
                       Team Scoring Method
                       <select
@@ -721,11 +766,12 @@ export default function Live4PlayPage() {
                         ))}
                       </select>
                     </label>
+                    ) : null}
 
                     <div style={{ borderTop: "1px solid rgba(134,239,172,0.18)", paddingTop: 12, color: "#bbf7d0", fontSize: 13, fontWeight: 800 }}>
                       Assign Players
                     </div>
-                    {Array.from({ length: teamCount }, (_team, teamIndex) => (
+                    {Array.from({ length: format === CMO_FORMAT ? 2 : teamCount }, (_team, teamIndex) => (
                       <div key={teamIndex} style={{ display: "grid", gap: 8 }}>
                         <div style={{ color: "#a7f3d0", fontSize: 13 }}>{teamNames[teamIndex] || `Team ${teamIndex + 1}`}</div>
                         {Array.from({ length: salmonPlayerCounts[teamIndex] || 1 }, (_player, playerIndex) => (
