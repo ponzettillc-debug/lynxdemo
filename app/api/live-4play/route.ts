@@ -159,6 +159,7 @@ function cleanCmoPayload(value: unknown, teamNames: string[]) {
     });
   });
   const h2hRaw = Array.isArray(raw.h2h_scores) ? raw.h2h_scores : [];
+  const h2hMatchupsRaw = Array.isArray(raw.h2h_matchups) ? raw.h2h_matchups : [];
   const h2hScores = teamPlayers.map((players, teamIndex) => {
     const rawTeam = Array.isArray(h2hRaw[teamIndex]) ? h2hRaw[teamIndex] : [];
     return players.map((_player, playerIndex) => {
@@ -179,6 +180,15 @@ function cleanCmoPayload(value: unknown, teamNames: string[]) {
     point_scores: pointScores,
     chip_ins: chipIns,
     h2h_scores: h2hScores,
+    h2h_matchups: Array.from({ length: 4 }, (_match, matchIndex) => {
+      const rawMatch = h2hMatchupsRaw[matchIndex] && typeof h2hMatchupsRaw[matchIndex] === "object"
+        ? h2hMatchupsRaw[matchIndex] as Record<string, unknown>
+        : {};
+      return {
+        team1: String(rawMatch.team1 || teamPlayers[0]?.[matchIndex] || "").trim(),
+        team2: String(rawMatch.team2 || teamPlayers[1]?.[matchIndex] || "").trim(),
+      };
+    }),
   };
 }
 

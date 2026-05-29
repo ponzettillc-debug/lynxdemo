@@ -43,6 +43,7 @@ type CmoScores = {
   point_scores: Array<Array<Array<number | null>>>;
   chip_ins: Array<Array<boolean[]>>;
   h2h_scores: Array<Array<Array<number | null>>>;
+  h2h_matchups: Array<{ team1: string; team2: string }>;
 };
 
 const LOCAL_KEY = "4play_live_tournaments_v1";
@@ -120,6 +121,10 @@ function blankCmoScores(teamCount: number, playerCounts: number[], playerOptions
     point_scores: players.map((team) => team.map(() => Array.from({ length: 6 }, () => null))),
     chip_ins: players.map((team) => team.map(() => Array.from({ length: 6 }, () => false))),
     h2h_scores: players.map((team) => team.map(() => Array.from({ length: 6 }, () => null))),
+    h2h_matchups: Array.from({ length: 4 }, (_match, index) => ({
+      team1: players[0]?.[index] || "",
+      team2: players[1]?.[index] || "",
+    })),
   };
 }
 

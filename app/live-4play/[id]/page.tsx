@@ -31,6 +31,7 @@ type CmoScores = {
   point_scores: Array<Array<Array<number | null>>>;
   chip_ins: Array<Array<boolean[]>>;
   h2h_scores: Array<Array<Array<number | null>>>;
+  h2h_matchups: Array<{ team1: string; team2: string }>;
 };
 type Tournament = {
   id: string;
@@ -151,6 +152,10 @@ function cmoScores(value: Tournament["scores"] | undefined, teamNames: string[])
           })
         )
       ),
+      h2h_matchups: Array.from({ length: 4 }, (_match, matchIndex) => ({
+        team1: value.h2h_matchups?.[matchIndex]?.team1 || teamPlayers[0]?.[matchIndex] || "",
+        team2: value.h2h_matchups?.[matchIndex]?.team2 || teamPlayers[1]?.[matchIndex] || "",
+      })),
     };
   }
   return {
@@ -162,6 +167,7 @@ function cmoScores(value: Tournament["scores"] | undefined, teamNames: string[])
     point_scores: teamNames.map(() => [Array.from({ length: 6 }, () => null)]),
     chip_ins: teamNames.map(() => [Array.from({ length: 6 }, () => false)]),
     h2h_scores: teamNames.map(() => [Array.from({ length: 6 }, () => null)]),
+    h2h_matchups: Array.from({ length: 4 }, () => ({ team1: "", team2: "" })),
   };
 }
 
@@ -195,11 +201,30 @@ function salmonTeamTotal(salmon: SalmonScores, teamIndex: number) {
     .reduce((sum, value) => sum + value, 0);
 }
 
-function cmoScrambleTotal(cmo: CmoScores, teamIndex: number) {
+function cmoScrambleStrokes(cmo: CmoScores, teamIndex: number) {
   return (cmo.scramble_scores[teamIndex] || []).reduce<number>(
-    (total, strokes, holeIndex) => total + salmonPoints(strokes, POINT_SEBAGO_PARS[holeIndex]),
+    (total, strokes) => total + (typeof strokes === "number" ? strokes : 0),
     0
   );
+}
+
+function cmoScrambleRelative(cmo: CmoScores, teamIndex: number) {
+  const entered = (cmo.scramble_scores[teamIndex] || []).filter((score) => typeof score === "number").length;
+  const par = POINT_SEBAGO_PARS.slice(0, entered).reduce((sum, value) => sum + value, 0);
+  return cmoScrambleStrokes(cmo, teamIndex) - par;
+}
+
+function relativeLabel(value: number) {
+  if (value === 0) return "EVEN";
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function cmoScramblePoint(cmo: CmoScores, teamIndex: number) {
+  const totals = [0, 1].map((index) => cmoScrambleStrokes(cmo, index));
+  const complete = [0, 1].every((index) => (cmo.scramble_scores[index] || []).filter((score) => typeof score === "number").length === 6);
+  if (!complete) return 0;
+  if (totals[0] === totals[1]) return 0.5;
+  return totals[teamIndex] < totals[1 - teamIndex] ? 1 : 0;
 }
 
 function cmoStageTwoHoleTotal(cmo: CmoScores, teamIndex: number, holeIndex: number) {
@@ -214,28 +239,51 @@ function cmoStageTwoTotal(cmo: CmoScores, teamIndex: number) {
     .reduce((sum, value) => sum + value, 0);
 }
 
-function cmoH2HTotal(cmo: CmoScores, teamIndex: number) {
-  const pairCount = Math.max(cmo.team_players[0]?.length || 0, cmo.team_players[1]?.length || 0);
-  const totals = [0, 0];
-  for (let playerIndex = 0; playerIndex < pairCount; playerIndex += 1) {
-    let carry = 1;
-    for (let holeIndex = 0; holeIndex < 6; holeIndex += 1) {
-      const a = cmo.h2h_scores[0]?.[playerIndex]?.[holeIndex];
-      const b = cmo.h2h_scores[1]?.[playerIndex]?.[holeIndex];
-      if (typeof a !== "number" || typeof b !== "number") continue;
-      if (a === b) {
-        carry += 1;
-      } else {
-        totals[a < b ? 0 : 1] += carry;
-        carry = 1;
-      }
+function cmoStageTwoPoint(cmo: CmoScores, teamIndex: number) {
+  const totals = [0, 1].map((index) => cmoStageTwoTotal(cmo, index));
+  const complete = [0, 1].every((teamIndex) =>
+    (cmo.point_scores[teamIndex] || []).some((playerScores) => playerScores.some((score) => typeof score === "number"))
+  );
+  if (!complete) return 0;
+  if (totals[0] === totals[1]) return 0.5;
+  return totals[teamIndex] > totals[1 - teamIndex] ? 1 : 0;
+}
+
+function cmoMatchPlayerIndex(cmo: CmoScores, teamIndex: number, matchIndex: number) {
+  const selected = teamIndex === 0 ? cmo.h2h_matchups[matchIndex]?.team1 : cmo.h2h_matchups[matchIndex]?.team2;
+  const idx = (cmo.team_players[teamIndex] || []).findIndex((name) => name === selected);
+  return idx >= 0 ? idx : matchIndex;
+}
+
+function cmoH2HMatchPoint(cmo: CmoScores, matchIndex: number, teamIndex: number) {
+  const playerIndexes = [cmoMatchPlayerIndex(cmo, 0, matchIndex), cmoMatchPlayerIndex(cmo, 1, matchIndex)];
+  const scores = [0, 1].map((idx) => cmo.h2h_scores[idx]?.[playerIndexes[idx]] || []);
+  const complete = scores.every((row) => row.filter((score) => typeof score === "number").length === 6);
+  if (!complete) return 0;
+  const skins = [0, 0];
+  let carry = 1;
+  for (let holeIndex = 0; holeIndex < 6; holeIndex += 1) {
+    const a = scores[0][holeIndex];
+    const b = scores[1][holeIndex];
+    if (typeof a !== "number" || typeof b !== "number") continue;
+    if (a === b) {
+      carry += 1;
+    } else {
+      skins[a < b ? 0 : 1] += carry;
+      carry = 1;
     }
   }
-  return totals[teamIndex] || 0;
+  if (skins[0] === skins[1]) return 0.5;
+  return skins[teamIndex] > skins[1 - teamIndex] ? 1 : 0;
+}
+
+function cmoH2HTotal(cmo: CmoScores, teamIndex: number) {
+  return Array.from({ length: 4 }, (_match, matchIndex) => cmoH2HMatchPoint(cmo, matchIndex, teamIndex))
+    .reduce<number>((sum, value) => sum + value, 0);
 }
 
 function cmoTeamTotal(cmo: CmoScores, teamIndex: number) {
-  return cmoScrambleTotal(cmo, teamIndex) + cmoStageTwoTotal(cmo, teamIndex) + cmoH2HTotal(cmo, teamIndex);
+  return cmoScramblePoint(cmo, teamIndex) + cmoStageTwoPoint(cmo, teamIndex) + cmoH2HTotal(cmo, teamIndex);
 }
 
 function findSingleWinner(values: Array<number | null>, highWins: boolean) {
@@ -461,6 +509,15 @@ export default function Live4PlayScoringPage() {
     });
   }
 
+  function setCmoMatchup(matchIndex: number, teamIndex: number, playerName: string) {
+    updateCmo((nextCmo) => {
+      nextCmo.h2h_matchups[matchIndex] = {
+        ...nextCmo.h2h_matchups[matchIndex],
+        [teamIndex === 0 ? "team1" : "team2"]: playerName,
+      };
+    });
+  }
+
   async function completeTournament() {
     if (!tournament) return;
     await updateTournament({ ...tournament, status: "complete" }, "Tournament completed.");
@@ -595,6 +652,7 @@ export default function Live4PlayScoringPage() {
               setPointScore={setCmoPointScore}
               setChipIn={setCmoChipIn}
               setH2HScore={setCmoH2HScore}
+              setMatchup={setCmoMatchup}
             />
           ) : (
             <TeamScoreTable tournament={tournament} input={input} stickyTotal={stickyTotal} setTeamScore={setTeamScore} />
@@ -732,6 +790,7 @@ function CmoTable({
   setPointScore,
   setChipIn,
   setH2HScore,
+  setMatchup,
 }: {
   tournament: Tournament;
   input: React.CSSProperties;
@@ -740,6 +799,7 @@ function CmoTable({
   setPointScore: (teamIndex: number, playerIndex: number, holeIndex: number, value: string) => void;
   setChipIn: (teamIndex: number, playerIndex: number, holeIndex: number, checked: boolean) => void;
   setH2HScore: (teamIndex: number, playerIndex: number, holeIndex: number, value: string) => void;
+  setMatchup: (matchIndex: number, teamIndex: number, playerName: string) => void;
 }) {
   const [stage, setStage] = useState<1 | 2 | 3>(1);
   const cmo = cmoScores(tournament.scores, tournament.team_names);
@@ -780,7 +840,7 @@ function CmoTable({
 
       {stage === 1 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 1, holes 1-6: team scramble. Enter one gross team score per hole; points use the eagle/birdie/par/bogey scale.</div>
+          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 1, holes 1-6: team scramble. Enter gross team score by hole. Lowest 6-hole total wins 1 match point; tie splits 0.5 each.</div>
           <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
               <thead>
@@ -803,11 +863,14 @@ function CmoTable({
                       return (
                         <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex]} style={{ padding: 5, borderTop: "1px solid rgba(134,239,172,0.14)" }}>
                           <input type="number" inputMode="numeric" value={score ?? ""} onChange={(e) => setScrambleScore(teamIndex, holeIndex, e.target.value)} style={input} />
-                          <div style={{ marginTop: 3, color: "#a7f3d0", fontSize: 11, textAlign: "center" }}>{typeof score === "number" ? `${salmonPoints(score, POINT_SEBAGO_PARS[holeIndex])} pts` : "--"}</div>
+                          <div style={{ marginTop: 3, color: "#a7f3d0", fontSize: 11, textAlign: "center" }}>{typeof score === "number" ? relativeLabel(score - POINT_SEBAGO_PARS[holeIndex]) : "--"}</div>
                         </td>
                       );
                     })}
-                    <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>{cmoScrambleTotal(cmo, teamIndex)}</td>
+                    <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                      {relativeLabel(cmoScrambleRelative(cmo, teamIndex))}
+                      <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoScramblePoint(cmo, teamIndex)} pt</div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -818,7 +881,7 @@ function CmoTable({
 
       {stage === 2 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 2, holes 7-12: Salmon-style player points. Check chip-in for a bonus 2 points on that player/hole.</div>
+          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 2, holes 7-12: Salmon-style player points. Most team points wins 1 match point; tie splits 0.5 each. Check chip-in for +2.</div>
           <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
               <thead>
@@ -840,7 +903,10 @@ function CmoTable({
                       {Array.from({ length: 6 }, (_hole, holeIndex) => (
                         <td key={holeIndex} style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", background: "#12351f", textAlign: "center", fontWeight: 900 }}>{cmoStageTwoHoleTotal(cmo, teamIndex, holeIndex)}</td>
                       ))}
-                      <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", textAlign: "center", fontWeight: 900 }}>{cmoStageTwoTotal(cmo, teamIndex)}</td>
+                      <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", textAlign: "center", fontWeight: 900 }}>
+                        {cmoStageTwoTotal(cmo, teamIndex)}
+                        <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoStageTwoPoint(cmo, teamIndex)} pt</div>
+                      </td>
                     </tr>
                     {(cmo.team_players[teamIndex] || []).map((playerName, playerIndex) => (
                       <tr key={`${teamName}-${playerName}-${playerIndex}`}>
@@ -873,7 +939,28 @@ function CmoTable({
 
       {stage === 3 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 3, holes 13-18: head-to-head skins. Player slots match directly across teams; tied holes carry until that match has a winner.</div>
+          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 3, holes 13-18: four head-to-head matchups, each worth 1 match point. Select one player from each team for every matchup.</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {Array.from({ length: 4 }, (_match, matchIndex) => (
+              <div key={matchIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 8, background: "#07111f" }}>
+                {[0, 1].map((teamIndex) => (
+                  <label key={teamIndex} style={{ display: "grid", gap: 4, color: "#bbf7d0", fontSize: 12 }}>
+                    Match {matchIndex + 1} - {tournament.team_names[teamIndex]}
+                    <select
+                      value={teamIndex === 0 ? cmo.h2h_matchups[matchIndex]?.team1 || "" : cmo.h2h_matchups[matchIndex]?.team2 || ""}
+                      onChange={(e) => setMatchup(matchIndex, teamIndex, e.target.value)}
+                      style={{ ...input, textAlign: "left" }}
+                    >
+                      <option value="">Select player</option>
+                      {(cmo.team_players[teamIndex] || []).map((playerName) => (
+                        <option key={playerName} value={playerName}>{playerName}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
           <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
               <thead>
@@ -888,19 +975,20 @@ function CmoTable({
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: Math.max(cmo.team_players[0]?.length || 0, cmo.team_players[1]?.length || 0) }, (_match, playerIndex) => (
-                  <Fragment key={playerIndex}>
+                {Array.from({ length: 4 }, (_match, matchIndex) => (
+                  <Fragment key={matchIndex}>
                     {[0, 1].map((teamIndex) => {
-                      const playerName = cmo.team_players[teamIndex]?.[playerIndex] || `${tournament.team_names[teamIndex]} Player ${playerIndex + 1}`;
+                      const playerIndex = cmoMatchPlayerIndex(cmo, teamIndex, matchIndex);
+                      const playerName = cmo.team_players[teamIndex]?.[playerIndex] || `${tournament.team_names[teamIndex]} Player ${matchIndex + 1}`;
                       return (
-                        <tr key={`${teamIndex}-${playerIndex}`}>
+                        <tr key={`${teamIndex}-${matchIndex}`}>
                           <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{playerName}</td>
                           {Array.from({ length: 6 }, (_hole, holeIndex) => (
                             <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 12]} style={{ padding: 5, borderTop: "1px solid rgba(134,239,172,0.14)" }}>
                               <input type="number" inputMode="numeric" value={cmo.h2h_scores[teamIndex]?.[playerIndex]?.[holeIndex] ?? ""} onChange={(e) => setH2HScore(teamIndex, playerIndex, holeIndex, e.target.value)} style={input} />
                             </td>
                           ))}
-                          <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>{cmoH2HTotal(cmo, teamIndex)}</td>
+                          <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>{cmoH2HMatchPoint(cmo, matchIndex, teamIndex)}</td>
                         </tr>
                       );
                     })}
