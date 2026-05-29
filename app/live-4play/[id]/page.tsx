@@ -558,25 +558,28 @@ export default function Live4PlayScoringPage() {
     }));
   }, [tournament]);
 
+  const isCmoPage = tournament?.format === CMO_FORMAT;
   const page: React.CSSProperties = {
     minHeight: "100vh",
-    background: "linear-gradient(180deg, #06130d 0%, #020617 52%, #07111f 100%)",
-    color: "#ecfdf5",
+    background: isCmoPage
+      ? "linear-gradient(180deg, #0b2f8f 0%, #061947 48%, #f8fafc 100%)"
+      : "linear-gradient(180deg, #06130d 0%, #020617 52%, #07111f 100%)",
+    color: isCmoPage ? "#f8fafc" : "#ecfdf5",
     fontFamily: "Inter, system-ui, sans-serif",
     padding: 12,
   };
   const panel: React.CSSProperties = {
-    border: "1px solid rgba(134,239,172,0.22)",
-    background: "rgba(8,27,18,0.82)",
+    border: isCmoPage ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(134,239,172,0.22)",
+    background: isCmoPage ? "rgba(5,25,71,0.9)" : "rgba(8,27,18,0.82)",
     borderRadius: 8,
     padding: 12,
-    boxShadow: "0 16px 36px rgba(0,0,0,0.28)",
+    boxShadow: isCmoPage ? "0 18px 42px rgba(5,25,71,0.36)" : "0 16px 36px rgba(0,0,0,0.28)",
   };
   const button: React.CSSProperties = {
     minHeight: 38,
-    border: "1px solid rgba(134,239,172,0.34)",
-    background: "#10251a",
-    color: "#ecfdf5",
+    border: isCmoPage ? "1px solid rgba(255,255,255,0.48)" : "1px solid rgba(134,239,172,0.34)",
+    background: isCmoPage ? "#ffffff" : "#10251a",
+    color: isCmoPage ? "#0b2f8f" : "#ecfdf5",
     borderRadius: 7,
     padding: "8px 10px",
     fontWeight: 800,
@@ -586,9 +589,9 @@ export default function Live4PlayScoringPage() {
   const input: React.CSSProperties = {
     width: "100%",
     minHeight: 34,
-    border: "1px solid rgba(148,163,184,0.24)",
-    background: "#020617",
-    color: "#f8fafc",
+    border: isCmoPage ? "1px solid rgba(37,99,235,0.34)" : "1px solid rgba(148,163,184,0.24)",
+    background: isCmoPage ? "#f8fafc" : "#020617",
+    color: isCmoPage ? "#0f172a" : "#f8fafc",
     borderRadius: 7,
     padding: "6px 7px",
     outline: "none",
@@ -598,8 +601,9 @@ export default function Live4PlayScoringPage() {
     position: "sticky",
     right: 0,
     zIndex: 3,
-    background: "#12351f",
-    boxShadow: "-8px 0 12px rgba(2,6,23,0.42)",
+    background: isCmoPage ? "#ffffff" : "#12351f",
+    color: isCmoPage ? "#0b2f8f" : "#ecfdf5",
+    boxShadow: isCmoPage ? "-8px 0 12px rgba(15,23,42,0.16)" : "-8px 0 12px rgba(2,6,23,0.42)",
   };
 
   if (loading) {
@@ -642,8 +646,8 @@ export default function Live4PlayScoringPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
             {leaderboard.map((row) => (
-              <div key={row.teamName} style={{ border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 10, background: "#07111f" }}>
-                <div style={{ color: "#bbf7d0", fontSize: 12 }}>{row.teamName}</div>
+              <div key={row.teamName} style={{ border: isCmoPage ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 10, background: isCmoPage ? "#ffffff" : "#07111f", color: isCmoPage ? "#0b2f8f" : "#ecfdf5" }}>
+                <div style={{ color: isCmoPage ? "#1d4ed8" : "#bbf7d0", fontSize: 12 }}>{row.teamName}</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{row.label}</div>
               </div>
             ))}
@@ -690,36 +694,37 @@ function CmoHeaderStageScores({
 }) {
   const cmo = cmoScores(tournament.scores, tournament.team_names);
   const stages = [
-    { label: "Stage 1", detail: "Holes 1-6 Scramble", scorer: cmoScramblePoint },
-    { label: "Stage 2", detail: "Holes 7-12 Points", scorer: cmoStageTwoPoint },
-    { label: "Stage 3", detail: "Holes 13-18 H2H Skins", scorer: cmoH2HTotal },
+    { label: "Stage 1", detail: "Holes 1-6 Scramble", value: "Worth 1 pt", scorer: cmoScramblePoint },
+    { label: "Stage 2", detail: "Holes 7-12 Points", value: "Worth 1 pt", scorer: cmoStageTwoPoint },
+    { label: "Stage 3", detail: "Holes 13-18 H2H Skins", value: "Worth 4 pts", scorer: cmoH2HTotal },
   ];
 
   return (
-    <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
+    <div style={{ overflowX: "auto", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 8 }}>
       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: 8, background: "#10251a", color: "#bbf7d0", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
+            <th style={{ textAlign: "left", padding: 8, background: "#ffffff", color: "#0b2f8f", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
             {stages.map((stage) => (
-              <th key={stage.label} style={{ padding: 8, background: "#10251a", color: "#bbf7d0", minWidth: 132 }}>
+              <th key={stage.label} style={{ padding: 8, background: "#ffffff", color: "#0b2f8f", minWidth: 132 }}>
                 {stage.label}
-                <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{stage.detail}</div>
+                <div style={{ color: "#1d4ed8", fontSize: 11, fontWeight: 800 }}>{stage.detail}</div>
+                <div style={{ color: "#0f172a", fontSize: 11, fontWeight: 900 }}>{stage.value}</div>
               </th>
             ))}
-            <th style={{ ...stickyTotal, padding: 8, color: "#bbf7d0" }}>Total</th>
+            <th style={{ ...stickyTotal, padding: 8 }}>Total</th>
           </tr>
         </thead>
         <tbody>
           {tournament.team_names.map((teamName, teamIndex) => (
             <tr key={teamName}>
-              <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
+              <td style={{ padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", background: "#0b2f8f", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
               {stages.map((stage) => (
-                <td key={stage.label} style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                <td key={stage.label} style={{ padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", textAlign: "center", fontWeight: 900 }}>
                   {stage.scorer(cmo, teamIndex)} pts
                 </td>
               ))}
-              <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+              <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", textAlign: "center", fontWeight: 900 }}>
                 {cmoTeamTotal(cmo, teamIndex)} pts
               </td>
             </tr>
@@ -870,9 +875,9 @@ function CmoTable({
       onClick={() => setStage(value)}
       style={{
         minHeight: 38,
-        border: "1px solid rgba(134,239,172,0.34)",
-        background: stage === value ? "#22c55e" : "#10251a",
-        color: stage === value ? "#03120a" : "#ecfdf5",
+        border: "1px solid rgba(255,255,255,0.44)",
+        background: stage === value ? "#ffffff" : "#0b2f8f",
+        color: stage === value ? "#0b2f8f" : "#ffffff",
         borderRadius: 7,
         padding: "8px 10px",
         fontWeight: 900,
@@ -883,15 +888,15 @@ function CmoTable({
       }}
     >
       <span>{label}</span>
-      <span style={{ color: stage === value ? "#064e3b" : "#a7f3d0", fontSize: 11, fontWeight: 800 }}>{detail}</span>
+      <span style={{ color: stage === value ? "#1d4ed8" : "#dbeafe", fontSize: 11, fontWeight: 800 }}>{detail}</span>
     </button>
   );
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 10, background: "#07111f" }}>
-        <div style={{ fontWeight: 900, color: "#bbf7d0" }}>Point Sebago Card</div>
-        <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 12 }}>
+      <div style={{ border: "1px solid rgba(255,255,255,0.28)", borderRadius: 8, padding: 10, background: "#0b2f8f" }}>
+        <div style={{ fontWeight: 900, color: "#ffffff" }}>Point Sebago Card</div>
+        <div style={{ marginTop: 4, color: "#dbeafe", fontSize: 12 }}>
           Par 72 | Blue tees 6,485 yards | Stage holes use Point Sebago holes 1-18.
         </div>
       </div>
