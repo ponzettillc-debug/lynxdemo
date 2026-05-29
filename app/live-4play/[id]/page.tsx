@@ -256,25 +256,35 @@ function cmoMatchPlayerIndex(cmo: CmoScores, teamIndex: number, matchIndex: numb
 }
 
 function cmoH2HMatchPoint(cmo: CmoScores, matchIndex: number, teamIndex: number) {
+  const skins = cmoH2HMatchSkins(cmo, matchIndex);
+  const complete = cmoH2HMatchComplete(cmo, matchIndex);
+  if (!complete) return 0;
+  if (skins[0] === skins[1]) return 0.5;
+  return skins[teamIndex] > skins[1 - teamIndex] ? 1 : 0;
+}
+
+function cmoH2HMatchSkins(cmo: CmoScores, matchIndex: number) {
   const playerIndexes = [cmoMatchPlayerIndex(cmo, 0, matchIndex), cmoMatchPlayerIndex(cmo, 1, matchIndex)];
   const scores = [0, 1].map((idx) => cmo.h2h_scores[idx]?.[playerIndexes[idx]] || []);
-  const complete = scores.every((row) => row.filter((score) => typeof score === "number").length === 6);
-  if (!complete) return 0;
   const skins = [0, 0];
-  let carry = 1;
   for (let holeIndex = 0; holeIndex < 6; holeIndex += 1) {
     const a = scores[0][holeIndex];
     const b = scores[1][holeIndex];
     if (typeof a !== "number" || typeof b !== "number") continue;
     if (a === b) {
-      carry += 1;
+      skins[0] += 0.5;
+      skins[1] += 0.5;
     } else {
-      skins[a < b ? 0 : 1] += carry;
-      carry = 1;
+      skins[a < b ? 0 : 1] += 1;
     }
   }
-  if (skins[0] === skins[1]) return 0.5;
-  return skins[teamIndex] > skins[1 - teamIndex] ? 1 : 0;
+  return skins;
+}
+
+function cmoH2HMatchComplete(cmo: CmoScores, matchIndex: number) {
+  const playerIndexes = [cmoMatchPlayerIndex(cmo, 0, matchIndex), cmoMatchPlayerIndex(cmo, 1, matchIndex)];
+  const scores = [0, 1].map((idx) => cmo.h2h_scores[idx]?.[playerIndexes[idx]] || []);
+  return scores.every((row) => row.filter((score) => typeof score === "number").length === 6);
 }
 
 function cmoH2HTotal(cmo: CmoScores, teamIndex: number) {
@@ -939,7 +949,7 @@ function CmoTable({
 
       {stage === 3 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 3, holes 13-18: four head-to-head matchups, each worth 1 match point. Select one player from each team for every matchup.</div>
+          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 3, holes 13-18: four head-to-head matchups, each worth 1 match point. Each hole won earns 1 skin; tied holes split 0.5 skins each.</div>
           <div style={{ display: "grid", gap: 8 }}>
             {Array.from({ length: 4 }, (_match, matchIndex) => (
               <div key={matchIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 8, background: "#07111f" }}>
@@ -980,15 +990,22 @@ function CmoTable({
                     {[0, 1].map((teamIndex) => {
                       const playerIndex = cmoMatchPlayerIndex(cmo, teamIndex, matchIndex);
                       const playerName = cmo.team_players[teamIndex]?.[playerIndex] || `${tournament.team_names[teamIndex]} Player ${matchIndex + 1}`;
+                      const skins = cmoH2HMatchSkins(cmo, matchIndex)[teamIndex] || 0;
                       return (
                         <tr key={`${teamIndex}-${matchIndex}`}>
-                          <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{playerName}</td>
+                          <td style={{ padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>
+                            <div style={{ color: "#a7f3d0", fontSize: 11 }}>Match {matchIndex + 1}</div>
+                            {playerName}
+                          </td>
                           {Array.from({ length: 6 }, (_hole, holeIndex) => (
-                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 12]} style={{ padding: 5, borderTop: "1px solid rgba(134,239,172,0.14)" }}>
+                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 12]} style={{ padding: 5, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)" }}>
                               <input type="number" inputMode="numeric" value={cmo.h2h_scores[teamIndex]?.[playerIndex]?.[holeIndex] ?? ""} onChange={(e) => setH2HScore(teamIndex, playerIndex, holeIndex, e.target.value)} style={input} />
                             </td>
                           ))}
-                          <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>{cmoH2HMatchPoint(cmo, matchIndex, teamIndex)}</td>
+                          <td style={{ ...stickyTotal, padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                            Skins: {skins}
+                            <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoH2HMatchPoint(cmo, matchIndex, teamIndex)} pt</div>
+                          </td>
                         </tr>
                       );
                     })}
