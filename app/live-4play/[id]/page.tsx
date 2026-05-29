@@ -648,6 +648,7 @@ export default function Live4PlayScoringPage() {
               </div>
             ))}
           </div>
+          {tournament.format === CMO_FORMAT ? <CmoHeaderStageScores tournament={tournament} stickyTotal={stickyTotal} /> : null}
         </header>
 
         <section style={panel}>
@@ -677,6 +678,55 @@ export default function Live4PlayScoringPage() {
         {message ? <div style={{ color: "#cbd5e1", fontSize: 13 }}>{message}</div> : null}
       </div>
     </main>
+  );
+}
+
+function CmoHeaderStageScores({
+  tournament,
+  stickyTotal,
+}: {
+  tournament: Tournament;
+  stickyTotal: React.CSSProperties;
+}) {
+  const cmo = cmoScores(tournament.scores, tournament.team_names);
+  const stages = [
+    { label: "Stage 1", detail: "Holes 1-6 Scramble", scorer: cmoScramblePoint },
+    { label: "Stage 2", detail: "Holes 7-12 Points", scorer: cmoStageTwoPoint },
+    { label: "Stage 3", detail: "Holes 13-18 H2H Skins", scorer: cmoH2HTotal },
+  ];
+
+  return (
+    <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left", padding: 8, background: "#10251a", color: "#bbf7d0", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
+            {stages.map((stage) => (
+              <th key={stage.label} style={{ padding: 8, background: "#10251a", color: "#bbf7d0", minWidth: 132 }}>
+                {stage.label}
+                <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>{stage.detail}</div>
+              </th>
+            ))}
+            <th style={{ ...stickyTotal, padding: 8, color: "#bbf7d0" }}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tournament.team_names.map((teamName, teamIndex) => (
+            <tr key={teamName}>
+              <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
+              {stages.map((stage) => (
+                <td key={stage.label} style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                  {stage.scorer(cmo, teamIndex)} pts
+                </td>
+              ))}
+              <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                {cmoTeamTotal(cmo, teamIndex)} pts
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -813,7 +863,7 @@ function CmoTable({
 }) {
   const [stage, setStage] = useState<1 | 2 | 3>(1);
   const cmo = cmoScores(tournament.scores, tournament.team_names);
-  const stageButton = (value: 1 | 2 | 3, label: string) => (
+  const stageButton = (value: 1 | 2 | 3, label: string, detail: string) => (
     <button
       key={value}
       type="button"
@@ -827,9 +877,13 @@ function CmoTable({
         padding: "8px 10px",
         fontWeight: 900,
         cursor: "pointer",
+        display: "grid",
+        gap: 2,
+        textAlign: "left",
       }}
     >
-      {label}
+      <span>{label}</span>
+      <span style={{ color: stage === value ? "#064e3b" : "#a7f3d0", fontSize: 11, fontWeight: 800 }}>{detail}</span>
     </button>
   );
 
@@ -842,10 +896,10 @@ function CmoTable({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-        {stageButton(1, "Stage 1")}
-        {stageButton(2, "Stage 2")}
-        {stageButton(3, "Stage 3")}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
+        {stageButton(1, "Stage 1", "Holes 1-6 Scramble")}
+        {stageButton(2, "Stage 2", "Holes 7-12 Points")}
+        {stageButton(3, "Stage 3", "Holes 13-18 H2H Skins")}
       </div>
 
       {stage === 1 ? (
