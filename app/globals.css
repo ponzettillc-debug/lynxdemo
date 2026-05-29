@@ -25,6 +25,22 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.fourplay-cartoon-footer {
+  width: 100%;
+  overflow: hidden;
+  background: linear-gradient(180deg, #111827 0%, #050505 100%);
+  border-top: 1px solid rgba(229, 231, 235, 0.22);
+}
+
+.fourplay-cartoon-footer img {
+  display: block;
+  width: 100%;
+  height: clamp(130px, 18vw, 260px);
+  object-fit: cover;
+  object-position: center;
+  filter: contrast(1.04) saturate(0.96);
+}
+
 .soft-logo-mark {
   display: inline-flex;
   align-items: center;

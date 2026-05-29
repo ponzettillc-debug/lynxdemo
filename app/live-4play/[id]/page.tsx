@@ -562,24 +562,24 @@ export default function Live4PlayScoringPage() {
   const page: React.CSSProperties = {
     minHeight: "100vh",
     background: isCmoPage
-      ? "linear-gradient(180deg, #0b2f8f 0%, #061947 48%, #f8fafc 100%)"
+      ? "linear-gradient(180deg, #050505 0%, #111827 48%, #d1d5db 100%)"
       : "linear-gradient(180deg, #06130d 0%, #020617 52%, #07111f 100%)",
     color: isCmoPage ? "#f8fafc" : "#ecfdf5",
     fontFamily: "Inter, system-ui, sans-serif",
     padding: 12,
   };
   const panel: React.CSSProperties = {
-    border: isCmoPage ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(134,239,172,0.22)",
-    background: isCmoPage ? "rgba(5,25,71,0.9)" : "rgba(8,27,18,0.82)",
+    border: isCmoPage ? "1px solid rgba(229,231,235,0.34)" : "1px solid rgba(134,239,172,0.22)",
+    background: isCmoPage ? "rgba(17,24,39,0.94)" : "rgba(8,27,18,0.82)",
     borderRadius: 8,
     padding: 12,
-    boxShadow: isCmoPage ? "0 18px 42px rgba(5,25,71,0.36)" : "0 16px 36px rgba(0,0,0,0.28)",
+    boxShadow: isCmoPage ? "0 18px 42px rgba(0,0,0,0.42)" : "0 16px 36px rgba(0,0,0,0.28)",
   };
   const button: React.CSSProperties = {
     minHeight: 38,
-    border: isCmoPage ? "1px solid rgba(255,255,255,0.48)" : "1px solid rgba(134,239,172,0.34)",
-    background: isCmoPage ? "#ffffff" : "#10251a",
-    color: isCmoPage ? "#0b2f8f" : "#ecfdf5",
+    border: isCmoPage ? "1px solid rgba(229,231,235,0.62)" : "1px solid rgba(134,239,172,0.34)",
+    background: isCmoPage ? "#e5e7eb" : "#10251a",
+    color: isCmoPage ? "#111827" : "#ecfdf5",
     borderRadius: 7,
     padding: "8px 10px",
     fontWeight: 800,
@@ -589,7 +589,7 @@ export default function Live4PlayScoringPage() {
   const input: React.CSSProperties = {
     width: "100%",
     minHeight: 34,
-    border: isCmoPage ? "1px solid rgba(37,99,235,0.34)" : "1px solid rgba(148,163,184,0.24)",
+    border: isCmoPage ? "1px solid rgba(156,163,175,0.72)" : "1px solid rgba(148,163,184,0.24)",
     background: isCmoPage ? "#f8fafc" : "#020617",
     color: isCmoPage ? "#0f172a" : "#f8fafc",
     borderRadius: 7,
@@ -601,8 +601,8 @@ export default function Live4PlayScoringPage() {
     position: "sticky",
     right: 0,
     zIndex: 3,
-    background: isCmoPage ? "#ffffff" : "#12351f",
-    color: isCmoPage ? "#0b2f8f" : "#ecfdf5",
+    background: isCmoPage ? "#e5e7eb" : "#12351f",
+    color: isCmoPage ? "#111827" : "#ecfdf5",
     boxShadow: isCmoPage ? "-8px 0 12px rgba(15,23,42,0.16)" : "-8px 0 12px rgba(2,6,23,0.42)",
   };
 
@@ -628,26 +628,26 @@ export default function Live4PlayScoringPage() {
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <h1 style={{ margin: 0, fontSize: 26 }}>{tournament.name}</h1>
-              <p style={{ margin: "5px 0 0", color: "#a7f3d0", fontSize: 13 }}>
+              <p style={{ margin: "5px 0 0", color: isCmoPage ? "#d1d5db" : "#a7f3d0", fontSize: 13 }}>
                 {tournament.format} | {tournament.holes_count} holes | {storageMode.toUpperCase()} {saving ? "| Saving..." : ""}
               </p>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={() => loadTournament()} style={button}>Refresh</button>
               {tournament.status !== "complete" ? (
-                <button type="button" onClick={completeTournament} style={{ ...button, background: "#22c55e", color: "#03120a" }}>
+                <button type="button" onClick={completeTournament} style={{ ...button, background: isCmoPage ? "#f8fafc" : "#22c55e", color: isCmoPage ? "#111827" : "#03120a" }}>
                   COMPLETE
                 </button>
               ) : (
-                <span style={{ ...button, cursor: "default", color: "#a7f3d0" }}>COMPLETED</span>
+                <span style={{ ...button, cursor: "default", color: isCmoPage ? "#111827" : "#a7f3d0" }}>COMPLETED</span>
               )}
               <Link href="/live-4play" style={button}>All Live</Link>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
             {leaderboard.map((row) => (
-              <div key={row.teamName} style={{ border: isCmoPage ? "1px solid rgba(255,255,255,0.34)" : "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 10, background: isCmoPage ? "#ffffff" : "#07111f", color: isCmoPage ? "#0b2f8f" : "#ecfdf5" }}>
-                <div style={{ color: isCmoPage ? "#1d4ed8" : "#bbf7d0", fontSize: 12 }}>{row.teamName}</div>
+              <div key={row.teamName} style={{ border: isCmoPage ? "1px solid rgba(229,231,235,0.34)" : "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 10, background: isCmoPage ? "#f8fafc" : "#07111f", color: isCmoPage ? "#111827" : "#ecfdf5" }}>
+                <div style={{ color: isCmoPage ? "#374151" : "#bbf7d0", fontSize: 12 }}>{row.teamName}</div>
                 <div style={{ fontSize: 22, fontWeight: 900 }}>{row.label}</div>
               </div>
             ))}
@@ -700,15 +700,15 @@ function CmoHeaderStageScores({
   ];
 
   return (
-    <div style={{ overflowX: "auto", border: "1px solid rgba(255,255,255,0.28)", borderRadius: 8 }}>
+    <div style={{ overflowX: "auto", border: "1px solid rgba(229,231,235,0.26)", borderRadius: 8 }}>
       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620 }}>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: 8, background: "#ffffff", color: "#0b2f8f", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
+            <th style={{ textAlign: "left", padding: 8, background: "#e5e7eb", color: "#111827", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
             {stages.map((stage) => (
-              <th key={stage.label} style={{ padding: 8, background: "#ffffff", color: "#0b2f8f", minWidth: 132 }}>
+              <th key={stage.label} style={{ padding: 8, background: "#e5e7eb", color: "#111827", minWidth: 132 }}>
                 {stage.label}
-                <div style={{ color: "#1d4ed8", fontSize: 11, fontWeight: 800 }}>{stage.detail}</div>
+                <div style={{ color: "#374151", fontSize: 11, fontWeight: 800 }}>{stage.detail}</div>
                 <div style={{ color: "#0f172a", fontSize: 11, fontWeight: 900 }}>{stage.value}</div>
               </th>
             ))}
@@ -718,13 +718,13 @@ function CmoHeaderStageScores({
         <tbody>
           {tournament.team_names.map((teamName, teamIndex) => (
             <tr key={teamName}>
-              <td style={{ padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", background: "#0b2f8f", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
+              <td style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.18)", background: "#111827", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
               {stages.map((stage) => (
-                <td key={stage.label} style={{ padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", textAlign: "center", fontWeight: 900 }}>
+                <td key={stage.label} style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.18)", textAlign: "center", fontWeight: 900, color: "#f8fafc" }}>
                   {stage.scorer(cmo, teamIndex)} pts
                 </td>
               ))}
-              <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(255,255,255,0.2)", textAlign: "center", fontWeight: 900 }}>
+              <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(229,231,235,0.18)", textAlign: "center", fontWeight: 900 }}>
                 {cmoTeamTotal(cmo, teamIndex)} pts
               </td>
             </tr>
@@ -875,9 +875,9 @@ function CmoTable({
       onClick={() => setStage(value)}
       style={{
         minHeight: 38,
-        border: "1px solid rgba(255,255,255,0.44)",
-        background: stage === value ? "#ffffff" : "#0b2f8f",
-        color: stage === value ? "#0b2f8f" : "#ffffff",
+        border: "1px solid rgba(229,231,235,0.44)",
+        background: stage === value ? "#e5e7eb" : "#111827",
+        color: stage === value ? "#111827" : "#f8fafc",
         borderRadius: 7,
         padding: "8px 10px",
         fontWeight: 900,
@@ -888,15 +888,15 @@ function CmoTable({
       }}
     >
       <span>{label}</span>
-      <span style={{ color: stage === value ? "#1d4ed8" : "#dbeafe", fontSize: 11, fontWeight: 800 }}>{detail}</span>
+      <span style={{ color: stage === value ? "#374151" : "#d1d5db", fontSize: 11, fontWeight: 800 }}>{detail}</span>
     </button>
   );
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ border: "1px solid rgba(255,255,255,0.28)", borderRadius: 8, padding: 10, background: "#0b2f8f" }}>
-        <div style={{ fontWeight: 900, color: "#ffffff" }}>Point Sebago Card</div>
-        <div style={{ marginTop: 4, color: "#dbeafe", fontSize: 12 }}>
+      <div style={{ border: "1px solid rgba(229,231,235,0.28)", borderRadius: 8, padding: 10, background: "#050505" }}>
+        <div style={{ fontWeight: 900, color: "#f8fafc" }}>Point Sebago Card</div>
+        <div style={{ marginTop: 4, color: "#d1d5db", fontSize: 12 }}>
           Par 72 | Blue tees 6,485 yards | Stage holes use Point Sebago holes 1-18.
         </div>
       </div>
@@ -909,36 +909,36 @@ function CmoTable({
 
       {stage === 1 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 1, holes 1-6: team scramble. Enter gross team score by hole. Lowest 6-hole total wins 1 match point; tie splits 0.5 each.</div>
-          <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
+          <div style={{ color: "#f8fafc", fontSize: 14 }}>Stage 1, holes 1-6: team scramble. Enter gross team score by hole. Lowest 6-hole total wins 1 match point; tie splits 0.5 each.</div>
+          <div style={{ overflowX: "auto", border: "1px solid rgba(229,231,235,0.22)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", padding: 8, background: "#10251a", color: "#bbf7d0", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
+                  <th style={{ textAlign: "left", padding: 8, background: "#111827", color: "#f8fafc", position: "sticky", left: 0, zIndex: 4 }}>Team</th>
                   {Array.from({ length: 6 }, (_hole, holeIndex) => (
-                    <th key={holeIndex} style={{ padding: 8, background: "#10251a", color: "#bbf7d0", minWidth: 76 }}>
+                    <th key={holeIndex} style={{ padding: 8, background: "#111827", color: "#f8fafc", minWidth: 76 }}>
                       H{holeIndex + 1}<br /><span style={{ color: "#94a3b8", fontSize: 11 }}>{POINT_SEBAGO_YARDS[holeIndex]} | P{POINT_SEBAGO_PARS[holeIndex]}</span>
                     </th>
                   ))}
-                  <th style={{ ...stickyTotal, padding: 8, color: "#bbf7d0" }}>Total</th>
+                  <th style={{ ...stickyTotal, padding: 8 }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {tournament.team_names.map((teamName, teamIndex) => (
                   <tr key={teamName}>
-                    <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{teamName}</td>
+                    <td style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.16)", background: "#0f172a", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{teamName}</td>
                     {Array.from({ length: 6 }, (_hole, holeIndex) => {
                       const score = cmo.scramble_scores[teamIndex]?.[holeIndex] ?? null;
                       return (
-                        <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex]} style={{ padding: 5, borderTop: "1px solid rgba(134,239,172,0.14)" }}>
+                        <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex]} style={{ padding: 5, borderTop: "1px solid rgba(229,231,235,0.16)" }}>
                           <input type="number" inputMode="numeric" value={score ?? ""} onChange={(e) => setScrambleScore(teamIndex, holeIndex, e.target.value)} style={input} />
-                          <div style={{ marginTop: 3, color: "#a7f3d0", fontSize: 11, textAlign: "center" }}>{typeof score === "number" ? relativeLabel(score - POINT_SEBAGO_PARS[holeIndex]) : "--"}</div>
+                          <div style={{ marginTop: 3, color: "#d1d5db", fontSize: 11, textAlign: "center" }}>{typeof score === "number" ? relativeLabel(score - POINT_SEBAGO_PARS[holeIndex]) : "--"}</div>
                         </td>
                       );
                     })}
-                    <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                    <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(229,231,235,0.16)", textAlign: "center", fontWeight: 900 }}>
                       {relativeLabel(cmoScrambleRelative(cmo, teamIndex))}
-                      <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoScramblePoint(cmo, teamIndex)} pt</div>
+                      <div style={{ color: "#374151", fontSize: 11 }}>{cmoScramblePoint(cmo, teamIndex)} pt</div>
                     </td>
                   </tr>
                 ))}
@@ -950,50 +950,50 @@ function CmoTable({
 
       {stage === 2 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 2, holes 7-12: Salmon-style player points. Most team points wins 1 match point; tie splits 0.5 each. Check chip-in for +2.</div>
-          <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
+          <div style={{ color: "#f8fafc", fontSize: 14 }}>Stage 2, holes 7-12: Salmon-style player points. Most team points wins 1 match point; tie splits 0.5 each. Check chip-in for +2.</div>
+          <div style={{ overflowX: "auto", border: "1px solid rgba(229,231,235,0.22)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", padding: 8, background: "#10251a", color: "#bbf7d0", position: "sticky", left: 0, zIndex: 4 }}>Player</th>
+                  <th style={{ textAlign: "left", padding: 8, background: "#111827", color: "#f8fafc", position: "sticky", left: 0, zIndex: 4 }}>Player</th>
                   {Array.from({ length: 6 }, (_hole, idx) => (
-                    <th key={idx} style={{ padding: 8, background: "#10251a", color: "#bbf7d0", minWidth: 86 }}>
+                    <th key={idx} style={{ padding: 8, background: "#111827", color: "#f8fafc", minWidth: 86 }}>
                       H{idx + 7}<br /><span style={{ color: "#94a3b8", fontSize: 11 }}>{POINT_SEBAGO_YARDS[idx + 6]} | P{POINT_SEBAGO_PARS[idx + 6]}</span>
                     </th>
                   ))}
-                  <th style={{ ...stickyTotal, padding: 8, color: "#bbf7d0" }}>Total</th>
+                  <th style={{ ...stickyTotal, padding: 8 }}>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {tournament.team_names.map((teamName, teamIndex) => (
                   <Fragment key={teamName}>
                     <tr>
-                      <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", background: "#12351f", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
+                      <td style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.22)", background: "#1f2937", position: "sticky", left: 0, zIndex: 2, fontWeight: 900 }}>{teamName}</td>
                       {Array.from({ length: 6 }, (_hole, holeIndex) => (
-                        <td key={holeIndex} style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", background: "#12351f", textAlign: "center", fontWeight: 900 }}>{cmoStageTwoHoleTotal(cmo, teamIndex, holeIndex)}</td>
+                        <td key={holeIndex} style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.22)", background: "#1f2937", textAlign: "center", fontWeight: 900 }}>{cmoStageTwoHoleTotal(cmo, teamIndex, holeIndex)}</td>
                       ))}
-                      <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.22)", textAlign: "center", fontWeight: 900 }}>
+                      <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(229,231,235,0.22)", textAlign: "center", fontWeight: 900 }}>
                         {cmoStageTwoTotal(cmo, teamIndex)}
-                        <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoStageTwoPoint(cmo, teamIndex)} pt</div>
+                        <div style={{ color: "#374151", fontSize: 11 }}>{cmoStageTwoPoint(cmo, teamIndex)} pt</div>
                       </td>
                     </tr>
                     {(cmo.team_players[teamIndex] || []).map((playerName, playerIndex) => (
                       <tr key={`${teamName}-${playerName}-${playerIndex}`}>
-                        <td style={{ padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{playerName}</td>
+                        <td style={{ padding: 8, borderTop: "1px solid rgba(229,231,235,0.16)", background: "#0f172a", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>{playerName}</td>
                         {Array.from({ length: 6 }, (_hole, holeIndex) => {
                           const score = cmo.point_scores[teamIndex]?.[playerIndex]?.[holeIndex] ?? null;
                           const chip = !!cmo.chip_ins[teamIndex]?.[playerIndex]?.[holeIndex];
                           return (
-                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 6]} style={{ padding: 5, borderTop: "1px solid rgba(134,239,172,0.14)" }}>
+                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 6]} style={{ padding: 5, borderTop: "1px solid rgba(229,231,235,0.16)" }}>
                               <input type="number" inputMode="numeric" value={score ?? ""} onChange={(e) => setPointScore(teamIndex, playerIndex, holeIndex, e.target.value)} style={input} />
-                              <label style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 4, color: "#a7f3d0", fontSize: 11 }}>
+                              <label style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 4, color: "#d1d5db", fontSize: 11 }}>
                                 <input type="checkbox" checked={chip} onChange={(e) => setChipIn(teamIndex, playerIndex, holeIndex, e.target.checked)} />
                                 Chip in
                               </label>
                             </td>
                           );
                         })}
-                        <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                        <td style={{ ...stickyTotal, padding: 8, borderTop: "1px solid rgba(229,231,235,0.16)", textAlign: "center", fontWeight: 900 }}>
                           {(cmo.point_scores[teamIndex]?.[playerIndex] || []).reduce<number>((total, score, holeIndex) => total + salmonPoints(score, POINT_SEBAGO_PARS[holeIndex + 6]) + (cmo.chip_ins[teamIndex]?.[playerIndex]?.[holeIndex] ? 2 : 0), 0)}
                         </td>
                       </tr>
@@ -1008,12 +1008,12 @@ function CmoTable({
 
       {stage === 3 ? (
         <div style={{ display: "grid", gap: 10 }}>
-          <div style={{ color: "#fde68a", fontSize: 14 }}>Stage 3, holes 13-18: four head-to-head matchups, each worth 1 match point. Each hole won earns 1 skin; tied holes split 0.5 skins each.</div>
+          <div style={{ color: "#f8fafc", fontSize: 14 }}>Stage 3, holes 13-18: four head-to-head matchups, each worth 1 match point. Each hole won earns 1 skin; tied holes split 0.5 skins each.</div>
           <div style={{ display: "grid", gap: 8 }}>
             {Array.from({ length: 4 }, (_match, matchIndex) => (
-              <div key={matchIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8, padding: 8, background: "#07111f" }}>
+              <div key={matchIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "1px solid rgba(229,231,235,0.22)", borderRadius: 8, padding: 8, background: "#0f172a" }}>
                 {[0, 1].map((teamIndex) => (
-                  <label key={teamIndex} style={{ display: "grid", gap: 4, color: "#bbf7d0", fontSize: 12 }}>
+                  <label key={teamIndex} style={{ display: "grid", gap: 4, color: "#f8fafc", fontSize: 12 }}>
                     Match {matchIndex + 1} - {tournament.team_names[teamIndex]}
                     <select
                       value={teamIndex === 0 ? cmo.h2h_matchups[matchIndex]?.team1 || "" : cmo.h2h_matchups[matchIndex]?.team2 || ""}
@@ -1030,17 +1030,17 @@ function CmoTable({
               </div>
             ))}
           </div>
-          <div style={{ overflowX: "auto", border: "1px solid rgba(134,239,172,0.18)", borderRadius: 8 }}>
+          <div style={{ overflowX: "auto", border: "1px solid rgba(229,231,235,0.22)", borderRadius: 8 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left", padding: 8, background: "#10251a", color: "#bbf7d0", position: "sticky", left: 0, zIndex: 4 }}>Match</th>
+                  <th style={{ textAlign: "left", padding: 8, background: "#111827", color: "#f8fafc", position: "sticky", left: 0, zIndex: 4 }}>Match</th>
                   {Array.from({ length: 6 }, (_hole, idx) => (
-                    <th key={idx} style={{ padding: 8, background: "#10251a", color: "#bbf7d0", minWidth: 78 }}>
+                    <th key={idx} style={{ padding: 8, background: "#111827", color: "#f8fafc", minWidth: 78 }}>
                       H{idx + 13}<br /><span style={{ color: "#94a3b8", fontSize: 11 }}>{POINT_SEBAGO_YARDS[idx + 12]} | P{POINT_SEBAGO_PARS[idx + 12]}</span>
                     </th>
                   ))}
-                  <th style={{ ...stickyTotal, padding: 8, color: "#bbf7d0" }}>Skins</th>
+                  <th style={{ ...stickyTotal, padding: 8 }}>Skins</th>
                 </tr>
               </thead>
               <tbody>
@@ -1052,18 +1052,18 @@ function CmoTable({
                       const skins = cmoH2HMatchSkins(cmo, matchIndex)[teamIndex] || 0;
                       return (
                         <tr key={`${teamIndex}-${matchIndex}`}>
-                          <td style={{ padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)", background: "#07111f", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>
-                            <div style={{ color: "#a7f3d0", fontSize: 11 }}>Match {matchIndex + 1}</div>
+                          <td style={{ padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(229,231,235,0.42)" : "1px solid rgba(229,231,235,0.16)", background: "#0f172a", position: "sticky", left: 0, zIndex: 2, fontWeight: 800 }}>
+                            <div style={{ color: "#d1d5db", fontSize: 11 }}>Match {matchIndex + 1}</div>
                             {playerName}
                           </td>
                           {Array.from({ length: 6 }, (_hole, holeIndex) => (
-                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 12]} style={{ padding: 5, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)" }}>
+                            <td key={holeIndex} title={POINT_SEBAGO_NOTES[holeIndex + 12]} style={{ padding: 5, borderTop: teamIndex === 0 ? "4px solid rgba(229,231,235,0.42)" : "1px solid rgba(229,231,235,0.16)" }}>
                               <input type="number" inputMode="numeric" value={cmo.h2h_scores[teamIndex]?.[playerIndex]?.[holeIndex] ?? ""} onChange={(e) => setH2HScore(teamIndex, playerIndex, holeIndex, e.target.value)} style={input} />
                             </td>
                           ))}
-                          <td style={{ ...stickyTotal, padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(134,239,172,0.42)" : "1px solid rgba(134,239,172,0.14)", textAlign: "center", fontWeight: 900 }}>
+                          <td style={{ ...stickyTotal, padding: 8, borderTop: teamIndex === 0 ? "4px solid rgba(229,231,235,0.42)" : "1px solid rgba(229,231,235,0.16)", textAlign: "center", fontWeight: 900 }}>
                             Skins: {skins}
-                            <div style={{ color: "#a7f3d0", fontSize: 11 }}>{cmoH2HMatchPoint(cmo, matchIndex, teamIndex)} pt</div>
+                            <div style={{ color: "#374151", fontSize: 11 }}>{cmoH2HMatchPoint(cmo, matchIndex, teamIndex)} pt</div>
                           </td>
                         </tr>
                       );
