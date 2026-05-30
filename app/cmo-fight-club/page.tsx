@@ -16,13 +16,14 @@ const moves: Record<Move, { label: string; damage: number; accuracy: number; blo
 };
 
 const fighters = [
-  { name: "Parking Lot Pat", style: "Windmill brawler", power: 7, accuracy: 0.48, color: "#94a3b8", look: "CAP" },
-  { name: "Southpaw Sal", style: "Awkward lefty", power: 9, accuracy: 0.52, color: "#38bdf8", look: "S" },
-  { name: "El Cart Path", style: "Counter striker", power: 11, accuracy: 0.56, color: "#f97316", look: "CP" },
-  { name: "The Range Rat", style: "Volume puncher", power: 12, accuracy: 0.6, color: "#22c55e", look: "RR" },
-  { name: "Bogey Bones", style: "Long reach", power: 14, accuracy: 0.64, color: "#a78bfa", look: "BB" },
-  { name: "The Yardage Book", style: "Patient tactician", power: 16, accuracy: 0.68, color: "#facc15", look: "YB" },
-  { name: "BOSS: CMO", style: "Final-round menace", power: 19, accuracy: 0.72, color: "#ef4444", look: "CMO" },
+  { name: "Chappy Sloth", style: "Windmill brawler", power: 7, accuracy: 0.48, color: "#94a3b8", look: "CS" },
+  { name: "Fattie Pat", style: "Awkward lefty", power: 9, accuracy: 0.52, color: "#38bdf8", look: "FP" },
+  { name: "Tommy Guns", style: "Counter striker", power: 11, accuracy: 0.56, color: "#f97316", look: "TG" },
+  { name: "Junior", style: "Volume puncher", power: 12, accuracy: 0.6, color: "#22c55e", look: "JR" },
+  { name: "Odogg Millionare", style: "Long reach", power: 14, accuracy: 0.64, color: "#a78bfa", look: "OM" },
+  { name: "Dyer Lasagna", style: "Patient tactician", power: 16, accuracy: 0.68, color: "#facc15", look: "DL" },
+  { name: "Bird the Chirper", style: "Uses headbutts and laughs", power: 18, accuracy: 0.7, color: "#fb7185", look: "BTC" },
+  { name: "BOSS: CMO", style: "BOSS", power: 21, accuracy: 0.74, color: "#ef4444", look: "CMO" },
 ];
 
 function clampHealth(value: number) {
@@ -57,6 +58,9 @@ export default function CmoFightClubPage() {
   });
   const [winnerName, setWinnerName] = useState("");
   const [savedChampion, setSavedChampion] = useState(false);
+  const [enemyHitFlash, setEnemyHitFlash] = useState(false);
+  const [playerHitFlash, setPlayerHitFlash] = useState(false);
+  const [arenaShake, setArenaShake] = useState(false);
 
   const fighter = fighters[round];
   const progress = `${round + 1} / ${fighters.length}`;
@@ -64,11 +68,22 @@ export default function CmoFightClubPage() {
   const championSaved = phase === "champion" && savedChampion;
 
   const arenaNote = useMemo(() => {
-    if (phase === "champion") return "You cleared all 7. Add your name to the winner record.";
+    if (phase === "champion") return "You cleared all 8. Add your name to the winner record.";
     if (phase === "lost") return "You got dropped. Reset and run the card back.";
     if (round === fighters.length - 1) return "Boss fight. Pick clean shots and manage the life bar.";
     return "Win the knockdown to unlock the next fighter.";
   }, [phase, round]);
+
+  function triggerHitAnimation(hitEnemy: boolean, hitPlayer: boolean) {
+    if (hitEnemy) setEnemyHitFlash(true);
+    if (hitPlayer) setPlayerHitFlash(true);
+    if (hitEnemy || hitPlayer) setArenaShake(true);
+    window.setTimeout(() => {
+      setEnemyHitFlash(false);
+      setPlayerHitFlash(false);
+      setArenaShake(false);
+    }, 240);
+  }
 
   function nextRoll() {
     seedRef.current = (seedRef.current * 1664525 + 1013904223) % 4294967296;
@@ -107,6 +122,7 @@ export default function CmoFightClubPage() {
     const nextPlayerHealth = clampHealth(playerHealth - enemyDamage);
 
     setPhase("fighting");
+    triggerHitAnimation(playerDamage > 0, enemyDamage > 0);
     setEnemyHealth(nextEnemyHealth);
     setPlayerHealth(nextPlayerHealth);
 
@@ -184,13 +200,29 @@ export default function CmoFightClubPage() {
         <header style={{ ...panel, display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 34, letterSpacing: 0 }}>CMO FIGHT CLUB</h1>
-            <p style={{ margin: "4px 0 0", color: "#d1d5db", fontSize: 14 }}>Seven fights. The seventh is the boss. First knockdown wins.</p>
+            <p style={{ margin: "4px 0 0", color: "#d1d5db", fontSize: 14 }}>Eight fights. Bird is the final test before the CMO boss. First knockdown wins.</p>
           </div>
           <Link href="/" style={{ ...button, textDecoration: "none" }}>Home</Link>
         </header>
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 12 }}>
           <div style={{ ...panel, minHeight: 500, display: "grid", gap: 12 }}>
+            <style>{`
+              @keyframes cmo-bob {
+                0%, 100% { transform: translate(-50%, 0) scaleX(var(--flip)); }
+                50% { transform: translate(-50%, -7px) scaleX(var(--flip)); }
+              }
+              @keyframes cmo-shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                50% { transform: translateX(5px); }
+                75% { transform: translateX(-3px); }
+              }
+              @keyframes cmo-flash {
+                0%, 100% { filter: brightness(1); }
+                40% { filter: brightness(1.9) saturate(1.4); }
+              }
+            `}</style>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
               <FighterCard name="You" health={playerHealth} color="#e5e7eb" look="YOU" side="left" />
               <div style={{ textAlign: "center", color: "#fca5a5", fontWeight: 950 }}>
@@ -200,10 +232,10 @@ export default function CmoFightClubPage() {
               <FighterCard name={fighter.name} health={enemyHealth} color={fighter.color} look={fighter.look} side="right" />
             </div>
 
-            <div style={{ minHeight: 210, border: "1px solid rgba(229,231,235,0.12)", borderRadius: 8, background: "linear-gradient(180deg, #1f2937 0%, #050505 100%)", position: "relative", overflow: "hidden" }}>
+            <div style={{ minHeight: 210, border: "1px solid rgba(229,231,235,0.12)", borderRadius: 8, background: "linear-gradient(180deg, #1f2937 0%, #050505 100%)", position: "relative", overflow: "hidden", animation: arenaShake ? "cmo-shake 240ms ease" : undefined }}>
               <div style={{ position: "absolute", inset: "auto 0 0", height: 46, background: "repeating-linear-gradient(90deg, rgba(248,250,252,0.08) 0 20px, rgba(248,250,252,0.03) 20px 40px)" }} />
-              <FighterSprite x="22%" color="#e5e7eb" label="YOU" />
-              <FighterSprite x="72%" color={fighter.color} label={fighter.look} flipped />
+              <FighterSprite x="22%" color="#e5e7eb" label="YOU" hit={playerHitFlash} />
+              <FighterSprite x="72%" color={fighter.color} label={fighter.look} flipped hit={enemyHitFlash} />
               <div style={{ position: "absolute", left: "50%", top: "46%", transform: "translate(-50%, -50%)", color: "rgba(248,250,252,0.1)", fontSize: 76, fontWeight: 950 }}>VS</div>
             </div>
 
@@ -232,7 +264,7 @@ export default function CmoFightClubPage() {
                 {fighters.map((next, index) => (
                   <div key={next.name} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: 8, borderRadius: 8, background: index === round ? "rgba(248,250,252,0.14)" : "rgba(248,250,252,0.05)", color: index < round || phase === "champion" ? "#86efac" : "#f8fafc" }}>
                     <span>{index + 1}. {next.name}</span>
-                    <span style={{ color: next.color, fontWeight: 900 }}>{index === 6 ? "BOSS" : next.style}</span>
+                    <span style={{ color: next.color, fontWeight: 900 }}>{index === fighters.length - 1 ? "BOSS" : next.style}</span>
                   </div>
                 ))}
               </div>
@@ -299,14 +331,16 @@ function FighterSprite({
   color,
   label,
   flipped,
+  hit,
 }: {
   x: string;
   color: string;
   label: string;
   flipped?: boolean;
+  hit?: boolean;
 }) {
   return (
-    <div style={{ position: "absolute", left: x, bottom: 34, transform: `translateX(-50%) scaleX(${flipped ? -1 : 1})`, width: 86, height: 150 }}>
+    <div style={{ "--flip": flipped ? -1 : 1, position: "absolute", left: x, bottom: 34, transform: `translateX(-50%) scaleX(${flipped ? -1 : 1})`, width: 86, height: 150, animation: `${hit ? "cmo-flash 240ms ease, " : ""}cmo-bob 1.4s ease-in-out infinite` } as React.CSSProperties}>
       <div style={{ width: 46, height: 46, borderRadius: "50%", margin: "0 auto", background: color, border: "3px solid #f8fafc", boxShadow: "0 8px 18px rgba(0,0,0,0.35)" }} />
       <div style={{ width: 62, height: 72, margin: "-2px auto 0", borderRadius: "20px 20px 12px 12px", background: color, border: "3px solid #f8fafc" }} />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: -46 }}>
