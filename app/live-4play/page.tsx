@@ -301,6 +301,17 @@ function mergeRemoteAndLocal(remote: Tournament[], local: Tournament[]) {
   return sortTournaments([...remote, ...localOnly]);
 }
 
+function createTournamentBody(tournament: Tournament) {
+  return {
+    name: tournament.name,
+    format: tournament.format,
+    holes_count: tournament.holes_count,
+    team_count: tournament.team_names.length,
+    team_names: tournament.team_names,
+    scores: tournament.scores,
+  };
+}
+
 export default function Live4PlayPage() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -434,11 +445,36 @@ export default function Live4PlayPage() {
     if (j?.ok && j.storage === "supabase") {
       setStorageMode("supabase");
       const remote = (j.tournaments ?? []) as Tournament[];
-      const merged = mergeRemoteAndLocal(remote, local);
+      const localToPromote = local.filter((item) => item.id.startsWith("local-") && item.status !== "complete");
+      const promoted: Tournament[] = [];
+      const promotedLocalIds = new Set<string>();
+
+      for (const localTournament of localToPromote) {
+        const promoteResponse = await fetch("/api/live-4play", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(createTournamentBody(localTournament)),
+        });
+        const promotedJson = await promoteResponse.json().catch(() => ({}));
+        if (promotedJson?.ok && promotedJson.storage === "supabase" && promotedJson.tournament) {
+          promoted.push(promotedJson.tournament);
+          promotedLocalIds.add(localTournament.id);
+        }
+      }
+
+      const remainingLocal = promoted.length
+        ? local.filter((item) => !promotedLocalIds.has(item.id))
+        : local;
+      if (promoted.length) window.localStorage.setItem(LOCAL_KEY, JSON.stringify(remainingLocal));
+
+      const merged = mergeRemoteAndLocal([...promoted, ...remote], remainingLocal);
       setTournaments(merged);
       mergeTournamentPlayerOptions(merged);
       if (!selectedId && merged[0]) setSelectedId(merged[0].id);
-      if (!silent) setMessage("Live tournaments synced.");
+      if (!silent) setMessage(promoted.length ? "Local tournament promoted and shared." : "Live tournaments synced.");
     } else {
       setStorageMode("local");
       if (!silent) setMessage("Live 4Play is using this device until the Supabase table is installed.");
@@ -519,6 +555,10 @@ export default function Live4PlayPage() {
           setSelectedId(j.tournament.id);
           setMessage("Tournament created and shared.");
           router.push(`/live-4play/${j.tournament.id}`);
+          return;
+        }
+        if (j?.error) {
+          setMessage(j.error);
           return;
         }
       }

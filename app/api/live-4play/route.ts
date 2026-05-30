@@ -196,18 +196,27 @@ function isCmoFormat(format: string) {
   return format === CMO_FORMAT;
 }
 
+function isCmoPayload(value: unknown) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).kind === "cmo_point_sebago";
+}
+
+function visibleFormat(row: LiveTournamentRow) {
+  return isCmoPayload(row.scores) ? CMO_FORMAT : row.format;
+}
+
 function normalizeRow(row: LiveTournamentRow) {
   const teamNames = cleanTeamNames(row.team_names, 2);
   const holesCount = VALID_HOLES.has(Number(row.holes_count)) ? Number(row.holes_count) : 9;
-  const scores = isSalmonFormat(row.format)
+  const format = visibleFormat(row);
+  const scores = isSalmonFormat(format)
     ? cleanSalmonPayload(row.scores, teamNames)
-    : isCmoFormat(row.format)
+    : isCmoFormat(format)
     ? cleanCmoPayload(row.scores, teamNames)
     : cleanScores(row.scores, teamNames.length, holesCount);
   return {
     id: row.id,
     name: row.name,
-    format: row.format,
+    format,
     holes_count: holesCount,
     team_names: teamNames,
     scores,
@@ -334,6 +343,18 @@ export async function POST(req: NextRequest) {
       const message = error.message || "Failed to create Live 4Play tournament.";
       if (isMissingLiveTable(message)) {
         return NextResponse.json({ ok: true, storage: "local", tournament: { ...insertRow, id: "" } });
+      }
+      if (isCmoFormat(format)) {
+        const fallbackRow = { ...insertRow, format: "Ryder Cup" };
+        const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+          .from("live_4play_tournaments")
+          .insert(fallbackRow)
+          .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
+          .single();
+
+        if (!fallbackError) {
+          return NextResponse.json({ ok: true, storage: "supabase", tournament: normalizeRow(fallbackData as LiveTournamentRow) });
+        }
       }
       return jsonError(message, 400);
     }

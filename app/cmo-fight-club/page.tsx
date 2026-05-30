@@ -6,8 +6,10 @@ import { useMemo, useRef, useState } from "react";
 type Move = "A" | "B" | "C";
 type Phase = "ready" | "fighting" | "won-round" | "lost" | "champion";
 type Winner = { name: string; date: string };
+type AttackCue = { actor: "player" | "enemy"; move: Move; id: number; super?: boolean };
 
 const WINNERS_KEY = "cmo_fight_club_winners";
+const SUPER_KICK_COMBO: Move[] = ["A", "B", "B", "A", "C"];
 
 const moves: Record<Move, { label: string; damage: number; accuracy: number; block: Move }> = {
   A: { label: "High Punch", damage: 13, accuracy: 0.72, block: "C" },
@@ -40,6 +42,7 @@ function todayLabel() {
 
 export default function CmoFightClubPage() {
   const seedRef = useRef(48621);
+  const attackIdRef = useRef(0);
   const [round, setRound] = useState(0);
   const [playerHealth, setPlayerHealth] = useState(100);
   const [enemyHealth, setEnemyHealth] = useState(100);
@@ -61,6 +64,8 @@ export default function CmoFightClubPage() {
   const [enemyHitFlash, setEnemyHitFlash] = useState(false);
   const [playerHitFlash, setPlayerHitFlash] = useState(false);
   const [arenaShake, setArenaShake] = useState(false);
+  const [combo, setCombo] = useState<Move[]>([]);
+  const [attackCue, setAttackCue] = useState<AttackCue | null>(null);
 
   const fighter = fighters[round];
   const progress = `${round + 1} / ${fighters.length}`;
@@ -85,6 +90,16 @@ export default function CmoFightClubPage() {
     }, 240);
   }
 
+  function triggerAttackAnimation(actor: AttackCue["actor"], move: Move, superKick = false) {
+    attackIdRef.current += 1;
+    setAttackCue({ actor, move, super: superKick, id: attackIdRef.current });
+    window.setTimeout(() => setAttackCue(null), superKick ? 520 : 360);
+  }
+
+  function isSuperKick(nextCombo: Move[]) {
+    return SUPER_KICK_COMBO.every((move, index) => nextCombo[index] === move);
+  }
+
   function nextRoll() {
     seedRef.current = (seedRef.current * 1664525 + 1013904223) % 4294967296;
     return seedRef.current / 4294967296;
@@ -97,6 +112,8 @@ export default function CmoFightClubPage() {
     setPhase("ready");
     setSavedChampion(false);
     setWinnerName("");
+    setCombo([]);
+    setAttackCue(null);
     setLog(`Round ${nextRound + 1}: ${fighters[nextRound].name} is waiting.`);
   }
 
@@ -112,16 +129,21 @@ export default function CmoFightClubPage() {
     if (!canStrike) return;
 
     const enemyMove = randomMove(nextRoll());
+    const nextCombo = [...combo, move].slice(-SUPER_KICK_COMBO.length);
+    const superKick = isSuperKick(nextCombo);
     const playerMove = moves[move];
     const blocked = playerMove.block === enemyMove;
-    const playerHit = !blocked && nextRoll() < playerMove.accuracy;
+    const playerHit = superKick || (!blocked && nextRoll() < playerMove.accuracy);
     const enemyHit = nextRoll() < fighter.accuracy;
-    const playerDamage = playerHit ? playerMove.damage + Math.floor(nextRoll() * 6) : 0;
+    const playerDamage = playerHit ? (superKick ? 58 : playerMove.damage + Math.floor(nextRoll() * 6)) : 0;
     const enemyDamage = enemyHit ? fighter.power + Math.floor(nextRoll() * 5) : 0;
     const nextEnemyHealth = clampHealth(enemyHealth - playerDamage);
     const nextPlayerHealth = clampHealth(playerHealth - enemyDamage);
 
     setPhase("fighting");
+    setCombo(superKick ? [] : nextCombo);
+    triggerAttackAnimation("player", superKick ? "C" : move, superKick);
+    if (enemyHit) window.setTimeout(() => triggerAttackAnimation("enemy", enemyMove), superKick ? 260 : 180);
     triggerHitAnimation(playerDamage > 0, enemyDamage > 0);
     setEnemyHealth(nextEnemyHealth);
     setPlayerHealth(nextPlayerHealth);
@@ -129,10 +151,10 @@ export default function CmoFightClubPage() {
     if (nextEnemyHealth <= 0) {
       if (round === fighters.length - 1) {
         setPhase("champion");
-        setLog(`${playerMove.label} lands clean. CMO is down. You won Fight Club.`);
+        setLog(`${superKick ? "SUPER KICK" : playerMove.label} lands clean. CMO is down. You won Fight Club.`);
       } else {
         setPhase("won-round");
-        setLog(`${playerMove.label} gets the knockdown. ${fighter.name} is out.`);
+        setLog(`${superKick ? "SUPER KICK" : playerMove.label} gets the knockdown. ${fighter.name} is out.`);
       }
       return;
     }
@@ -145,6 +167,8 @@ export default function CmoFightClubPage() {
 
     if (blocked) {
       setLog(`${fighter.name} reads the ${playerMove.label.toLowerCase()} and blocks it. ${enemyHit ? "You eat a counter." : "You slip the counter."}`);
+    } else if (superKick) {
+      setLog(`SECRET COMBO! A-B-B-A-C unleashes a super kick for ${playerDamage}. ${enemyHit ? `${fighter.name} still clips you back.` : "The arena loves it."}`);
     } else if (playerHit) {
       setLog(`${playerMove.label} lands for ${playerDamage}. ${enemyHit ? `${fighter.name} answers back.` : "Clean shot."}`);
     } else {
@@ -222,6 +246,22 @@ export default function CmoFightClubPage() {
                 0%, 100% { filter: brightness(1); }
                 40% { filter: brightness(1.9) saturate(1.4); }
               }
+              @keyframes cmo-punch-high {
+                0%, 100% { transform: rotate(28deg) translate(0, 0); }
+                45% { transform: rotate(82deg) translate(15px, -20px); }
+              }
+              @keyframes cmo-punch-mid {
+                0%, 100% { transform: rotate(28deg) translate(0, 0); }
+                45% { transform: rotate(98deg) translate(18px, 3px); }
+              }
+              @keyframes cmo-kick {
+                0%, 100% { transform: rotate(10deg) translate(0, 0); }
+                45% { transform: rotate(78deg) translate(28px, -14px); }
+              }
+              @keyframes cmo-super {
+                0%, 100% { transform: scale(1); opacity: 0; }
+                45% { transform: scale(1.25); opacity: 1; }
+              }
             `}</style>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
               <FighterCard name="You" health={playerHealth} color="#e5e7eb" look="YOU" side="left" />
@@ -234,9 +274,10 @@ export default function CmoFightClubPage() {
 
             <div style={{ minHeight: 210, border: "1px solid rgba(229,231,235,0.12)", borderRadius: 8, background: "linear-gradient(180deg, #1f2937 0%, #050505 100%)", position: "relative", overflow: "hidden", animation: arenaShake ? "cmo-shake 240ms ease" : undefined }}>
               <div style={{ position: "absolute", inset: "auto 0 0", height: 46, background: "repeating-linear-gradient(90deg, rgba(248,250,252,0.08) 0 20px, rgba(248,250,252,0.03) 20px 40px)" }} />
-              <FighterSprite x="22%" color="#e5e7eb" label="YOU" hit={playerHitFlash} />
-              <FighterSprite x="72%" color={fighter.color} label={fighter.look} flipped hit={enemyHitFlash} />
+              <FighterSprite x="22%" color="#e5e7eb" label="YOU" hit={playerHitFlash} health={playerHealth} attack={attackCue?.actor === "player" ? attackCue : null} />
+              <FighterSprite x="72%" color={fighter.color} label={fighter.look} flipped hit={enemyHitFlash} health={enemyHealth} attack={attackCue?.actor === "enemy" ? attackCue : null} />
               <div style={{ position: "absolute", left: "50%", top: "46%", transform: "translate(-50%, -50%)", color: "rgba(248,250,252,0.1)", fontSize: 76, fontWeight: 950 }}>VS</div>
+              {attackCue?.super ? <div style={{ position: "absolute", left: "50%", top: 24, transform: "translateX(-50%)", color: "#fecaca", background: "rgba(127,29,29,0.72)", border: "1px solid rgba(254,202,202,0.44)", borderRadius: 999, padding: "7px 12px", fontWeight: 950, animation: "cmo-super 520ms ease" }}>SUPER KICK</div> : null}
             </div>
 
             <div style={{ ...panel, background: "rgba(3,7,18,0.8)", color: "#e5e7eb", fontWeight: 800 }}>{log}</div>
@@ -248,6 +289,10 @@ export default function CmoFightClubPage() {
                   <span style={{ fontSize: 12, color: "#374151" }}>{moves[move].label}</span>
                 </button>
               ))}
+            </div>
+            <div style={{ color: "#d1d5db", fontSize: 12, fontWeight: 800 }}>
+              Secret combo: <span style={{ color: "#fecaca" }}>A B B A C</span>
+              {combo.length ? <span style={{ marginLeft: 8, color: "#94a3b8" }}>Current chain: {combo.join(" ")}</span> : null}
             </div>
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -332,21 +377,31 @@ function FighterSprite({
   label,
   flipped,
   hit,
+  health,
+  attack,
 }: {
   x: string;
   color: string;
   label: string;
   flipped?: boolean;
   hit?: boolean;
+  health: number;
+  attack?: AttackCue | null;
 }) {
+  const attackAnimation = attack?.move === "A" ? "cmo-punch-high 340ms ease" : attack?.move === "B" ? "cmo-punch-mid 340ms ease" : attack?.move === "C" ? "cmo-kick 420ms ease" : undefined;
+  const markerCount = health <= 25 ? 3 : health <= 50 ? 2 : health <= 75 ? 1 : 0;
   return (
     <div style={{ "--flip": flipped ? -1 : 1, position: "absolute", left: x, bottom: 34, transform: `translateX(-50%) scaleX(${flipped ? -1 : 1})`, width: 86, height: 150, animation: `${hit ? "cmo-flash 240ms ease, " : ""}cmo-bob 1.4s ease-in-out infinite` } as React.CSSProperties}>
       <div style={{ width: 46, height: 46, borderRadius: "50%", margin: "0 auto", background: color, border: "3px solid #f8fafc", boxShadow: "0 8px 18px rgba(0,0,0,0.35)" }} />
       <div style={{ width: 62, height: 72, margin: "-2px auto 0", borderRadius: "20px 20px 12px 12px", background: color, border: "3px solid #f8fafc" }} />
+      {Array.from({ length: markerCount }, (_marker, index) => (
+        <div key={index} style={{ position: "absolute", top: 42 + index * 22, left: 18 + index * 18, width: 12 + index * 4, height: 9 + index * 3, borderRadius: "60% 42% 55% 45%", background: "rgba(185,28,28,0.88)", border: "1px solid rgba(254,202,202,0.42)", transform: `rotate(${index % 2 ? -18 : 18}deg)` }} />
+      ))}
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: -46 }}>
-        <div style={{ width: 16, height: 68, borderRadius: 999, background: "#f8fafc", transform: "rotate(28deg)" }} />
+        <div key={`lead-${attack?.id || "idle"}`} style={{ width: 16, height: 68, borderRadius: 999, background: "#f8fafc", transform: "rotate(28deg)", transformOrigin: "top center", animation: attackAnimation }} />
         <div style={{ width: 16, height: 68, borderRadius: 999, background: "#f8fafc", transform: "rotate(-28deg)" }} />
       </div>
+      <div key={`kick-${attack?.id || "idle"}`} style={{ position: "absolute", left: 52, bottom: 18, width: 16, height: 62, borderRadius: 999, background: "#cbd5e1", transform: "rotate(10deg)", transformOrigin: "top center", animation: attack?.move === "C" ? attackAnimation : undefined }} />
       <div style={{ color: "#030712", background: "#f8fafc", borderRadius: 999, padding: "2px 6px", fontWeight: 950, fontSize: 11, textAlign: "center", transform: `scaleX(${flipped ? -1 : 1})` }}>{label}</div>
     </div>
   );
