@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
+const LIVE_4PLAY_LOCAL_KEY = "4play_live_tournaments_v1";
 
 function isMissingFinalLockColumn(message?: string | null) {
   return /final_lock|schema cache|column/i.test(message || "");
@@ -38,6 +39,21 @@ type Live4PlayTournament = {
   created_at: string | null;
   updated_at: string | null;
 };
+
+function localLive4PlayTournaments() {
+  if (typeof window === "undefined") return [];
+  try {
+    const rows = JSON.parse(window.localStorage.getItem(LIVE_4PLAY_LOCAL_KEY) || "[]") as Live4PlayTournament[];
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalLive4PlayTournaments(rows: Live4PlayTournament[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(LIVE_4PLAY_LOCAL_KEY, JSON.stringify(rows));
+}
 
 type Golfer = { id: string; name: string };
 
@@ -1165,8 +1181,16 @@ export default function AdminPage() {
         return;
       }
 
-      setLive4PlayStorageMode(j?.storage || "local");
-      setLive4PlayTournaments((j?.tournaments ?? []) as Live4PlayTournament[]);
+      const remoteRows = (j?.tournaments ?? []) as Live4PlayTournament[];
+      const localRows = localLive4PlayTournaments();
+      const remoteIds = new Set(remoteRows.map((item) => item.id));
+      const localOnly = localRows.filter((item) => item.id?.startsWith("local-") && !remoteIds.has(item.id));
+      const mergedRows = [...remoteRows, ...localOnly].sort(
+        (a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime()
+      );
+
+      setLive4PlayStorageMode(j?.storage === "supabase" ? (localOnly.length ? "supabase+local" : "supabase") : "local");
+      setLive4PlayTournaments(mergedRows);
     } catch (err: unknown) {
       setStatus(err instanceof Error ? err.message : "Failed to load Live 4Play tournaments.");
     } finally {
@@ -1179,6 +1203,14 @@ export default function AdminPage() {
       `Are you Sure!?\n\nDelete Live 4Play tournament "${tournamentName}"?\n\nThis permanently removes the live scorecard and all entered scores.`
     );
     if (!ok) return;
+
+    if (tournamentId.startsWith("local-")) {
+      const nextRows = localLive4PlayTournaments().filter((item) => item.id !== tournamentId);
+      saveLocalLive4PlayTournaments(nextRows);
+      setLive4PlayTournaments((prev) => prev.filter((item) => item.id !== tournamentId));
+      setStatus("Local Live 4Play tournament deleted.");
+      return;
+    }
 
     try {
       setLive4PlayBusyId(tournamentId);
@@ -2475,9 +2507,13 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {live4PlayStorageMode !== "supabase" ? (
+              {live4PlayStorageMode === "local" ? (
                 <p style={{ ...styles.tileHint, color: "#fde68a" }}>
-                  Live 4Play permanent storage is not installed yet. Run supabase/live_4play_tournaments.sql to make created tournaments manageable here.
+                  Showing browser-local Live 4Play records. Shared Supabase records will appear here when available.
+                </p>
+              ) : live4PlayStorageMode === "supabase+local" ? (
+                <p style={{ ...styles.tileHint, color: "#fde68a" }}>
+                  Showing shared tournaments plus browser-local fallback records from this device.
                 </p>
               ) : null}
 
@@ -2541,7 +2577,7 @@ export default function AdminPage() {
                                 type="button"
                                 onClick={() => deleteLive4PlayTournament(tournament.id, tournament.name)}
                                 style={styles.dangerButton}
-                                disabled={busy || live4PlayStorageMode !== "supabase"}
+                                disabled={busy || (live4PlayStorageMode === "local" && !tournament.id.startsWith("local-"))}
                               >
                                 {busy ? "Working..." : statusGroup === "live" ? "Delete Live" : "Delete Completed"}
                               </button>
