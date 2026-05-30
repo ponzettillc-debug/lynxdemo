@@ -13,6 +13,7 @@ type Live4PlayRow = {
   format: string;
   holes_count: number;
   team_names: string[] | null;
+  scores?: unknown;
   status: string | null;
   created_by: string | null;
   created_at: string | null;
@@ -25,6 +26,17 @@ function jsonError(message: string, status = 400) {
 
 function isMissingLiveTable(message?: string | null) {
   return /live_4play_tournaments|schema cache|does not exist|relation/i.test(message || "");
+}
+
+function isCmoPayload(value: unknown) {
+  return !!value && typeof value === "object" && !Array.isArray(value) && (value as Record<string, unknown>).kind === "cmo_point_sebago";
+}
+
+function normalizeRow(row: Live4PlayRow): Live4PlayRow {
+  return {
+    ...row,
+    format: isCmoPayload(row.scores) ? "CMO Goes to Point Sebago" : row.format,
+  };
 }
 
 async function requireAdmin(req: NextRequest) {
@@ -62,7 +74,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("live_4play_tournaments")
-      .select("id,name,format,holes_count,team_names,status,created_by,created_at,updated_at")
+      .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
       .order("updated_at", { ascending: false })
       .limit(100);
 
@@ -76,7 +88,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       storage: "supabase",
-      tournaments: (data ?? []) as Live4PlayRow[],
+      tournaments: ((data ?? []) as Live4PlayRow[]).map(normalizeRow),
     });
   } catch (err: unknown) {
     return jsonError(err instanceof Error ? err.message : "Unexpected Live 4Play admin error.", 500);

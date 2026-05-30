@@ -1176,7 +1176,7 @@ export default function AdminPage() {
 
   async function deleteLive4PlayTournament(tournamentId: string, tournamentName: string) {
     const ok = window.confirm(
-      `Delete Live 4Play tournament "${tournamentName}"?\n\nThis permanently removes the live scorecard and all entered team scores.`
+      `Are you Sure!?\n\nDelete Live 4Play tournament "${tournamentName}"?\n\nThis permanently removes the live scorecard and all entered scores.`
     );
     if (!ok) return;
 
@@ -2485,52 +2485,69 @@ export default function AdminPage() {
                 <p style={{ color: "#94a3b8" }}>No Live 4Play tournaments found.</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {live4PlayTournaments.map((tournament) => {
-                    const busy = live4PlayBusyId === tournament.id;
-                    const teams = Array.isArray(tournament.team_names)
-                      ? tournament.team_names.filter(Boolean).join(", ")
-                      : "";
-
+                  {(["live", "complete"] as const).map((statusGroup) => {
+                    const rows = live4PlayTournaments.filter((item) =>
+                      statusGroup === "live" ? item.status !== "complete" : item.status === "complete"
+                    );
                     return (
-                      <div
-                        key={tournament.id}
-                        style={{
-                          border: "1px solid rgba(148,163,184,0.14)",
-                          borderRadius: 14,
-                          padding: 12,
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                          background: "rgba(2,6,23,0.35)",
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {tournament.name}
-                          </div>
-                          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, lineHeight: 1.5 }}>
-                            Format: {tournament.format} | Holes: {tournament.holes_count} | Status: {tournament.status || "live"}<br />
-                            Teams: {teams || "No teams"}<br />
-                            Created by: {tournament.created_by || "Unknown"} | Updated: {fmtDate(tournament.updated_at)}
-                          </div>
+                      <div key={statusGroup} style={{ display: "grid", gap: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                          <h3 style={{ margin: 0, fontSize: 16 }}>{statusGroup === "live" ? "Live Tournaments" : "Completed Tournaments"}</h3>
+                          <span style={{ color: "#94a3b8", fontSize: 13 }}>{rows.length}</span>
                         </div>
+                        {rows.length === 0 ? (
+                          <p style={{ margin: 0, color: "#64748b", fontSize: 13 }}>
+                            No {statusGroup === "live" ? "live" : "completed"} Live 4Play tournaments.
+                          </p>
+                        ) : rows.map((tournament) => {
+                          const busy = live4PlayBusyId === tournament.id;
+                          const teams = Array.isArray(tournament.team_names)
+                            ? tournament.team_names.filter(Boolean).join(", ")
+                            : "";
 
-                        <button
-                          type="button"
-                          onClick={() => deleteLive4PlayTournament(tournament.id, tournament.name)}
-                          style={styles.dangerButton}
-                          disabled={busy || live4PlayStorageMode !== "supabase"}
-                        >
-                          {busy ? "Working..." : "Delete"}
-                        </button>
+                          return (
+                            <div
+                              key={tournament.id}
+                              style={{
+                                border: "1px solid rgba(148,163,184,0.14)",
+                                borderRadius: 14,
+                                padding: 12,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 12,
+                                flexWrap: "wrap",
+                                background: "rgba(2,6,23,0.35)",
+                              }}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontWeight: 800,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {tournament.name}
+                                </div>
+                                <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6, lineHeight: 1.5 }}>
+                                  Format: {tournament.format} | Holes: {tournament.holes_count} | Status: {tournament.status || "live"}<br />
+                                  Teams: {teams || "No teams"}<br />
+                                  Created by: {tournament.created_by || "Unknown"} | Updated: {fmtDate(tournament.updated_at)}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => deleteLive4PlayTournament(tournament.id, tournament.name)}
+                                style={styles.dangerButton}
+                                disabled={busy || live4PlayStorageMode !== "supabase"}
+                              >
+                                {busy ? "Working..." : statusGroup === "live" ? "Delete Live" : "Delete Completed"}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
