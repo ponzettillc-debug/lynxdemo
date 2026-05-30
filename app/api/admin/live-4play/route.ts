@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { loadLive4PlayStorage, saveLive4PlayStorage } from "../../live-4play/storage";
 
 const ADMIN_EMAILS = ["ponzettillc@gmail.com"];
 
@@ -80,7 +81,13 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       if (isMissingLiveTable(error.message)) {
-        return NextResponse.json({ ok: true, storage: "local", tournaments: [] });
+        const rows = await loadLive4PlayStorage(supabaseAdmin);
+        return NextResponse.json({
+          ok: true,
+          storage: "supabase",
+          storageBackend: "storage",
+          tournaments: rows.map((row) => normalizeRow(row as Live4PlayRow)),
+        });
       }
       return jsonError(`Load Live 4Play tournaments failed: ${error.message}`, 400);
     }
@@ -111,7 +118,11 @@ export async function DELETE(req: NextRequest) {
 
     if (error) {
       if (isMissingLiveTable(error.message)) {
-        return jsonError("Live 4Play table is not installed yet.", 400);
+        const rows = await loadLive4PlayStorage(supabaseAdmin);
+        const nextRows = rows.filter((row) => row.id !== id);
+        if (nextRows.length === rows.length) return jsonError("Live 4Play tournament was not found in shared storage.", 404);
+        await saveLive4PlayStorage(supabaseAdmin, nextRows);
+        return NextResponse.json({ ok: true, storage: "supabase", storageBackend: "storage" });
       }
       return jsonError(`Delete Live 4Play tournament failed: ${error.message}`, 400);
     }

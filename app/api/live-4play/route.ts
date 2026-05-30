@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { loadLive4PlayStorage, saveLive4PlayStorage } from "./storage";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -247,7 +248,14 @@ export async function GET(req: NextRequest) {
     if (error) {
       const message = error.message || "Failed to load Live 4Play tournaments.";
       if (isMissingLiveTable(message)) {
-        return NextResponse.json({ ok: true, storage: "local", tournaments: [] });
+        const rows = await loadLive4PlayStorage(supabaseAdmin);
+        const tournaments = id ? rows.filter((row) => row.id === id) : rows;
+        return NextResponse.json({
+          ok: true,
+          storage: "supabase",
+          storageBackend: "storage",
+          tournaments: tournaments.map((row) => normalizeRow(row as LiveTournamentRow)),
+        });
       }
       return jsonError(message, 400);
     }
@@ -300,7 +308,28 @@ export async function POST(req: NextRequest) {
       if (error) {
         const message = error.message || "Failed to update Live 4Play tournament.";
         if (isMissingLiveTable(message)) {
-          return NextResponse.json({ ok: true, storage: "local", tournament: null });
+          const rows = await loadLive4PlayStorage(supabaseAdmin);
+          const index = rows.findIndex((row) => row.id === id);
+          if (index === -1) return jsonError("Live 4Play tournament was not found in shared storage.", 404);
+
+          const updatedAt = new Date().toISOString();
+          const nextRow = {
+            ...rows[index],
+            team_names: teamNames,
+            scores,
+            status,
+            updated_at: updatedAt,
+          };
+          const nextRows = [...rows];
+          nextRows[index] = nextRow;
+          await saveLive4PlayStorage(supabaseAdmin, nextRows);
+
+          return NextResponse.json({
+            ok: true,
+            storage: "supabase",
+            storageBackend: "storage",
+            tournament: normalizeRow(nextRow as LiveTournamentRow),
+          });
         }
         return jsonError(message, 400);
       }
@@ -342,7 +371,22 @@ export async function POST(req: NextRequest) {
     if (error) {
       const message = error.message || "Failed to create Live 4Play tournament.";
       if (isMissingLiveTable(message)) {
-        return NextResponse.json({ ok: true, storage: "local", tournament: { ...insertRow, id: "" } });
+        const now = new Date().toISOString();
+        const storageRow = {
+          ...insertRow,
+          id: crypto.randomUUID(),
+          created_at: now,
+          updated_at: now,
+        };
+        const rows = await loadLive4PlayStorage(supabaseAdmin);
+        await saveLive4PlayStorage(supabaseAdmin, [storageRow, ...rows]);
+
+        return NextResponse.json({
+          ok: true,
+          storage: "supabase",
+          storageBackend: "storage",
+          tournament: normalizeRow(storageRow as LiveTournamentRow),
+        });
       }
       if (isCmoFormat(format)) {
         const fallbackRow = { ...insertRow, format: "Ryder Cup" };
