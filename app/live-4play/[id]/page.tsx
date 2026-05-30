@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
@@ -680,8 +681,25 @@ export default function Live4PlayScoringPage() {
           </div>
         ) : null}
         {message ? <div style={{ color: "#cbd5e1", fontSize: 13 }}>{message}</div> : null}
+        {tournament.format === CMO_FORMAT ? <CmoFightClubFooter /> : null}
       </div>
     </main>
+  );
+}
+
+function CmoFightClubFooter() {
+  return (
+    <footer className="fourplay-cartoon-footer" aria-label="CMO Fight Club footer">
+      <Link href="/cmo-fight-club" aria-label="Open CMO Fight Club">
+        <Image
+          src="/4play-cartoon-footer.png"
+          alt="Cartoon golfer celebrating with the 4Play crew on a golf course"
+          width={2048}
+          height={768}
+          sizes="(max-width: 1180px) 100vw, 1180px"
+        />
+      </Link>
+    </footer>
   );
 }
 
