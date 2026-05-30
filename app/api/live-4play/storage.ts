@@ -32,7 +32,9 @@ function isMissingObject(error: unknown) {
   return (
     statusCode === "404" ||
     originalStatus === "404" ||
-    originalStatus === "400" && message === "{}" ||
+    statusCode === "400" ||
+    originalStatus === "400" ||
+    message.includes(STORE_PATH) ||
     /not found|does not exist/i.test(message)
   );
 }
