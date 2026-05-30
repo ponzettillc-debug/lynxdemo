@@ -24,18 +24,6 @@ type Tournament = {
   created_at?: string;
   updated_at?: string;
 };
-type RemoteTournamentRow = {
-  id: string;
-  name: string;
-  format: Format;
-  holes_count: 9 | 18;
-  team_names: string[];
-  scores: ScoreGrid | SalmonScores | CmoScores;
-  status: "live" | "complete";
-  created_by?: string;
-  created_at?: string;
-  updated_at?: string;
-};
 type ScoreGrid = Array<Array<number | null>>;
 type SalmonScores = {
   kind: "salmon_falls_regular";
@@ -324,43 +312,6 @@ function createTournamentBody(tournament: Tournament) {
   };
 }
 
-function sharedFormat(row: { format: string; scores: Tournament["scores"] }): Format {
-  return !Array.isArray(row.scores) && row.scores?.kind === "cmo_point_sebago" ? CMO_FORMAT : row.format as Format;
-}
-
-function normalizeSharedTournament(row: RemoteTournamentRow): Tournament {
-  const format = sharedFormat(row);
-  const teamNames = Array.isArray(row.team_names) && row.team_names.length ? row.team_names : ["Team 1", "Team 2"];
-  const holesCount = row.holes_count === 18 ? 18 : 9;
-  return {
-    id: row.id,
-    name: row.name,
-    format,
-    holes_count: holesCount,
-    team_names: teamNames,
-    scores: format === SALMON_FORMAT
-      ? salmonScores(row.scores, teamNames)
-      : format === CMO_FORMAT
-      ? cmoScores(row.scores, teamNames)
-      : cleanScores(isScoreGrid(row.scores) ? row.scores : [], teamNames.length, holesCount),
-    status: row.status === "complete" ? "complete" : "live",
-    created_by: row.created_by,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  };
-}
-
-async function loadSharedTournamentsDirect() {
-  const { data, error } = await supabase
-    .from("live_4play_tournaments")
-    .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
-    .order("updated_at", { ascending: false })
-    .limit(100);
-
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as RemoteTournamentRow[]).map(normalizeSharedTournament);
-}
-
 export default function Live4PlayPage() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -525,18 +476,8 @@ export default function Live4PlayPage() {
       if (!selectedId && merged[0]) setSelectedId(merged[0].id);
       if (!silent) setMessage(promoted.length ? "Local tournament promoted and shared." : "Live tournaments synced.");
     } else {
-      try {
-        const directRemote = await loadSharedTournamentsDirect();
-        setStorageMode("supabase");
-        const merged = mergeRemoteAndLocal(directRemote, local);
-        setTournaments(merged);
-        mergeTournamentPlayerOptions(merged);
-        if (!selectedId && merged[0]) setSelectedId(merged[0].id);
-        if (!silent) setMessage("Live tournaments synced directly from shared storage.");
-      } catch (err: unknown) {
-        setStorageMode("local");
-        if (!silent) setMessage(err instanceof Error ? `Shared Live 4Play storage unavailable: ${err.message}` : "Shared Live 4Play storage unavailable.");
-      }
+      setStorageMode("local");
+      if (!silent) setMessage(j?.error || "Shared Live 4Play API is unavailable. Refresh after the latest deploy finishes.");
     }
   }, [selectedId, mergeTournamentPlayerOptions]);
 
@@ -586,74 +527,35 @@ export default function Live4PlayPage() {
       updated_at: now,
     };
 
-    async function createSharedDirect() {
-      if (!session?.user?.id) throw new Error("Sign in again before creating a shared Live 4Play tournament.");
-      const insertRow = {
-        owner_user_id: session.user.id,
-        created_by: session.user.email?.split("@")[0] || "Player",
-        name: localTournament.name,
-        format,
-        holes_count: gameHoles,
-        team_names: names,
-        scores: format === SALMON_FORMAT ? salmonPayload : format === CMO_FORMAT ? cmoPayload : blankScores(names.length, gameHoles),
-        status: "live",
-      };
-
-      const { data, error } = await supabase
-        .from("live_4play_tournaments")
-        .insert(insertRow)
-        .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
-        .single();
-
-      if (!error) return normalizeSharedTournament(data as RemoteTournamentRow);
-      if (format !== CMO_FORMAT) throw new Error(error.message);
-
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("live_4play_tournaments")
-        .insert({ ...insertRow, format: "Ryder Cup" })
-        .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
-        .single();
-
-      if (fallbackError) throw new Error(fallbackError.message || error.message);
-      return normalizeSharedTournament(fallbackData as RemoteTournamentRow);
-    }
-
     setSaving(true);
     setMessage("Creating tournament...");
 
     try {
       const accessToken = await token();
-      if (accessToken) {
-        const r = await fetch("/api/live-4play", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            name: localTournament.name,
-            format,
-            holes_count: gameHoles,
-            team_count: effectiveTeamCount,
-            team_names: names,
-            scores: format === SALMON_FORMAT ? salmonPayload : format === CMO_FORMAT ? cmoPayload : undefined,
-          }),
-        });
-        const j = await r.json().catch(() => ({}));
-        if (j?.ok && j.storage === "supabase" && j.tournament) {
-          setStorageMode("supabase");
-          setTournaments((prev) => [j.tournament, ...prev.filter((item) => item.id !== j.tournament.id)]);
-          setSelectedId(j.tournament.id);
-          setMessage("Tournament created and shared.");
-          router.push(`/live-4play/${j.tournament.id}`);
-          return;
-        }
-        if (j?.error) {
-          setMessage(`Server API create failed, trying shared storage directly: ${j.error}`);
-        }
+      if (!accessToken) throw new Error("Sign in again before creating a shared Live 4Play tournament.");
+
+      const r = await fetch("/api/live-4play", {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: localTournament.name,
+          format,
+          holes_count: gameHoles,
+          team_count: effectiveTeamCount,
+          team_names: names,
+          scores: format === SALMON_FORMAT ? salmonPayload : format === CMO_FORMAT ? cmoPayload : undefined,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!j?.ok || j.storage !== "supabase" || !j.tournament) {
+        throw new Error(j?.error || "Shared Live 4Play API did not return a tournament. Refresh after the latest deploy finishes.");
       }
 
-      const sharedTournament = await createSharedDirect();
+      const sharedTournament = j.tournament as Tournament;
       setStorageMode("supabase");
       setTournaments((prev) => [sharedTournament, ...prev.filter((item) => item.id !== sharedTournament.id)]);
       setSelectedId(sharedTournament.id);
@@ -709,26 +611,7 @@ export default function Live4PlayPage() {
         setTournaments((prev) => prev.map((item) => (item.id === normalized.id ? j.tournament : item)));
         setMessage(nextMessage);
       } else {
-        const { data, error } = await supabase
-          .from("live_4play_tournaments")
-          .update({
-            team_names: normalized.team_names,
-            scores: normalized.scores,
-            status: normalized.status,
-            updated_at: normalized.updated_at,
-          })
-          .eq("id", normalized.id)
-          .select("id,name,format,holes_count,team_names,scores,status,created_by,created_at,updated_at")
-          .single();
-
-        if (error) {
-          setMessage(j?.error || error.message || "Unable to save scores.");
-        } else {
-          setStorageMode("supabase");
-          const directTournament = normalizeSharedTournament(data as RemoteTournamentRow);
-          setTournaments((prev) => prev.map((item) => (item.id === normalized.id ? directTournament : item)));
-          setMessage(nextMessage);
-        }
+        setMessage(j?.error || "Unable to save scores through the shared Live 4Play API.");
       }
     } finally {
       setSaving(false);
