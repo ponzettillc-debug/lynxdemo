@@ -400,8 +400,17 @@ export default function Live4PlayScoringPage() {
     });
     const j = await r.json().catch(() => ({}));
     if (j?.ok && j.storage === "supabase") {
-      setStorageMode("supabase");
-      setTournament((j.tournaments ?? [])[0] || null);
+      const remote = (j.tournaments ?? [])[0] || null;
+      if (remote) {
+        setStorageMode("supabase");
+        setTournament(remote);
+      } else if (local) {
+        setStorageMode("local");
+        setTournament(local);
+      } else {
+        setStorageMode("supabase");
+        setTournament(null);
+      }
       if (!silent) setMessage("Scorecard synced.");
     } else {
       setStorageMode("local");
@@ -417,7 +426,9 @@ export default function Live4PlayScoringPage() {
   }, [session, loadTournament]);
 
   function saveLocal(next: Tournament) {
-    const nextRows = localTournaments().map((item) => (item.id === next.id ? next : item));
+    const rows = localTournaments();
+    const found = rows.some((item) => item.id === next.id);
+    const nextRows = found ? rows.map((item) => (item.id === next.id ? next : item)) : [next, ...rows];
     window.localStorage.setItem(LOCAL_KEY, JSON.stringify(nextRows));
     setTournament(next);
   }

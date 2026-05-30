@@ -128,6 +128,41 @@ function blankCmoScores(teamCount: number, playerCounts: number[], playerOptions
   };
 }
 
+function cmoScores(value: Tournament["scores"] | undefined, teamNames: string[]): CmoScores {
+  if (value && !Array.isArray(value) && value.kind === "cmo_point_sebago") {
+    const counts = teamNames.map((_, teamIndex) => Math.max(1, Math.min(4, value.team_player_counts?.[teamIndex] || value.team_players?.[teamIndex]?.length || 1)));
+    const normalized = blankCmoScores(teamNames.length, counts, value.player_options || [], value.team_players || []);
+    normalized.scramble_scores = cleanScores(value.scramble_scores, teamNames.length, 6);
+    normalized.point_scores = normalized.team_players.map((players, teamIndex) =>
+      players.map((_player, playerIndex) =>
+        Array.from({ length: 6 }, (_hole, holeIndex) => {
+          const raw = value.point_scores?.[teamIndex]?.[playerIndex]?.[holeIndex];
+          return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+        })
+      )
+    );
+    normalized.chip_ins = normalized.team_players.map((players, teamIndex) =>
+      players.map((_player, playerIndex) =>
+        Array.from({ length: 6 }, (_hole, holeIndex) => !!value.chip_ins?.[teamIndex]?.[playerIndex]?.[holeIndex])
+      )
+    );
+    normalized.h2h_scores = normalized.team_players.map((players, teamIndex) =>
+      players.map((_player, playerIndex) =>
+        Array.from({ length: 6 }, (_hole, holeIndex) => {
+          const raw = value.h2h_scores?.[teamIndex]?.[playerIndex]?.[holeIndex];
+          return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+        })
+      )
+    );
+    normalized.h2h_matchups = Array.from({ length: 4 }, (_match, index) => ({
+      team1: value.h2h_matchups?.[index]?.team1 || normalized.team_players[0]?.[index] || "",
+      team2: value.h2h_matchups?.[index]?.team2 || normalized.team_players[1]?.[index] || "",
+    }));
+    return normalized;
+  }
+  return blankCmoScores(teamNames.length, teamNames.map(() => 1), [], []);
+}
+
 function teamTotal(scores: Array<number | null>) {
   return scores.reduce<number>((sum, score) => sum + (typeof score === "number" ? score : 0), 0);
 }
@@ -254,6 +289,18 @@ function localTournaments() {
   }
 }
 
+function sortTournaments(items: Tournament[]) {
+  return [...items].sort(
+    (a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime()
+  );
+}
+
+function mergeRemoteAndLocal(remote: Tournament[], local: Tournament[]) {
+  const remoteIds = new Set(remote.map((item) => item.id));
+  const localOnly = local.filter((item) => item.id.startsWith("local-") && !remoteIds.has(item.id));
+  return sortTournaments([...remote, ...localOnly]);
+}
+
 export default function Live4PlayPage() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -364,9 +411,7 @@ export default function Live4PlayPage() {
   }
 
   function saveLocal(next: Tournament[]) {
-    const sorted = [...next].sort(
-      (a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime()
-    );
+    const sorted = sortTournaments(next);
     window.localStorage.setItem(LOCAL_KEY, JSON.stringify(sorted));
     setTournaments(sorted);
     if (!selectedId && sorted[0]) setSelectedId(sorted[0].id);
@@ -389,9 +434,10 @@ export default function Live4PlayPage() {
     if (j?.ok && j.storage === "supabase") {
       setStorageMode("supabase");
       const remote = (j.tournaments ?? []) as Tournament[];
-      setTournaments(remote);
-      mergeTournamentPlayerOptions(remote);
-      if (!selectedId && remote[0]) setSelectedId(remote[0].id);
+      const merged = mergeRemoteAndLocal(remote, local);
+      setTournaments(merged);
+      mergeTournamentPlayerOptions(merged);
+      if (!selectedId && merged[0]) setSelectedId(merged[0].id);
       if (!silent) setMessage("Live tournaments synced.");
     } else {
       setStorageMode("local");
@@ -491,6 +537,8 @@ export default function Live4PlayPage() {
       ...next,
       scores: next.format === SALMON_FORMAT
         ? salmonScores(next.scores, next.team_names)
+        : next.format === CMO_FORMAT
+        ? cmoScores(next.scores, next.team_names)
         : cleanScores(isScoreGrid(next.scores) ? next.scores : [], next.team_names.length, next.holes_count),
       updated_at: new Date().toISOString(),
     };
