@@ -25,7 +25,16 @@ function isMissingObject(error: unknown) {
   const info = error && typeof error === "object" ? error as Record<string, unknown> : {};
   const message = String(info.message || info.error || "");
   const statusCode = String(info.statusCode || info.status || "");
-  return statusCode === "404" || /not found|does not exist/i.test(message);
+  const original = info.originalError && typeof info.originalError === "object"
+    ? info.originalError as Record<string, unknown>
+    : {};
+  const originalStatus = String(original.status || "");
+  return (
+    statusCode === "404" ||
+    originalStatus === "404" ||
+    originalStatus === "400" && message === "{}" ||
+    /not found|does not exist/i.test(message)
+  );
 }
 
 function cleanRows(value: unknown): SharedLive4PlayRow[] {
