@@ -58,7 +58,7 @@ async function requireUser(req: NextRequest) {
 }
 
 function isMissingLiveTable(message: string) {
-  return /live_4play_tournaments|schema cache|does not exist|relation/i.test(message);
+  return /schema cache|does not exist|relation .*live_4play_tournaments|live_4play_tournaments.*does not exist/i.test(message);
 }
 
 function emailPrefix(email?: string | null) {
