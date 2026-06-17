@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import AppLogo from "../components/AppLogo";
+import {
+  getUsOpen2026TierCapError,
+  isUsOpen2026TournamentName,
+  usOpen2026PlayerMeta,
+  usOpen2026SelectionCounts,
+  validateUsOpen2026Selection,
+} from "../lib/usOpen2026";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -146,6 +153,10 @@ export default function PicksPage() {
   const currentTournament: Tournament | null = useMemo(() => {
     return tournaments.find((t) => t.id === selectedTournament) ?? null;
   }, [tournaments, selectedTournament]);
+  const isUsOpen2026 = useMemo(
+    () => isUsOpen2026TournamentName(currentTournament?.name),
+    [currentTournament?.name]
+  );
 
   const lockIso = useMemo(
     () => getRoundLock(currentTournament, round),
@@ -342,6 +353,17 @@ export default function PicksPage() {
       setSelected((prev) => prev.filter((x) => x !== id));
     } else {
       if (selected.length >= 4) return;
+      if (isUsOpen2026) {
+        const byId = new Map(golfers.map((g) => [g.id, g.name] as const));
+        const nextNames = [...selected, id]
+          .map((golferId) => byId.get(golferId))
+          .filter(Boolean) as string[];
+        const tierCapError = getUsOpen2026TierCapError(nextNames);
+        if (tierCapError) {
+          setMessage(tierCapError);
+          return;
+        }
+      }
       setSelected((prev) => [...prev, id]);
     }
   }
@@ -369,6 +391,14 @@ export default function PicksPage() {
       if (selected.length !== 4) {
         setMessage("Pick exactly 4 golfers");
         return;
+      }
+
+      if (isUsOpen2026) {
+        const validationError = validateUsOpen2026Selection(selectedGolfers.map((g) => g.name));
+        if (validationError) {
+          setMessage(validationError);
+          return;
+        }
       }
 
       const { data } = await supabase.auth.getSession();
@@ -461,6 +491,15 @@ export default function PicksPage() {
     return selected.map((id) => byId.get(id)).filter(Boolean) as Golfer[];
   }, [selected, golfers]);
 
+  const usOpenCounts = useMemo(
+    () => usOpen2026SelectionCounts(selectedGolfers.map((g) => g.name)),
+    [selectedGolfers]
+  );
+  const usOpenValidationMessage = useMemo(
+    () => selected.length === 4 ? validateUsOpen2026Selection(selectedGolfers.map((g) => g.name)) : "",
+    [selected.length, selectedGolfers]
+  );
+
   const availableFilteredGolfers = useMemo(() => {
     return golfersSorted.filter((g) => {
       const matchesSearch = !q || g.name.toLowerCase().includes(q);
@@ -494,6 +533,23 @@ export default function PicksPage() {
   }, [availableFilteredGolfers, selected, golfers]);
 
   const groupedGolfers = useMemo(() => {
+    if (isUsOpen2026) {
+      const labels = ["Tier 1", "Tier 2", "Tier 3", "Tier 4", "Tier 5", "Tier 6", "Amateur"];
+      const groups = new Map(labels.map((label) => [label, [] as Golfer[]]));
+
+      for (const g of golfersToShow) {
+        const meta = usOpen2026PlayerMeta(g.name);
+        groups.get(meta.label)?.push(g);
+      }
+
+      return labels
+        .map((label) => ({
+          letter: label,
+          golfers: groups.get(label) || [],
+        }))
+        .filter((group) => group.golfers.length > 0);
+    }
+
     const groups: Record<string, Golfer[]> = {};
 
     for (const g of golfersToShow) {
@@ -508,7 +564,7 @@ export default function PicksPage() {
       letter: key,
       golfers: groups[key],
     }));
-  }, [golfersToShow]);
+  }, [golfersToShow, isUsOpen2026]);
 
   const totalVisibleCount = golfersToShow.length;
   const availableCount = golfersSorted.filter(
@@ -981,6 +1037,11 @@ export default function PicksPage() {
             <div style={{ marginTop: 12, fontSize: 14, color: "#94a3b8" }}>
               Pick <b style={{ color: "#f8fafc" }}>exactly 4 golfers</b> each round.
             </div>
+            {isUsOpen2026 ? (
+              <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
+                2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 2 from Tier 3.
+              </div>
+            ) : null}
           </div>
 
           <div style={{ ...styles.card, marginBottom: 14 }}>
@@ -1008,6 +1069,18 @@ export default function PicksPage() {
                 ))
               )}
             </div>
+
+            {isUsOpen2026 ? (
+              <div style={{ marginTop: 12, display: "grid", gap: 6, color: "#cbd5e1", fontSize: 13 }}>
+                <div>
+                  Tier caps: T1 {usOpenCounts.tier1}/1 | T2 {usOpenCounts.tier2}/1 | T3 {usOpenCounts.tier3}/2
+                </div>
+                <div style={{ color: usOpenCounts.requiredValue >= 1 ? "#86efac" : "#fde68a" }}>
+                  Amateur/Tier 6 requirement: {usOpenCounts.requiredValue >= 1 ? "met" : "need 1"}
+                </div>
+                {usOpenValidationMessage ? <div style={{ color: "#fde68a" }}>{usOpenValidationMessage}</div> : null}
+              </div>
+            ) : null}
 
             {message ? <div style={styles.message}>{message}</div> : null}
           </div>
@@ -1081,8 +1154,13 @@ export default function PicksPage() {
                       {group.golfers.map((g) => {
                         const isUsed = usedBefore.has(g.id);
                         const isSelected = selectedSet.has(g.id);
-                        const disabled = isLocked || (isUsed && !isSelected);
+                        const selectedNames = selectedGolfers.map((golfer) => golfer.name);
+                        const tierCapError = isUsOpen2026 && !isSelected
+                          ? getUsOpen2026TierCapError([...selectedNames, g.name])
+                          : "";
+                        const disabled = isLocked || (isUsed && !isSelected) || !!tierCapError;
                         const parts = splitGolferName(g.name);
+                        const meta = usOpen2026PlayerMeta(g.name);
 
                         return (
                           <button
@@ -1142,9 +1220,13 @@ export default function PicksPage() {
                               {isLocked
                                 ? "LOCKED"
                                 : disabled
-                                ? "USED"
+                                ? isUsed && !isSelected
+                                  ? "USED"
+                                  : "CAP"
                                 : isSelected
                                 ? "SELECTED"
+                                : isUsOpen2026
+                                ? meta.label.toUpperCase()
                                 : "TAP"}
                             </div>
                           </button>

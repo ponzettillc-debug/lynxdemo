@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isUsOpen2026TournamentName, validateUsOpen2026Selection } from "../../../lib/usOpen2026";
 
 type Body = {
   tournamentId: string;
@@ -7,11 +8,30 @@ type Body = {
   golferIds: string[]; // length 4
 };
 
+type SupabaseMaybeError = {
+  code?: string | null;
+  message?: string | null;
+};
+
+type GolferRow = {
+  id: string;
+  name: string;
+};
+
+type PickRow = {
+  round: number;
+  golfer_id: string;
+};
+
+type RosterRow = {
+  golfer_id: string;
+};
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function isMissingRosterTable(error: any) {
+function isMissingRosterTable(error: SupabaseMaybeError) {
   const text = `${error?.code || ""} ${error?.message || ""}`.toLowerCase();
   return text.includes("42p01") || text.includes("tournament_golfers");
 }
@@ -63,7 +83,7 @@ export async function POST(req: Request) {
     // Ensure tournament belongs to pool
     const { data: tourn, error: tErr } = await admin
       .from("tournaments")
-      .select("id,pool_id,round1_lock,round2_lock,round3_lock,round4_lock")
+      .select("id,name,pool_id,round1_lock,round2_lock,round3_lock,round4_lock")
       .eq("id", body.tournamentId)
       .eq("pool_id", pool.id)
       .maybeSingle();
@@ -71,20 +91,20 @@ export async function POST(req: Request) {
     if (!tourn) return jsonError("Tournament not found in this pool", 404);
 
     // Round lock enforcement
-const lockField = `round${body.round}_lock` as keyof typeof tourn;
-const lockVal = tourn[lockField] as string | null;
+    const lockField = `round${body.round}_lock` as keyof typeof tourn;
+    const lockVal = tourn[lockField] as string | null;
 
-if (lockVal) {
-  const lockTime = parseLockTime(lockVal);
-  const now = Date.now();
+    if (lockVal) {
+      const lockTime = parseLockTime(lockVal);
+      const now = Date.now();
 
-  if (Number.isFinite(lockTime) && now >= lockTime) {
-    return Response.json(
-      { error: `Round ${body.round} is locked` },
-      { status: 400 }
-    );
-  }
-}
+      if (Number.isFinite(lockTime) && now >= lockTime) {
+        return Response.json(
+          { error: `Round ${body.round} is locked` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Validate golferIds belong to this tournament roster when one exists.
     // If no roster has been configured yet, keep the legacy pool-wide behavior.
@@ -98,7 +118,7 @@ if (lockVal) {
     if (rosterErr && !isMissingRosterTable(rosterErr)) return jsonError(rosterErr.message, 500);
 
     if (!rosterErr && (rosterRows?.length ?? 0) > 0) {
-      const allowed = new Set((rosterRows ?? []).map((row: any) => String(row.golfer_id)));
+      const allowed = new Set((rosterRows ?? []).map((row: RosterRow) => String(row.golfer_id)));
       const invalid = body.golferIds.find((id) => !allowed.has(id));
       if (invalid) return jsonError("One or more golfers are not in this tournament field", 400);
     } else {
@@ -109,6 +129,23 @@ if (lockVal) {
         .in("id", body.golferIds);
       if (gErr) return jsonError(gErr.message, 500);
       if ((golferRows?.length ?? 0) !== 4) return jsonError("One or more golferIds invalid for this pool", 400);
+    }
+
+    const { data: selectedGolfers, error: selectedGolfersErr } = await admin
+      .from("golfers")
+      .select("id,name")
+      .eq("pool_id", pool.id)
+      .in("id", body.golferIds);
+    if (selectedGolfersErr) return jsonError(selectedGolfersErr.message, 500);
+    if ((selectedGolfers?.length ?? 0) !== 4) return jsonError("One or more golferIds invalid for this pool", 400);
+
+    if (isUsOpen2026TournamentName(tourn.name)) {
+      const names = body.golferIds.map((id) => {
+        const row = (selectedGolfers ?? []).find((golfer: GolferRow) => golfer.id === id);
+        return String(row?.name || "");
+      });
+      const validationError = validateUsOpen2026Selection(names);
+      if (validationError) return jsonError(validationError, 400);
     }
 
     // Burn rule: golfer cannot have been used by this user earlier in tournament (other rounds)
@@ -122,8 +159,8 @@ if (lockVal) {
 
     const usedElsewhere = new Set(
       (existing ?? [])
-        .filter((p: any) => p.round !== body.round) // allow editing same round
-        .map((p: any) => p.golfer_id)
+        .filter((p: PickRow) => p.round !== body.round) // allow editing same round
+        .map((p: PickRow) => p.golfer_id)
     );
 
     const reused = body.golferIds.find((id) => usedElsewhere.has(id));
@@ -152,7 +189,7 @@ if (lockVal) {
     if (insErr) return jsonError(insErr.message, 500);
 
     return NextResponse.json({ ok: true }, { status: 200 });
-  } catch (e: any) {
-    return jsonError(e?.message || "Server error", 500);
+  } catch (e: unknown) {
+    return jsonError(e instanceof Error ? e.message : "Server error", 500);
   }
 }
