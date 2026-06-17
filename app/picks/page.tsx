@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import AppLogo from "../components/AppLogo";
 import {
+  getUsOpen2026TierRule,
   getUsOpen2026TierCapError,
   isUsOpen2026TournamentName,
   usOpen2026PlayerMeta,
@@ -114,6 +115,7 @@ export default function PicksPage() {
   const [message, setMessage] = useState<string>("Loading…");
   const [saving, setSaving] = useState<boolean>(false);
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const [query, setQuery] = useState<string>("");
   const [showUsed, setShowUsed] = useState<boolean>(false);
@@ -157,6 +159,10 @@ export default function PicksPage() {
     () => isUsOpen2026TournamentName(currentTournament?.name),
     [currentTournament?.name]
   );
+
+  useEffect(() => {
+    setExpandedGroups({});
+  }, [selectedTournament, isUsOpen2026]);
 
   const lockIso = useMemo(
     () => getRoundLock(currentTournament, round),
@@ -784,7 +790,8 @@ export default function PicksPage() {
       position: "sticky" as const,
       top: 0,
       zIndex: 1,
-      padding: "7px 12px",
+      width: "100%",
+      padding: "10px 12px",
       borderRadius: 12,
       background: "rgba(30,41,59,0.98)",
       border: "1px solid rgba(148,163,184,0.12)",
@@ -792,6 +799,15 @@ export default function PicksPage() {
       fontWeight: 900,
       marginBottom: 8,
       backdropFilter: "blur(8px)",
+      cursor: "pointer",
+      textAlign: "left" as const,
+    } as React.CSSProperties,
+
+    groupHeaderInner: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 10,
     } as React.CSSProperties,
 
     golferList: {
@@ -1027,7 +1043,7 @@ export default function PicksPage() {
             </div>
             {isUsOpen2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
-                2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 2 from Tier 3.
+                2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 3 from Tiers 3, 4, and 5.
               </div>
             ) : null}
           </div>
@@ -1061,7 +1077,7 @@ export default function PicksPage() {
             {isUsOpen2026 ? (
               <div style={{ marginTop: 12, display: "grid", gap: 6, color: "#cbd5e1", fontSize: 13 }}>
                 <div>
-                  Tier caps: T1 {usOpenCounts.tier1}/1 | T2 {usOpenCounts.tier2}/1 | T3 {usOpenCounts.tier3}/2
+                  Tier caps: T1 {usOpenCounts.tier1}/1 | T2 {usOpenCounts.tier2}/1 | T3 {usOpenCounts.tier3}/3 | T4 {usOpenCounts.tier4}/3 | T5 {usOpenCounts.tier5}/3
                 </div>
                 <div style={{ color: usOpenCounts.requiredValue >= 1 ? "#86efac" : "#fde68a" }}>
                   Amateur/Tier 6 requirement: {usOpenCounts.requiredValue >= 1 ? "met" : "need 1"}
@@ -1134,12 +1150,35 @@ export default function PicksPage() {
                   No golfers match this filter.
                 </div>
               ) : (
-                groupedGolfers.map((group) => (
-                  <div key={group.letter}>
-                    <div style={styles.groupHeader}>{group.letter}</div>
+                groupedGolfers.map((group) => {
+                  const rule = isUsOpen2026 ? getUsOpen2026TierRule(group.letter) : "";
+                  const isExpanded = isUsOpen2026 ? Boolean(expandedGroups[group.letter]) : true;
 
-                    <div style={styles.golferList}>
-                      {group.golfers.map((g) => {
+                  return (
+                    <div key={group.letter}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isUsOpen2026) return;
+                          setExpandedGroups((prev) => ({
+                            ...prev,
+                            [group.letter]: !prev[group.letter],
+                          }));
+                        }}
+                        aria-expanded={isExpanded}
+                        style={styles.groupHeader}
+                      >
+                        <div style={styles.groupHeaderInner}>
+                          <span>{rule ? `${group.letter} - ${rule}` : group.letter}</span>
+                          <span style={{ color: "#e2e8f0", whiteSpace: "nowrap" }}>
+                            {isExpanded ? "Collapse" : "Expand"} ({group.golfers.length})
+                          </span>
+                        </div>
+                      </button>
+
+                      {isExpanded ? (
+                        <div style={styles.golferList}>
+                          {group.golfers.map((g) => {
                         const isUsed = usedBefore.has(g.id);
                         const isSelected = selectedSet.has(g.id);
                         const selectedNames = selectedGolfers.map((golfer) => golfer.name);
@@ -1150,25 +1189,25 @@ export default function PicksPage() {
                         const parts = splitGolferName(g.name);
                         const meta = usOpen2026PlayerMeta(g.name);
 
-                        return (
-                          <button
-                            key={g.id}
-                            onClick={() => togglePick(g.id)}
-                            disabled={disabled}
-                            style={styles.golferBtn({
-                              selected: isSelected,
-                              disabled,
-                              used: isUsed,
-                            })}
-                          >
-                            <div
-                              style={{
-                                minWidth: 0,
-                                display: "flex",
-                                flexDirection: "column",
-                              }}
-                            >
-                              <div
+                            return (
+                              <button
+                                key={g.id}
+                                onClick={() => togglePick(g.id)}
+                                disabled={disabled}
+                                style={styles.golferBtn({
+                                  selected: isSelected,
+                                  disabled,
+                                  used: isUsed,
+                                })}
+                              >
+                                <div
+                                  style={{
+                                    minWidth: 0,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                  }}
+                                >
+                                  <div
                                 style={{
                                   fontSize: 12,
                                   fontWeight: 700,
@@ -1179,10 +1218,10 @@ export default function PicksPage() {
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
                                 }}
-                              >
-                                {parts.first}
-                              </div>
-                              <div
+                                  >
+                                    {parts.first}
+                                  </div>
+                                  <div
                                 style={{
                                   fontSize: 16,
                                   fontWeight: 900,
@@ -1192,37 +1231,39 @@ export default function PicksPage() {
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
                                 }}
-                              >
-                                {parts.last || parts.first}
-                              </div>
-                            </div>
+                                  >
+                                    {parts.last || parts.first}
+                                  </div>
+                                </div>
 
-                            <div
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 900,
-                                color: isSelected ? "#86efac" : "#cbd5e1",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {isLocked
-                                ? "LOCKED"
-                                : disabled
-                                ? isUsed && !isSelected
-                                  ? "USED"
-                                  : "CAP"
-                                : isSelected
-                                ? "SELECTED"
-                                : isUsOpen2026
-                                ? meta.label.toUpperCase()
-                                : "TAP"}
-                            </div>
-                          </button>
-                        );
-                      })}
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 900,
+                                    color: isSelected ? "#86efac" : "#cbd5e1",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {isLocked
+                                    ? "LOCKED"
+                                    : disabled
+                                    ? isUsed && !isSelected
+                                      ? "USED"
+                                      : "CAP"
+                                    : isSelected
+                                    ? "SELECTED"
+                                    : isUsOpen2026
+                                    ? meta.label.toUpperCase()
+                                    : "TAP"}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

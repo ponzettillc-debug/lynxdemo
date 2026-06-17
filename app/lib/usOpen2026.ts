@@ -90,6 +90,16 @@ const AMATEURS = [
   "Arni Sveinsson",
 ];
 
+const TIER_RULES: Record<string, string> = {
+  "Tier 1": "Cap: Choose 1 Max",
+  "Tier 2": "Cap: Choose 1 Max",
+  "Tier 3": "Cap: Choose 3 Max",
+  "Tier 4": "Cap: Choose 3 Max",
+  "Tier 5": "Cap: Choose 3 Max",
+  "Tier 6": "RULE: Choose 4 Max - Minimum: Must Have 1 Tier 6 or Amateur",
+  Amateur: "Cap: Choose 4 Max - Minimum: Must Have 1 Tier 6 or Amateur",
+};
+
 function normalizeName(name: string) {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -127,19 +137,23 @@ export function validateUsOpen2026Selection(names: string[]) {
 
   if (counts.tier1 > 1) return "2026 US Open rule: pick no more than 1 player from Tier 1 per round.";
   if (counts.tier2 > 1) return "2026 US Open rule: pick no more than 1 player from Tier 2 per round.";
-  if (counts.tier3 > 2) return "2026 US Open rule: pick no more than 2 players from Tier 3 per round.";
+  if (counts.tier3 > 3) return "2026 US Open rule: pick no more than 3 players from Tier 3 per round.";
+  if (counts.tier4 > 3) return "2026 US Open rule: pick no more than 3 players from Tier 4 per round.";
+  if (counts.tier5 > 3) return "2026 US Open rule: pick no more than 3 players from Tier 5 per round.";
   if (counts.requiredValue < 1) return "2026 US Open rule: pick at least 1 Amateur or Tier 6 player per round.";
   return "";
 }
 
 export function usOpen2026SelectionCounts(names: string[]) {
-  const counts = { 1: 0, 2: 0, 3: 0, value: 0 };
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, value: 0 };
 
   names.forEach((name) => {
     const meta = usOpen2026PlayerMeta(name);
     if (meta.tier === 1) counts[1] += 1;
     if (meta.tier === 2) counts[2] += 1;
     if (meta.tier === 3) counts[3] += 1;
+    if (meta.tier === 4) counts[4] += 1;
+    if (meta.tier === 5) counts[5] += 1;
     if (meta.satisfiesRequiredValuePick) counts.value += 1;
   });
 
@@ -147,6 +161,8 @@ export function usOpen2026SelectionCounts(names: string[]) {
     tier1: counts[1],
     tier2: counts[2],
     tier3: counts[3],
+    tier4: counts[4],
+    tier5: counts[5],
     requiredValue: counts.value,
   };
 }
@@ -155,6 +171,12 @@ export function getUsOpen2026TierCapError(names: string[]) {
   const counts = usOpen2026SelectionCounts(names);
   if (counts.tier1 > 1) return "Only 1 Tier 1 player is allowed per round.";
   if (counts.tier2 > 1) return "Only 1 Tier 2 player is allowed per round.";
-  if (counts.tier3 > 2) return "Only 2 Tier 3 players are allowed per round.";
+  if (counts.tier3 > 3) return "Only 3 Tier 3 players are allowed per round.";
+  if (counts.tier4 > 3) return "Only 3 Tier 4 players are allowed per round.";
+  if (counts.tier5 > 3) return "Only 3 Tier 5 players are allowed per round.";
   return "";
+}
+
+export function getUsOpen2026TierRule(label: string) {
+  return TIER_RULES[label] || "";
 }
