@@ -203,22 +203,21 @@ export default function PicksPage() {
           return;
         }
 
-        const userId = sess.session.user.id;
+        const token = sess.session.access_token;
+        const r = await fetch("/api/picks/bootstrap", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const j = await r.json().catch(() => ({}));
 
-        const { data: membership, error: memberErr } = await supabase
-          .from("pool_members")
-          .select("pool_id")
-          .eq("user_id", userId)
-          .limit(1)
-          .maybeSingle();
-
-        if (memberErr) {
-          setMessage(`Error loading pool membership: ${memberErr.message}`);
+        if (!r.ok) {
+          setMessage(j?.error || "Error loading tournaments.");
           setInitialLoading(false);
           return;
         }
 
-        const resolvedPoolId = membership?.pool_id;
+        const resolvedPoolId = j?.pool_id;
         if (!resolvedPoolId) {
           setMessage("You are not assigned to a pool yet.");
           setInitialLoading(false);
@@ -227,18 +226,7 @@ export default function PicksPage() {
 
         setPoolId(resolvedPoolId);
 
-        const { data: tData, error: tErr } = await supabase
-          .from("tournaments")
-          .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
-          .eq("pool_id", resolvedPoolId)
-          .order("created_at", { ascending: false });
-
-        if (tErr) {
-          setMessage(`Error loading tournaments: ${tErr.message}`);
-          setInitialLoading(false);
-          return;
-        }
-
+        const tData = (j?.tournaments ?? []) as Tournament[];
         setTournaments((tData ?? []) as Tournament[]);
 
         if ((tData ?? []).length === 0) {
