@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { gunzipSync } from "zlib";
+import { applyUsOpen2026AmateurBonus, isUsOpen2026Amateur } from "../../lib/usOpen2026";
 
 export const runtime = "nodejs";
 
@@ -313,17 +314,18 @@ function addRoundScore(row: any, round: number, score: number) {
 }
 
 function addRoundPickData(
-  target: Record<string, Array<{ name: string; score: number | null; thruLabel?: string | null }>>,
+  target: Record<string, Array<{ name: string; score: number | null; thruLabel?: string | null; isAmateur?: boolean }>>,
   userId: string,
   name: string,
   score: number | null,
-  thruLabel?: string | null
+  thruLabel?: string | null,
+  isAmateur?: boolean
 ) {
   if (!target[userId]) {
     target[userId] = [];
   }
 
-  target[userId].push({ name, score, thruLabel: thruLabel ?? null });
+  target[userId].push({ name, score, thruLabel: thruLabel ?? null, isAmateur: Boolean(isAmateur) });
 }
 
 function addUsedPick(
@@ -337,6 +339,7 @@ function addUsedPick(
       totalScore: number;
       roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
       roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+      isAmateur: boolean;
     }
   >,
   userId: string,
@@ -344,7 +347,8 @@ function addUsedPick(
   name: string,
   round: 1 | 2 | 3 | 4,
   score: number | null,
-  thruLabel?: string | null
+  thruLabel?: string | null,
+  isAmateur?: boolean
 ) {
   const key = `${userId}:${golferId}`;
   if (!accumulator.has(key)) {
@@ -356,10 +360,12 @@ function addUsedPick(
       totalScore: 0,
       roundScores: {},
       roundThruLabels: {},
+      isAmateur: Boolean(isAmateur),
     });
   }
 
   const entry = accumulator.get(key)!;
+  entry.isAmateur = entry.isAmateur || Boolean(isAmateur);
   entry.roundsUsed.add(round);
   entry.roundScores[round] = score;
   entry.roundThruLabels[round] = thruLabel ?? null;
@@ -495,7 +501,7 @@ export async function GET(req: NextRequest) {
     const picksByUserRound = new Map<string, any[]>();
     const roundPickDataByUser: Record<
       string,
-      Array<{ name: string; score: number | null; thruLabel?: string | null }>
+      Array<{ name: string; score: number | null; thruLabel?: string | null; isAmateur?: boolean }>
     > = {};
     const allUsedPicksByUser: Record<
       string,
@@ -505,10 +511,12 @@ export async function GET(req: NextRequest) {
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
         roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        isAmateur: boolean;
         roundDetails: Array<{
           round: 1 | 2 | 3 | 4;
           score: number | null;
           thruLabel?: string | null;
+          isAmateur?: boolean;
         }>;
       }>
     > = {};
@@ -523,6 +531,7 @@ export async function GET(req: NextRequest) {
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
         roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        isAmateur: boolean;
       }
     >();
 
@@ -595,17 +604,23 @@ export async function GET(req: NextRequest) {
             const hasPickedScore = typeof pickedScore === "number";
             const shouldScorePenalty =
               !hasPickedScore && (pick ? applyMissingGolferPenalty : applyMissingPickPenalty);
-            const score = hasPickedScore ? pickedScore : shouldScorePenalty ? PENALTY_SCORE : null;
+            const pickedName = pick ? golferNameById.get(pick.golfer_id) ?? "" : "";
+            const amateurPick = Boolean(pick && pickedName && !shouldScorePenalty && isUsOpen2026Amateur(pickedName));
+            const score = hasPickedScore
+              ? applyUsOpen2026AmateurBonus(tournament?.name, pickedName, pickedScore)
+              : shouldScorePenalty
+              ? PENALTY_SCORE
+              : null;
             const thruLabel = pick
               ? publicProgressByGolferRound.get(`${pick.golfer_id}:${round}`) ?? null
               : null;
 
             const name = hasPickedScore
-              ? golferNameById.get(pick.golfer_id) ?? "Unknown Golfer"
+              ? pickedName || "Unknown Golfer"
               : shouldScorePenalty
               ? "Penalty"
               : pick
-              ? golferNameById.get(pick.golfer_id) ?? "Pending"
+              ? pickedName || "Pending"
               : "Pending";
             const golferId = hasPickedScore
               ? String(pick.golfer_id)
@@ -625,7 +640,7 @@ export async function GET(req: NextRequest) {
             }
 
             if (round === lockedRound) {
-              addRoundPickData(roundPickDataByUser, userId, name, score, thruLabel);
+              addRoundPickData(roundPickDataByUser, userId, name, score, thruLabel, amateurPick);
             }
 
             addUsedPick(
@@ -635,7 +650,8 @@ export async function GET(req: NextRequest) {
               name,
               round,
               score,
-              thruLabel
+              thruLabel,
+              amateurPick
             );
           }
         });
@@ -691,10 +707,12 @@ export async function GET(req: NextRequest) {
         totalScore: entry.totalScore,
         roundScores: entry.roundScores,
         roundThruLabels: entry.roundThruLabels,
+        isAmateur: entry.isAmateur,
         roundDetails: [...entry.roundsUsed].sort((a, b) => a - b).map((round) => ({
           round: round as 1 | 2 | 3 | 4,
           score: entry.roundScores[round as 1 | 2 | 3 | 4] ?? null,
           thruLabel: entry.roundThruLabels[round as 1 | 2 | 3 | 4] ?? null,
+          isAmateur: entry.isAmateur,
         })),
       });
     });

@@ -1043,7 +1043,7 @@ export default function PicksPage() {
             </div>
             {isUsOpen2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
-                2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 3 from Tiers 3, 4, and 5.
+                2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 3 from Tiers 3, 4, and 5. Amateur picks receive a -5 stroke bonus on each scored round.
               </div>
             ) : null}
           </div>

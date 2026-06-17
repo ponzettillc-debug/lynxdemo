@@ -30,6 +30,7 @@ type Tournament = {
 
 type UsedPick = {
   name: string;
+  isAmateur?: boolean;
   roundsUsed?: number[];
   totalScore?: number;
   roundScores?: Partial<Record<1 | 2 | 3 | 4, number | null>>;
@@ -38,6 +39,7 @@ type UsedPick = {
     round: 1 | 2 | 3 | 4;
     score: number | null;
     thruLabel?: string | null;
+    isAmateur?: boolean;
   }>;
 };
 
@@ -69,6 +71,7 @@ type RoundTile = {
   golferName: string;
   score: number | null;
   thruLabel?: string | null;
+  isAmateur?: boolean;
 };
 
 function fmtScore(v: number | null | undefined) {
@@ -189,6 +192,7 @@ function getRoundTilesForDisplay(
           explicitDetail?.thruLabel ??
           pick.roundThruLabels?.[round] ??
           null,
+        isAmateur: Boolean(explicitDetail?.isAmateur ?? pick.isAmateur),
       });
     }
   });
@@ -1097,13 +1101,16 @@ export default function LeaderboardPage() {
                                         const tile = roundTiles[idx];
                                         const hidden = !roundVisible;
                                         const noPicks = hidden && !hasRoundPicks;
-                                        const title = hidden
+                                        const rawTitle = hidden
                                           ? noPicks
                                             ? idx === 0
                                               ? "NO PICKS"
                                               : ""
                                             : "*Hidden*"
                                           : tile?.golferName ?? "—";
+                                        const title = !hidden && tile?.isAmateur
+                                          ? `${rawTitle} (Amateur)`
+                                          : rawTitle;
                                         const score = hidden
                                           ? noPicks
                                             ? ""
@@ -1149,6 +1156,9 @@ export default function LeaderboardPage() {
                                               }}
                                             >
                                               {score}
+                                              {!hidden && tile?.isAmateur ? (
+                                                <span style={{ color: "#22c55e" }}> -5 bonus</span>
+                                              ) : null}
                                             </div>
                                           </div>
                                         );

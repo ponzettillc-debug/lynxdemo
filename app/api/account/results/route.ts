@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { applyUsOpen2026AmateurBonus } from "../../../lib/usOpen2026";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -24,6 +25,11 @@ type ScoreRow = {
   round: number;
   strokes: number;
   tournament_id: string;
+};
+
+type GolferRow = {
+  id: string;
+  name: string;
 };
 
 function jsonError(message: string, status = 400) {
@@ -90,7 +96,7 @@ export async function GET(req: NextRequest) {
 
     const poolId = membership.pool_id;
 
-    const [tournamentsRes, picksRes, scoresRes] = await Promise.all([
+    const [tournamentsRes, picksRes, scoresRes, golfersRes] = await Promise.all([
       supabaseAdmin
         .from("tournaments")
         .select("id,name,final_lock")
@@ -105,11 +111,16 @@ export async function GET(req: NextRequest) {
         .from("scores")
         .select("golfer_id,round,strokes,tournament_id")
         .eq("pool_id", poolId),
+      supabaseAdmin
+        .from("golfers")
+        .select("id,name")
+        .eq("pool_id", poolId),
     ]);
 
     if (tournamentsRes.error) return jsonError(`Error loading tournaments: ${tournamentsRes.error.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
+    if (golfersRes.error) return jsonError(`Error loading golfers: ${golfersRes.error.message}`, 400);
 
     const tournaments = ((tournamentsRes.data ?? []) as TournamentRow[]).filter((t) => {
       const finalTime = parseLockTime(t.final_lock);
@@ -117,6 +128,10 @@ export async function GET(req: NextRequest) {
     });
     const picks = (picksRes.data ?? []) as PickRow[];
     const scores = (scoresRes.data ?? []) as ScoreRow[];
+    const golferNameById = new Map<string, string>();
+    ((golfersRes.data ?? []) as GolferRow[]).forEach((golfer) => {
+      golferNameById.set(golfer.id, golfer.name);
+    });
 
     const scoreByTournamentGolferRound = new Map<string, number>();
     scores.forEach((score) => {
@@ -153,7 +168,10 @@ export async function GET(req: NextRequest) {
               const score = pick
                 ? scoreByTournamentGolferRound.get(`${pick.tournament_id}:${pick.golfer_id}:${round}`)
                 : undefined;
-              row.total += typeof score === "number" ? score : PENALTY_SCORE;
+              const golferName = pick ? golferNameById.get(pick.golfer_id) ?? "" : "";
+              row.total += typeof score === "number"
+                ? applyUsOpen2026AmateurBonus(tournament.name, golferName, score)
+                : PENALTY_SCORE;
               row.scoredPicks += 1;
             }
           });
@@ -189,8 +207,8 @@ export async function GET(req: NextRequest) {
       .filter(Boolean);
 
     return NextResponse.json({ ok: true, pool_id: poolId, results });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("account results GET route error:", err);
-    return jsonError(err?.message || "Unexpected account results error.", 500);
+    return jsonError(err instanceof Error ? err.message : "Unexpected account results error.", 500);
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { applyUsOpen2026AmateurBonus } from "../../lib/usOpen2026";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -28,6 +29,11 @@ type ScoreRow = {
   round: number;
   strokes: number;
   tournament_id: string;
+};
+
+type GolferRow = {
+  id: string;
+  name: string;
 };
 
 type NameRow = {
@@ -148,13 +154,13 @@ export async function GET(req: NextRequest) {
       .eq("pool_id", poolId)
       .order("created_at", { ascending: false });
 
-    let tournamentData: any[] = tournamentsRes.data ?? [];
-    let tournamentError = tournamentsRes.error;
+    const tournamentData = (tournamentsRes.data ?? []) as TournamentRow[];
+    const tournamentError = tournamentsRes.error;
     if (tournamentsRes.error && isMissingFinalLockColumn(tournamentsRes.error.message)) {
       return jsonError("Final/Lock is not enabled yet. Run supabase/final_lock.sql in Supabase SQL Editor before Trophy Room winners can appear.", 400);
     }
 
-    const [picksRes, scoresRes, namesRes] = await Promise.all([
+    const [picksRes, scoresRes, namesRes, golfersRes] = await Promise.all([
       supabaseAdmin
         .from("picks")
         .select("user_id,golfer_id,round,tournament_id")
@@ -167,17 +173,26 @@ export async function GET(req: NextRequest) {
         .from("v_leaderboard")
         .select("user_id,display_name")
         .eq("pool_id", poolId),
+      supabaseAdmin
+        .from("golfers")
+        .select("id,name")
+        .eq("pool_id", poolId),
     ]);
 
     if (tournamentError) return jsonError(`Error loading tournaments: ${tournamentError.message}`, 400);
     if (picksRes.error) return jsonError(`Error loading picks: ${picksRes.error.message}`, 400);
     if (scoresRes.error) return jsonError(`Error loading scores: ${scoresRes.error.message}`, 400);
     if (namesRes.error) return jsonError(`Error loading names: ${namesRes.error.message}`, 400);
+    if (golfersRes.error) return jsonError(`Error loading golfers: ${golfersRes.error.message}`, 400);
 
     const tournaments = tournamentData as TournamentRow[];
     const picks = (picksRes.data ?? []) as PickRow[];
     const scores = (scoresRes.data ?? []) as ScoreRow[];
     const names = (namesRes.data ?? []) as NameRow[];
+    const golferNameById = new Map<string, string>();
+    ((golfersRes.data ?? []) as GolferRow[]).forEach((golfer) => {
+      golferNameById.set(golfer.id, golfer.name);
+    });
 
     const displayNameByUserId = new Map<string, string | null>();
     names.forEach((row) => {
@@ -219,7 +234,10 @@ export async function GET(req: NextRequest) {
               const pickedScore = pick
                 ? scoreByTournamentGolferRound.get(`${pick.tournament_id}:${pick.golfer_id}:${round}`)
                 : undefined;
-              const score = typeof pickedScore === "number" ? pickedScore : PENALTY_SCORE;
+              const golferName = pick ? golferNameById.get(pick.golfer_id) ?? "" : "";
+              const score = typeof pickedScore === "number"
+                ? applyUsOpen2026AmateurBonus(tournament.name, golferName, pickedScore)
+                : PENALTY_SCORE;
 
               row.total += score;
               row.scoredPicks += 1;

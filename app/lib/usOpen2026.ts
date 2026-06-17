@@ -1,4 +1,5 @@
 export const US_OPEN_2026_TOURNAMENT_NAME = "2026 US Open";
+export const US_OPEN_2026_AMATEUR_BONUS_STROKES = 5;
 
 export type UsOpen2026Tier = 1 | 2 | 3 | 4 | 5 | 6 | "A";
 
@@ -97,7 +98,7 @@ const TIER_RULES: Record<string, string> = {
   "Tier 4": "Cap: Choose 3 Max",
   "Tier 5": "Cap: Choose 3 Max",
   "Tier 6": "RULE: Choose 4 Max - Minimum: Must Have 1 Tier 6 or Amateur",
-  Amateur: "Cap: Choose 4 Max - Minimum: Must Have 1 Tier 6 or Amateur",
+  Amateur: "Cap: Choose 4 Max - Minimum: Must Have 1 Tier 6 or Amateur - Bonus: subtract 5 strokes each round",
 };
 
 function normalizeName(name: string) {
@@ -179,4 +180,14 @@ export function getUsOpen2026TierCapError(names: string[]) {
 
 export function getUsOpen2026TierRule(label: string) {
   return TIER_RULES[label] || "";
+}
+
+export function isUsOpen2026Amateur(name: string) {
+  return usOpen2026PlayerMeta(name).isAmateur;
+}
+
+export function applyUsOpen2026AmateurBonus(tournamentName: string | null | undefined, golferName: string, score: number) {
+  if (!isUsOpen2026TournamentName(tournamentName)) return score;
+  if (!isUsOpen2026Amateur(golferName)) return score;
+  return score - US_OPEN_2026_AMATEUR_BONUS_STROKES;
 }
