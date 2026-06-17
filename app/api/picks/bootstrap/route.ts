@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
     const { data: tournaments, error: tournamentError } = await check.supabaseAdmin
       .from("tournaments")
-      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
       .eq("pool_id", membership.pool_id)
       .order("created_at", { ascending: false });
 

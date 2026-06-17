@@ -326,64 +326,45 @@ export default function LeaderboardPage() {
         return;
       }
 
-      const userId = sess.session.user.id;
       const token = sess.session.access_token;
 
-      let { data: membership, error: memberErr } = await supabase
-        .from("pool_members")
-        .select("pool_id")
-        .eq("user_id", userId)
-        .limit(1)
-        .maybeSingle();
+      const bootstrapRes = await fetch("/api/picks/bootstrap", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-      if (!membership?.pool_id && isAdmin && token) {
-        const bootstrapRes = await fetch("/api/bootstrap", {
+      let bootstrapJson = await bootstrapRes.json().catch(() => ({}));
+
+      if (!bootstrapRes.ok && isAdmin && token) {
+        const setupRes = await fetch("/api/bootstrap", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
-        if (bootstrapRes.ok) {
-          const retry = await supabase
-            .from("pool_members")
-            .select("pool_id")
-            .eq("user_id", userId)
-            .limit(1)
-            .maybeSingle();
-          membership = retry.data;
-          memberErr = retry.error;
+        if (setupRes.ok) {
+          const retry = await fetch("/api/picks/bootstrap", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          bootstrapJson = await retry.json().catch(() => ({}));
         }
       }
 
-      if (memberErr) {
-        setMessage(`Error loading pool membership: ${memberErr.message}`);
+      if (!bootstrapJson?.pool_id) {
+        setMessage(bootstrapJson?.error || "You are not assigned to a pool yet.");
         setLoading(false);
         return;
       }
 
-      const nextPoolId: string | undefined = membership?.pool_id;
-      if (!nextPoolId) {
-        setMessage("You are not assigned to a pool yet.");
-        setLoading(false);
-        return;
-      }
+      const nextPoolId = String(bootstrapJson.pool_id);
 
       setPoolId(nextPoolId);
 
-      const { data: tData, error: tErr } = await supabase
-        .from("tournaments")
-        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
-        .eq("pool_id", nextPoolId)
-        .order("created_at", { ascending: false });
-
-      if (tErr) {
-        setMessage(`Error loading tournaments: ${tErr.message}`);
-        setLoading(false);
-        return;
-      }
-
-      const nextTournaments = (tData ?? []) as Tournament[];
+      const nextTournaments = (bootstrapJson?.tournaments ?? []) as Tournament[];
       setTournaments(nextTournaments);
 
       if (nextTournaments.length === 0) {
