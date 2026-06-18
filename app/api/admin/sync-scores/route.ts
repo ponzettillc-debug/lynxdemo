@@ -27,6 +27,13 @@ const PUBLIC_LEADERBOARDS = [
     sourceUrl: "https://www.pgatour.com/leaderboard",
     matches: [/pga\s*championship/i, /pga\s*-\s*championship/i],
   },
+  {
+    id: "R2026026",
+    label: "2026 US Open",
+    source: "PGA TOUR",
+    sourceUrl: "https://www.pgatour.com/leaderboard",
+    matches: [/2026\s+u\.?s\.?\s+open/i, /\bu\.?s\.?\s+open\b/i],
+  },
 ];
 
 type PickRow = {
