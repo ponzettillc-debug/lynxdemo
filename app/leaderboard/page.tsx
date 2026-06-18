@@ -91,14 +91,17 @@ function fmtScore(v: number | null | undefined) {
 
 function fmtRefreshTime(v?: string | null) {
   if (!v) return "Never";
-  const d = new Date(v);
+  const raw = String(v).trim();
+  const normalized = /(?:z|[+-]\d{2}:\d{2})$/i.test(raw) ? raw : `${raw}Z`;
+  const d = new Date(normalized);
   return Number.isFinite(d.getTime())
-    ? d.toLocaleString([], {
+    ? `${d.toLocaleString([], {
+        timeZone: "America/New_York",
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
-      })
+      })} EST`
     : "Never";
 }
 
@@ -568,11 +571,6 @@ export default function LeaderboardPage() {
     if (!session || !poolId || !selectedTournamentId) return;
 
     loadLeaderboard(selectedTournamentId, poolId);
-    const interval = setInterval(
-      () => loadLeaderboard(selectedTournamentId, poolId),
-      300000
-    );
-    return () => clearInterval(interval);
   }, [session, poolId, selectedTournamentId]);
 
   const rankedRows = useMemo<RankedRow[]>(() => {
@@ -1360,7 +1358,6 @@ export default function LeaderboardPage() {
       {!loading && !message ? (
         <div style={{ marginTop: 12, opacity: 0.7 }}>
           <p style={{ margin: 0 }}>Click Player Name to Show Players Used</p>
-          <p style={{ margin: "4px 0 0" }}>Auto-refreshes every 5 minutes.</p>
         </div>
       ) : null}
 
