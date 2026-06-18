@@ -135,6 +135,15 @@ function publicScoreSourceForTournament(name?: string | null) {
     };
   }
 
+  if (/2026\s+u\.?s\.?\s+open/i.test(tournamentName) || /\bu\.?s\.?\s+open\b/i.test(tournamentName)) {
+    return {
+      id: "R2026026",
+      label: "2026 US Open",
+      source: "PGA TOUR",
+      url: "https://www.pgatour.com/leaderboard",
+    };
+  }
+
   return null;
 }
 
@@ -2232,7 +2241,7 @@ export default function AdminPage() {
               ) : null}
             </details>
 
-            <details style={styles.card}>
+            <details style={styles.card} open>
               <summary style={styles.tileSummary}>
                 <span>Scoring Table</span>
                 <span style={{ color: "#94a3b8", fontSize: 14 }}>{scoreTournament?.name || "Select tournament"}</span>
