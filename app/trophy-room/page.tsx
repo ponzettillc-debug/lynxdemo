@@ -45,6 +45,10 @@ function isMasters2026(tournamentName: string) {
   return /masters/i.test(tournamentName) && /2026/.test(tournamentName);
 }
 
+function isPgaChampionship2026(tournamentName: string) {
+  return /pga/i.test(tournamentName) && /championship/i.test(tournamentName) && /2026/.test(tournamentName);
+}
+
 export default function TrophyRoomPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -310,6 +314,103 @@ export default function TrophyRoomPage() {
     minWidth: 44,
   };
 
+  const pgaWinnerTile: React.CSSProperties = {
+    ...winnerTile,
+    background:
+      "linear-gradient(135deg, rgba(8,22,48,0.96), rgba(2,6,23,0.9) 52%, rgba(14,116,144,0.38))",
+    border: "1px solid rgba(245,158,11,0.32)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.22)",
+  };
+
+  const pgaTrophyWrap: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "auto auto",
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "end",
+    minWidth: 124,
+  };
+
+  const pgaTrophy: React.CSSProperties = {
+    position: "relative",
+    width: 56,
+    height: 64,
+    display: "grid",
+    justifyItems: "center",
+    alignItems: "end",
+  };
+
+  const pgaCup: React.CSSProperties = {
+    position: "relative",
+    width: 35,
+    height: 31,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "6px 6px 15px 15px",
+    background:
+      "linear-gradient(135deg, #ffffff 0%, #f59e0b 30%, #0f2a55 66%, #38bdf8 100%)",
+    border: "1px solid rgba(255,255,255,0.78)",
+    boxShadow:
+      "inset 0 4px 8px rgba(255,255,255,0.36), 0 0 18px rgba(56,189,248,0.22)",
+  };
+
+  const pgaCupInscription: React.CSSProperties = {
+    width: 25,
+    minHeight: 17,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 5,
+    background: "linear-gradient(180deg, rgba(15,42,85,0.96), rgba(8,22,48,0.94))",
+    border: "1px solid rgba(245,158,11,0.68)",
+    color: "#ffffff",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 4.4,
+    fontWeight: 900,
+    lineHeight: 0.92,
+    textAlign: "center",
+    textTransform: "uppercase",
+    textShadow: "0 1px 1px rgba(0,0,0,0.5)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)",
+    transform: "translateY(1px)",
+  };
+
+  const pgaHandleBase: React.CSSProperties = {
+    position: "absolute",
+    top: 8,
+    width: 14,
+    height: 18,
+    border: "3px solid rgba(245,158,11,0.88)",
+    borderBottomColor: "transparent",
+  };
+
+  const pgaStem: React.CSSProperties = {
+    width: 8,
+    height: 14,
+    background: "linear-gradient(180deg, #f59e0b, #0f2a55)",
+    borderRadius: 3,
+  };
+
+  const pgaBase: React.CSSProperties = {
+    width: 43,
+    height: 9,
+    borderRadius: "8px 8px 4px 4px",
+    background: "linear-gradient(135deg, #081630, #0f2a55 48%, #f59e0b 76%, #38bdf8)",
+    border: "1px solid rgba(255,255,255,0.28)",
+  };
+
+  const pgaBlueAccent: React.CSSProperties = {
+    position: "absolute",
+    right: -2,
+    top: -2,
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    background:
+      "radial-gradient(circle at 32% 30%, #ffffff 0 15%, #38bdf8 16% 58%, #0f2a55 59% 100%)",
+    border: "1px solid rgba(255,255,255,0.86)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.26)",
+  };
+
   return (
     <main style={shell}>
       <div style={content}>
@@ -380,11 +481,17 @@ export default function TrophyRoomPage() {
                 <div style={{ display: "grid", gap: 8 }}>
                   {row.winners.map((winner) => {
                     const useMastersTheme = isMasters2026(row.tournament_name);
+                    const usePgaTheme = isPgaChampionship2026(row.tournament_name);
+                    const winnerStyle = useMastersTheme
+                      ? mastersWinnerTile
+                      : usePgaTheme
+                      ? pgaWinnerTile
+                      : winnerTile;
 
                     return (
                       <div
                         key={`${row.tournament_id}-${winner.user_id}`}
-                        style={useMastersTheme ? mastersWinnerTile : winnerTile}
+                        style={winnerStyle}
                       >
                         <div style={{ minWidth: 0 }}>
                           <div
@@ -403,7 +510,15 @@ export default function TrophyRoomPage() {
                           </div>
                         </div>
 
-                        <div style={useMastersTheme ? mastersTrophyWrap : undefined}>
+                        <div
+                          style={
+                            useMastersTheme
+                              ? mastersTrophyWrap
+                              : usePgaTheme
+                              ? pgaTrophyWrap
+                              : undefined
+                          }
+                        >
                           {useMastersTheme ? (
                             <div style={mastersTrophy} aria-hidden="true">
                               <div
@@ -435,9 +550,40 @@ export default function TrophyRoomPage() {
                             </div>
                           ) : null}
 
+                          {usePgaTheme ? (
+                            <div style={pgaTrophy} aria-hidden="true">
+                              <div
+                                style={{
+                                  ...pgaHandleBase,
+                                  left: 1,
+                                  borderRight: "none",
+                                  borderRadius: "12px 0 0 12px",
+                                }}
+                              />
+                              <div
+                                style={{
+                                  ...pgaHandleBase,
+                                  right: 1,
+                                  borderLeft: "none",
+                                  borderRadius: "0 12px 12px 0",
+                                }}
+                              />
+                              <div style={pgaBlueAccent} />
+                              <div style={pgaCup}>
+                                <div style={pgaCupInscription}>
+                                  <span>4Play</span>
+                                  <span>PGA</span>
+                                  <span>Champ 26</span>
+                                </div>
+                              </div>
+                              <div style={pgaStem} />
+                              <div style={pgaBase} />
+                            </div>
+                          ) : null}
+
                           <div
                             style={
-                              useMastersTheme
+                              useMastersTheme || usePgaTheme
                                 ? { ...mastersScoreWrap, fontSize: 22, fontWeight: 900 }
                                 : { fontSize: 22, fontWeight: 900 }
                             }
