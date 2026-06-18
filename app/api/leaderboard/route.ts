@@ -24,8 +24,17 @@ type PublicPlayer = {
     playerState?: string;
     roundStatus?: string;
     rounds?: string[];
+    score?: string;
+    total?: string;
     thru?: string;
   };
+};
+
+type PublicRoundStatus = {
+  thruLabel?: string | null;
+  currentScore?: string | null;
+  teeTimeLabel?: string | null;
+  hasTeedOff?: boolean;
 };
 
 const PUBLIC_LEADERBOARDS = [
@@ -145,6 +154,75 @@ function publicRoundProgress(player: PublicPlayer, round: 1 | 2 | 3 | 4) {
   return String(holes);
 }
 
+function findDeepValue(
+  object: unknown,
+  patterns: RegExp[],
+  seen = new Set<object>()
+): unknown | null {
+  if (!object || typeof object !== "object" || seen.has(object)) return null;
+  seen.add(object);
+
+  for (const [key, value] of Object.entries(object as Record<string, unknown>)) {
+    if (
+      patterns.some((pattern) => pattern.test(key)) &&
+      value != null &&
+      String(value).trim()
+    ) {
+      return value;
+    }
+  }
+
+  for (const value of Object.values(object as Record<string, unknown>)) {
+    const found = findDeepValue(value, patterns, seen);
+    if (found != null) return found;
+  }
+
+  return null;
+}
+
+function formatEasternTeeTime(value: unknown) {
+  if (value == null) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const numeric = Number(raw);
+  const date = Number.isFinite(numeric)
+    ? new Date(numeric > 9999999999 ? numeric : numeric * 1000)
+    : new Date(raw);
+
+  if (Number.isNaN(date.getTime())) return raw;
+
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+function publicRoundStatus(player: PublicPlayer, round: 1 | 2 | 3 | 4): PublicRoundStatus {
+  const scoring = player.scoringData;
+  if (!scoring) return {};
+
+  const progress = publicRoundProgress(player, round);
+  const currentRound = Number(scoring.currentRound);
+  const state = String(scoring.playerState || scoring.roundStatus || "").toUpperCase();
+  const currentScore = String(scoring.score || scoring.total || "").trim();
+  const hasLiveScore = !!currentScore && currentScore !== "-";
+  const hasTeedOff =
+    currentRound === round &&
+    (hasLiveScore || (!!progress && progress !== "0" && state !== "NOT_STARTED"));
+  const rawTeeTime = findDeepValue(player, [/tee.*time/i, /start.*time/i]);
+
+  return {
+    thruLabel: progress,
+    currentScore: hasLiveScore ? currentScore : null,
+    teeTimeLabel: hasTeedOff ? null : formatEasternTeeTime(rawTeeTime),
+    hasTeedOff,
+  };
+}
+
 async function fetchPublicLeaderboard(leaderboardId: string) {
   const response = await fetch(PGA_TOUR_GRAPHQL_URL, {
     method: "POST",
@@ -180,7 +258,7 @@ async function fetchPublicLeaderboard(leaderboardId: string) {
 
 async function getPublicRoundProgressByGolferRound(tournament: any, golfers: any[]) {
   const leaderboardId = publicLeaderboardIdForTournament(tournament?.name);
-  const progressByGolferRound = new Map<string, string>();
+  const progressByGolferRound = new Map<string, PublicRoundStatus>();
   if (!leaderboardId) return progressByGolferRound;
 
   try {
@@ -195,9 +273,9 @@ async function getPublicRoundProgressByGolferRound(tournament: any, golfers: any
       if (!publicPlayer) return;
 
       ([1, 2, 3, 4] as const).forEach((round) => {
-        const progress = publicRoundProgress(publicPlayer, round);
-        if (progress) {
-          progressByGolferRound.set(`${golfer.id}:${round}`, progress);
+        const status = publicRoundStatus(publicPlayer, round);
+        if (status.thruLabel || status.currentScore || status.teeTimeLabel) {
+          progressByGolferRound.set(`${golfer.id}:${round}`, status);
         }
       });
     });
@@ -318,18 +396,29 @@ function addRoundScore(row: any, round: number, score: number) {
 }
 
 function addRoundPickData(
-  target: Record<string, Array<{ name: string; score: number | null; thruLabel?: string | null; isAmateur?: boolean }>>,
+  target: Record<string, Array<{ name: string; score: number | null; thruLabel?: string | null; currentScore?: string | null; teeTimeLabel?: string | null; hasTeedOff?: boolean; isAmateur?: boolean }>>,
   userId: string,
   name: string,
   score: number | null,
   thruLabel?: string | null,
+  currentScore?: string | null,
+  teeTimeLabel?: string | null,
+  hasTeedOff?: boolean,
   isAmateur?: boolean
 ) {
   if (!target[userId]) {
     target[userId] = [];
   }
 
-  target[userId].push({ name, score, thruLabel: thruLabel ?? null, isAmateur: Boolean(isAmateur) });
+  target[userId].push({
+    name,
+    score,
+    thruLabel: thruLabel ?? null,
+    currentScore: currentScore ?? null,
+    teeTimeLabel: teeTimeLabel ?? null,
+    hasTeedOff: Boolean(hasTeedOff),
+    isAmateur: Boolean(isAmateur),
+  });
 }
 
 function addUsedPick(
@@ -343,6 +432,9 @@ function addUsedPick(
       totalScore: number;
       roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
       roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+      roundCurrentScores: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+      roundTeeTimeLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+      roundHasTeedOff: Partial<Record<1 | 2 | 3 | 4, boolean>>;
       isAmateur: boolean;
     }
   >,
@@ -352,6 +444,9 @@ function addUsedPick(
   round: 1 | 2 | 3 | 4,
   score: number | null,
   thruLabel?: string | null,
+  currentScore?: string | null,
+  teeTimeLabel?: string | null,
+  hasTeedOff?: boolean,
   isAmateur?: boolean
 ) {
   const key = `${userId}:${golferId}`;
@@ -364,6 +459,9 @@ function addUsedPick(
       totalScore: 0,
       roundScores: {},
       roundThruLabels: {},
+      roundCurrentScores: {},
+      roundTeeTimeLabels: {},
+      roundHasTeedOff: {},
       isAmateur: Boolean(isAmateur),
     });
   }
@@ -373,6 +471,9 @@ function addUsedPick(
   entry.roundsUsed.add(round);
   entry.roundScores[round] = score;
   entry.roundThruLabels[round] = thruLabel ?? null;
+  entry.roundCurrentScores[round] = currentScore ?? null;
+  entry.roundTeeTimeLabels[round] = teeTimeLabel ?? null;
+  entry.roundHasTeedOff[round] = Boolean(hasTeedOff);
   if (typeof score === "number") {
     entry.totalScore += score;
   }
@@ -505,7 +606,7 @@ export async function GET(req: NextRequest) {
     const picksByUserRound = new Map<string, any[]>();
     const roundPickDataByUser: Record<
       string,
-      Array<{ name: string; score: number | null; thruLabel?: string | null; isAmateur?: boolean }>
+      Array<{ name: string; score: number | null; thruLabel?: string | null; currentScore?: string | null; teeTimeLabel?: string | null; hasTeedOff?: boolean; isAmateur?: boolean }>
     > = {};
     const allUsedPicksByUser: Record<
       string,
@@ -515,11 +616,17 @@ export async function GET(req: NextRequest) {
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
         roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundCurrentScores: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundTeeTimeLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundHasTeedOff: Partial<Record<1 | 2 | 3 | 4, boolean>>;
         isAmateur: boolean;
         roundDetails: Array<{
           round: 1 | 2 | 3 | 4;
           score: number | null;
           thruLabel?: string | null;
+          currentScore?: string | null;
+          teeTimeLabel?: string | null;
+          hasTeedOff?: boolean;
           isAmateur?: boolean;
         }>;
       }>
@@ -535,6 +642,9 @@ export async function GET(req: NextRequest) {
         totalScore: number;
         roundScores: Partial<Record<1 | 2 | 3 | 4, number | null>>;
         roundThruLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundCurrentScores: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundTeeTimeLabels: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+        roundHasTeedOff: Partial<Record<1 | 2 | 3 | 4, boolean>>;
         isAmateur: boolean;
       }
     >();
@@ -615,9 +725,13 @@ export async function GET(req: NextRequest) {
               : shouldScorePenalty
               ? PENALTY_SCORE
               : null;
-            const thruLabel = pick
+            const publicStatus = pick
               ? publicProgressByGolferRound.get(`${pick.golfer_id}:${round}`) ?? null
               : null;
+            const thruLabel = publicStatus?.thruLabel ?? null;
+            const currentScore = publicStatus?.currentScore ?? null;
+            const teeTimeLabel = publicStatus?.teeTimeLabel ?? null;
+            const hasTeedOff = Boolean(publicStatus?.hasTeedOff);
 
             const name = hasPickedScore
               ? pickedName || "Unknown Golfer"
@@ -644,7 +758,17 @@ export async function GET(req: NextRequest) {
             }
 
             if (round === lockedRound) {
-              addRoundPickData(roundPickDataByUser, userId, name, score, thruLabel, amateurPick);
+              addRoundPickData(
+                roundPickDataByUser,
+                userId,
+                name,
+                score,
+                thruLabel,
+                currentScore,
+                teeTimeLabel,
+                hasTeedOff,
+                amateurPick
+              );
             }
 
             addUsedPick(
@@ -655,6 +779,9 @@ export async function GET(req: NextRequest) {
               round,
               score,
               thruLabel,
+              currentScore,
+              teeTimeLabel,
+              hasTeedOff,
               amateurPick
             );
           }
@@ -711,11 +838,17 @@ export async function GET(req: NextRequest) {
         totalScore: entry.totalScore,
         roundScores: entry.roundScores,
         roundThruLabels: entry.roundThruLabels,
+        roundCurrentScores: entry.roundCurrentScores,
+        roundTeeTimeLabels: entry.roundTeeTimeLabels,
+        roundHasTeedOff: entry.roundHasTeedOff,
         isAmateur: entry.isAmateur,
         roundDetails: [...entry.roundsUsed].sort((a, b) => a - b).map((round) => ({
           round: round as 1 | 2 | 3 | 4,
           score: entry.roundScores[round as 1 | 2 | 3 | 4] ?? null,
           thruLabel: entry.roundThruLabels[round as 1 | 2 | 3 | 4] ?? null,
+          currentScore: entry.roundCurrentScores[round as 1 | 2 | 3 | 4] ?? null,
+          teeTimeLabel: entry.roundTeeTimeLabels[round as 1 | 2 | 3 | 4] ?? null,
+          hasTeedOff: entry.roundHasTeedOff[round as 1 | 2 | 3 | 4] ?? false,
           isAmateur: entry.isAmateur,
         })),
       });

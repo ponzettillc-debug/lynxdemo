@@ -35,10 +35,16 @@ type UsedPick = {
   totalScore?: number;
   roundScores?: Partial<Record<1 | 2 | 3 | 4, number | null>>;
   roundThruLabels?: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+  roundCurrentScores?: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+  roundTeeTimeLabels?: Partial<Record<1 | 2 | 3 | 4, string | null>>;
+  roundHasTeedOff?: Partial<Record<1 | 2 | 3 | 4, boolean>>;
   roundDetails?: Array<{
     round: 1 | 2 | 3 | 4;
     score: number | null;
     thruLabel?: string | null;
+    currentScore?: string | null;
+    teeTimeLabel?: string | null;
+    hasTeedOff?: boolean;
     isAmateur?: boolean;
   }>;
 };
@@ -71,6 +77,9 @@ type RoundTile = {
   golferName: string;
   score: number | null;
   thruLabel?: string | null;
+  currentScore?: string | null;
+  teeTimeLabel?: string | null;
+  hasTeedOff?: boolean;
   isAmateur?: boolean;
 };
 
@@ -84,6 +93,33 @@ function fmtScoreWithProgress(score: number | null | undefined, thruLabel?: stri
   const base = fmtScore(score);
   const cleanThru = String(thruLabel || "").trim();
   return cleanThru ? `${base} (${cleanThru})` : base;
+}
+
+function fmtPublicScore(score?: string | null) {
+  const clean = String(score || "").trim();
+  if (!clean || clean === "-") return "";
+  if (/^e$/i.test(clean)) return "E";
+  return clean;
+}
+
+function golferStatusLine(tile?: RoundTile | null) {
+  if (!tile) return "";
+
+  const teeTime = String(tile.teeTimeLabel || "").trim();
+  const publicScore = fmtPublicScore(tile.currentScore);
+  const thru = String(tile.thruLabel || "").trim();
+
+  if (tile.hasTeedOff || publicScore || (thru && thru !== "0")) {
+    const scoreLabel = publicScore || fmtScore(tile.score);
+    const holesLabel = thru
+      ? thru === "F"
+        ? "F"
+        : `Thru ${thru}`
+      : "Live";
+    return `Current ${scoreLabel} · ${holesLabel}`;
+  }
+
+  return teeTime ? `Tee Time ${teeTime}` : "";
 }
 
 function userLabel(displayName: string | null | undefined, userId: string) {
@@ -192,6 +228,19 @@ function getRoundTilesForDisplay(
           explicitDetail?.thruLabel ??
           pick.roundThruLabels?.[round] ??
           null,
+        currentScore:
+          explicitDetail?.currentScore ??
+          pick.roundCurrentScores?.[round] ??
+          null,
+        teeTimeLabel:
+          explicitDetail?.teeTimeLabel ??
+          pick.roundTeeTimeLabels?.[round] ??
+          null,
+        hasTeedOff: Boolean(
+          explicitDetail?.hasTeedOff ??
+          pick.roundHasTeedOff?.[round] ??
+          false
+        ),
         isAmateur: Boolean(explicitDetail?.isAmateur ?? pick.isAmateur),
       });
     }
@@ -1103,6 +1152,7 @@ export default function LeaderboardPage() {
                                           !hidden && typeof tile?.score === "number"
                                             ? scoreColor(tile.score)
                                             : "#f8fafc";
+                                        const statusLine = hidden ? "" : golferStatusLine(tile);
 
                                         return (
                                           <div
@@ -1141,6 +1191,20 @@ export default function LeaderboardPage() {
                                                 <span style={{ color: "#22c55e" }}> -5 bonus</span>
                                               ) : null}
                                             </div>
+                                            {statusLine ? (
+                                              <div
+                                                style={{
+                                                  marginTop: isCompactNav ? 2 : 4,
+                                                  fontSize: isCompactNav ? 7 : 10,
+                                                  lineHeight: 1.2,
+                                                  color: tile?.hasTeedOff ? "#bae6fd" : "#cbd5e1",
+                                                  fontWeight: 700,
+                                                  whiteSpace: "normal",
+                                                }}
+                                              >
+                                                {statusLine}
+                                              </div>
+                                            ) : null}
                                           </div>
                                         );
                                       })}
