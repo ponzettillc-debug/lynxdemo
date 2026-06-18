@@ -498,47 +498,27 @@ export default function AdminPage() {
     const activePoolId = poolId || pool?.id;
     if (!activePoolId) return;
 
-    let finalLockColumnMissing = false;
-    let tData: any[] | null = null;
-    let tErr: any = null;
-    const tournamentResult = await supabase
-      .from("tournaments")
-      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
-      .eq("pool_id", activePoolId)
-      .order("created_at", { ascending: false });
-    tData = tournamentResult.data;
-    tErr = tournamentResult.error;
+    const token = await getAccessToken();
+    const r = await fetch(`/api/admin/tournaments?pool_id=${encodeURIComponent(activePoolId)}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const j = await r.json().catch(() => ({}));
 
-    if (tErr && isMissingFinalLockColumn(tErr.message)) {
-      const fallback = await supabase
-        .from("tournaments")
-        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
-        .eq("pool_id", activePoolId)
-        .order("created_at", { ascending: false });
-      tData = fallback.data;
-      tErr = fallback.error;
-      finalLockColumnMissing = !tErr;
+    if (!r.ok) {
+      setStatus(j?.error || "Error loading admin tournament data.");
+      setTournaments([]);
+      setGolfers([]);
+      return;
     }
+
+    const finalLockColumnMissing = Boolean(j?.final_lock_column_missing);
     setFinalLockSchemaMissing(finalLockColumnMissing);
+    setStatus(finalLockColumnMissing ? "Run supabase/final_lock.sql in Supabase SQL Editor to enable Final/Lock tournaments." : "");
 
-    const { data: gData, error: gErr } = await supabase
-      .from("golfers")
-      .select("id,name")
-      .eq("pool_id", activePoolId)
-      .order("name", { ascending: true });
-
-    if (tErr) {
-      setStatus(`Error loading tournaments: ${tErr.message}`);
-    } else if (gErr) {
-      setStatus(`Error loading golfers: ${gErr.message}`);
-    } else if (finalLockColumnMissing) {
-      setStatus("Run supabase/final_lock.sql in Supabase SQL Editor to enable Final/Lock tournaments.");
-    } else {
-      setStatus("");
-    }
-
-    const nextTournaments = (tData ?? []) as Tournament[];
-    const nextGolfers = (gData ?? []) as Golfer[];
+    const nextTournaments = (j?.tournaments ?? []) as Tournament[];
+    const nextGolfers = (j?.golfers ?? []) as Golfer[];
 
     setTournaments(nextTournaments);
     setGolfers(nextGolfers);

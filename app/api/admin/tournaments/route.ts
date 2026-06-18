@@ -15,6 +15,16 @@ type LockFields = {
   final_lock?: string | null;
 };
 
+type TournamentRow = {
+  id: string;
+  name: string;
+  round1_lock?: string | null;
+  round2_lock?: string | null;
+  round3_lock?: string | null;
+  round4_lock?: string | null;
+  final_lock?: string | null;
+};
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
@@ -98,6 +108,57 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("admin tournaments POST route error:", err);
     return jsonError(err?.message || "Unexpected tournament create error.", 500);
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const adminCheck = await requireAdmin(req);
+    if ("error" in adminCheck) return adminCheck.error;
+    const { supabaseAdmin } = adminCheck;
+
+    const { searchParams } = new URL(req.url);
+    const poolId = searchParams.get("pool_id") || "";
+    if (!poolId) return jsonError("pool_id is required.", 400);
+
+    let finalLockColumnMissing = false;
+    const tournamentResult = await supabaseAdmin
+      .from("tournaments")
+      .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock,final_lock")
+      .eq("pool_id", poolId)
+      .order("created_at", { ascending: false });
+    let tournamentData = (tournamentResult.data ?? []) as TournamentRow[];
+    let tournamentError = tournamentResult.error;
+
+    if (tournamentError && isMissingFinalLockColumn(tournamentError.message)) {
+      const fallback = await supabaseAdmin
+        .from("tournaments")
+        .select("id,name,round1_lock,round2_lock,round3_lock,round4_lock")
+        .eq("pool_id", poolId)
+        .order("created_at", { ascending: false });
+      tournamentData = (fallback.data ?? []) as TournamentRow[];
+      tournamentError = fallback.error;
+      finalLockColumnMissing = !tournamentError;
+    }
+
+    const golferResult = await supabaseAdmin
+      .from("golfers")
+      .select("id,name")
+      .eq("pool_id", poolId)
+      .order("name", { ascending: true });
+
+    if (tournamentError) return jsonError(`Error loading tournaments: ${tournamentError.message}`, 400);
+    if (golferResult.error) return jsonError(`Error loading golfers: ${golferResult.error.message}`, 400);
+
+    return NextResponse.json({
+      ok: true,
+      tournaments: tournamentData,
+      golfers: golferResult.data ?? [],
+      final_lock_column_missing: finalLockColumnMissing,
+    });
+  } catch (err: any) {
+    console.error("admin tournaments GET route error:", err);
+    return jsonError(err?.message || "Unexpected tournament load error.", 500);
   }
 }
 
