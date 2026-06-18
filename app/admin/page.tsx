@@ -313,24 +313,32 @@ export default function AdminPage() {
     (async () => {
       setStatus("Loading admin data...");
 
-      const poolName = process.env.NEXT_PUBLIC_POOL_NAME || "LynxDemo";
+      try {
+        const token = session.access_token;
+        const bootstrapRes = await fetch("/api/bootstrap", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const bootstrapJson = await bootstrapRes.json().catch(() => ({}));
 
-      const { data: poolRow, error: pErr } = await supabase
-        .from("pools")
-        .select("id,name")
-        .eq("name", poolName)
-        .maybeSingle();
+        if (!bootstrapRes.ok || !bootstrapJson?.pool?.id) {
+          setStatus(bootstrapJson?.error || "Pool setup failed. Click Setup Pool, then refresh.");
+          await loadUsers();
+          await loadLive4PlayTournaments();
+          return;
+        }
 
-      if (pErr || !poolRow) {
-        setStatus(`Pool not found. Go back and click Setup Pool. Looking for "${poolName}".`);
-      } else {
+        const poolRow = bootstrapJson.pool as Pool;
         setPool(poolRow);
         await refresh(poolRow.id);
+        await loadUsers();
+        await loadLive4PlayTournaments();
+      } catch (err: unknown) {
+        setStatus(err instanceof Error ? err.message : "Error loading admin data.");
+        return;
       }
-
-      await loadUsers();
-      await loadLive4PlayTournaments();
-      setStatus("");
     })();
   }, [session, isAdmin]);
 
