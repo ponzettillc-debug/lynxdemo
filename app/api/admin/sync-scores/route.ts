@@ -52,6 +52,7 @@ type ScoreRow = {
   golfer_id: string;
   round: number;
   strokes: number;
+  updated_at?: string;
 };
 
 type PgaTourPlayer = {
@@ -198,7 +199,7 @@ function createSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseServiceRoleKey);
 }
 
-async function requireAdmin(req: NextRequest) {
+async function requireAuthenticated(req: NextRequest) {
   if (!supabaseUrl) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500) };
   if (!supabaseAnonKey) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500) };
   if (!supabaseServiceRoleKey) return { error: jsonError("Missing SUPABASE_SERVICE_ROLE_KEY.", 500) };
@@ -220,11 +221,7 @@ async function requireAdmin(req: NextRequest) {
     return { error: jsonError("Unauthorized.", 401) };
   }
 
-  if (!ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-    return { error: jsonError("Admin access required.", 403) };
-  }
-
-  return { supabaseAdmin };
+  return { supabaseAdmin, user };
 }
 
 async function fetchPgaTourLeaderboard(leaderboardId: string) {
@@ -375,6 +372,7 @@ async function syncTournamentScores({
   const rows: ScoreRow[] = [];
   const matched: Array<{ golfer: string; round: number; score: number }> = [];
   const unavailable: Array<{ golfer: string; round: number; reason: string }> = [];
+  const syncedAt = new Date().toISOString();
 
   pickedKeys.forEach((key) => {
     const [golferId, roundText] = key.split(":");
@@ -400,6 +398,7 @@ async function syncTournamentScores({
       golfer_id: golferId,
       round,
       strokes: score,
+      updated_at: syncedAt,
     });
     matched.push({ golfer: golfer.name, round, score });
   });
@@ -432,6 +431,7 @@ async function syncTournamentScores({
     tournament: tournament.name,
     leaderboard_round: leaderboard.leaderboardRoundHeader ?? null,
     par,
+    synced_at: syncedAt,
     written_count: rows.length,
     matched,
     unavailable,
@@ -440,14 +440,36 @@ async function syncTournamentScores({
 
 export async function POST(req: NextRequest) {
   try {
-    const adminCheck = await requireAdmin(req);
-    if ("error" in adminCheck) return adminCheck.error;
-    const { supabaseAdmin } = adminCheck;
+    const authCheck = await requireAuthenticated(req);
+    if ("error" in authCheck) return authCheck.error;
+    const { supabaseAdmin, user } = authCheck;
 
     const body = await req.json().catch(() => ({}));
     const poolId = String(body?.pool_id || "");
     const tournamentId = String(body?.tournament_id || "");
     const explicitLeaderboardId = String(body?.leaderboard_id || "");
+
+    if (!poolId || !tournamentId) {
+      return jsonError("pool_id and tournament_id are required.", 400);
+    }
+
+    const isAdmin = ADMIN_EMAILS.includes(user.email?.toLowerCase() ?? "");
+    if (!isAdmin) {
+      const { data: membership, error: membershipError } = await supabaseAdmin
+        .from("pool_members")
+        .select("pool_id")
+        .eq("pool_id", poolId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (membershipError) {
+        return jsonError(`Failed to verify pool membership: ${membershipError.message}`, 400);
+      }
+
+      if (!membership) {
+        return jsonError("You are not a member of this pool.", 403);
+      }
+    }
 
     const result = await syncTournamentScores({
       supabaseAdmin,

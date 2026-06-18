@@ -561,7 +561,7 @@ export async function GET(req: NextRequest) {
         .eq("tournament_id", tournamentId),
       supabaseAdmin
         .from("scores")
-        .select("golfer_id,round,strokes")
+        .select("golfer_id,round,strokes,updated_at")
         .eq("pool_id", poolId)
         .eq("tournament_id", tournamentId),
       supabaseAdmin
@@ -595,12 +595,21 @@ export async function GET(req: NextRequest) {
 
     const scoreByGolferRound = new Map<string, number>();
     const scoredRounds = new Set<1 | 2 | 3 | 4>();
+    let lastScoreRefreshAt: string | null = null;
     scores.forEach((s: any) => {
       const round = Number(s.round) as 1 | 2 | 3 | 4;
       const strokes = Number(s.strokes) || 0;
       if (![1, 2, 3, 4].includes(round)) return;
       scoreByGolferRound.set(`${s.golfer_id}:${round}`, strokes);
       scoredRounds.add(round);
+      const updatedAt = String(s.updated_at || "").trim();
+      if (
+        updatedAt &&
+        (!lastScoreRefreshAt ||
+          new Date(updatedAt).getTime() > new Date(lastScoreRefreshAt).getTime())
+      ) {
+        lastScoreRefreshAt = updatedAt;
+      }
     });
 
     const picksByUserRound = new Map<string, any[]>();
@@ -866,6 +875,7 @@ export async function GET(req: NextRequest) {
       lockedRound,
       lockedRoundPicks: roundPickDataByUser,
       allUsedPicks: allUsedPicksByUser,
+      lastScoreRefreshAt,
     });
   } catch (err: any) {
     console.error("leaderboard GET route error:", err);

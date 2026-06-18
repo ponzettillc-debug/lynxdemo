@@ -89,6 +89,33 @@ function fmtScore(v: number | null | undefined) {
   return v > 0 ? `+${v}` : String(v);
 }
 
+function fmtRefreshTime(v?: string | null) {
+  if (!v) return "Never";
+  const d = new Date(v);
+  return Number.isFinite(d.getTime())
+    ? d.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
+    : "Never";
+}
+
+function syncStatusMessage(result: any) {
+  const written = Number(result?.written_count ?? 0);
+  const unavailable = Array.isArray(result?.unavailable) ? result.unavailable.length : 0;
+  const source = result?.source_label ? ` from ${result.source_label}` : "";
+  const round = result?.leaderboard_round ? ` (${result.leaderboard_round})` : "";
+  return `Scores refreshed${source}${round}: ${written} score${written === 1 ? "" : "s"} updated${
+    unavailable ? `, ${unavailable} unavailable` : ""
+  }.`;
+}
+
+function errorMessage(err: unknown, fallback: string) {
+  return err instanceof Error ? err.message : fallback;
+}
+
 function fmtScoreWithProgress(score: number | null | undefined, thruLabel?: string | null) {
   const base = fmtScore(score);
   const cleanThru = String(thruLabel || "").trim();
@@ -318,6 +345,9 @@ export default function LeaderboardPage() {
   const [expandedAllUsedUsers, setExpandedAllUsedUsers] = useState<
     Record<string, boolean>
   >({});
+  const [scoreSyncBusy, setScoreSyncBusy] = useState(false);
+  const [scoreSyncStatus, setScoreSyncStatus] = useState("");
+  const [lastScoreRefreshAt, setLastScoreRefreshAt] = useState<string | null>(null);
   const [isCompactNav, setIsCompactNav] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -442,6 +472,7 @@ export default function LeaderboardPage() {
       if (!tournamentId || !activePoolId) {
         setRows([]);
         setAllUsedPicks({});
+        setLastScoreRefreshAt(null);
         setLoading(false);
         return;
       }
@@ -467,18 +498,64 @@ export default function LeaderboardPage() {
         setMessage(j?.error || "Error loading leaderboard.");
         setRows([]);
         setAllUsedPicks({});
+        setLastScoreRefreshAt(null);
         setLoading(false);
         return;
       }
 
       setRows((j?.rows ?? []) as Row[]);
       setAllUsedPicks((j?.allUsedPicks ?? {}) as Record<string, UsedPick[]>);
+      setLastScoreRefreshAt(j?.lastScoreRefreshAt ?? null);
       setLoading(false);
     } catch (e: any) {
       setMessage(e?.message || "Unexpected error loading leaderboard.");
       setRows([]);
       setAllUsedPicks({});
+      setLastScoreRefreshAt(null);
       setLoading(false);
+    }
+  }
+
+  async function syncPublicScores() {
+    if (!poolId || !selectedTournamentId) {
+      setScoreSyncStatus("Select a tournament before refreshing scores.");
+      return;
+    }
+
+    setScoreSyncBusy(true);
+    setScoreSyncStatus("Refreshing public scores...");
+
+    try {
+      const token = await supabase.auth
+        .getSession()
+        .then(({ data }) => data.session?.access_token || "");
+
+      const r = await fetch("/api/admin/sync-scores", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pool_id: poolId,
+          tournament_id: selectedTournamentId,
+        }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        setScoreSyncStatus(j?.error || "Score refresh failed.");
+        return;
+      }
+
+      setLastScoreRefreshAt(j?.synced_at || new Date().toISOString());
+      setScoreSyncStatus(syncStatusMessage(j));
+      await loadLeaderboard(selectedTournamentId, poolId);
+    } catch (err: unknown) {
+      setScoreSyncStatus(errorMessage(err, "Unexpected score refresh error."));
+    } finally {
+      setScoreSyncBusy(false);
     }
   }
 
@@ -846,6 +923,60 @@ export default function LeaderboardPage() {
           >
             <img src="/4play-logo.png" alt="4Play Golf" style={selectorLogo} />
           </a>
+        </div>
+        <div
+          style={{
+            marginTop: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+            borderTop: "1px solid rgba(148,163,184,0.12)",
+            paddingTop: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: "#cbd5e1", fontSize: isCompactNav ? 11 : 13, fontWeight: 800 }}>
+              Last refresh: {fmtRefreshTime(lastScoreRefreshAt)}
+            </div>
+            {scoreSyncStatus ? (
+              <div
+                style={{
+                  marginTop: 4,
+                  color: scoreSyncStatus.toLowerCase().includes("failed") ? "#fecaca" : "#94a3b8",
+                  fontSize: isCompactNav ? 10 : 12,
+                }}
+              >
+                {scoreSyncStatus}
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={syncPublicScores}
+            disabled={!selectedTournamentId || scoreSyncBusy || !!selectedTournament?.final_lock}
+            style={{
+              border: "1px solid rgba(125,211,252,0.34)",
+              borderRadius: 999,
+              background:
+                !selectedTournamentId || scoreSyncBusy || selectedTournament?.final_lock
+                  ? "rgba(51,65,85,0.62)"
+                  : "linear-gradient(135deg, rgba(14,165,233,0.94), rgba(37,99,235,0.92))",
+              color: "#f8fafc",
+              cursor:
+                !selectedTournamentId || scoreSyncBusy || selectedTournament?.final_lock
+                  ? "not-allowed"
+                  : "pointer",
+              fontSize: isCompactNav ? 12 : 13,
+              fontWeight: 900,
+              padding: isCompactNav ? "9px 11px" : "10px 14px",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18), 0 8px 18px rgba(2,6,23,0.22)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {scoreSyncBusy ? "Refreshing..." : "Refresh Scores"}
+          </button>
         </div>
       </div>
 
