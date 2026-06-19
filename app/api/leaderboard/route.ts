@@ -37,6 +37,20 @@ type PublicRoundStatus = {
   hasTeedOff?: boolean;
 };
 
+type TeeTimesGroup = {
+  roundInt?: number;
+  roundStatus?: string;
+  groups?: Array<{
+    teeTime?: number | string | null;
+    startTee?: number | string | null;
+    players?: Array<{
+      displayName?: string;
+      firstName?: string;
+      lastName?: string;
+    }>;
+  }>;
+};
+
 const PUBLIC_LEADERBOARDS = [
   {
     id: "R2026556",
@@ -201,7 +215,61 @@ function formatEasternTeeTime(value: unknown) {
   }).format(date);
 }
 
-function publicRoundStatus(player: PublicPlayer, round: 1 | 2 | 3 | 4): PublicRoundStatus {
+function formatTeeTimeLabel(value: unknown, startTee?: unknown) {
+  const time = formatEasternTeeTime(value);
+  if (!time) return null;
+
+  const cleanStartTee = String(startTee ?? "").trim();
+  if (!cleanStartTee || cleanStartTee === "1") return time;
+  if (cleanStartTee === "10") return `${time} (10 tee)`;
+  return `${time} (${cleanStartTee} tee)`;
+}
+
+function buildTeeTimeByNameRound(teeTimes: any) {
+  const teeTimeByNameRound = new Map<string, string>();
+  const rounds = ((teeTimes?.rounds ?? []) as TeeTimesGroup[]).filter((round) =>
+    [1, 2, 3, 4].includes(Number(round.roundInt))
+  );
+
+  rounds.forEach((round) => {
+    const roundNumber = Number(round.roundInt);
+    (round.groups ?? []).forEach((group) => {
+      const teeTimeLabel = formatTeeTimeLabel(group.teeTime, group.startTee);
+      if (!teeTimeLabel) return;
+
+      (group.players ?? []).forEach((player) => {
+        const displayName =
+          player.displayName ||
+          `${player.firstName ?? ""} ${player.lastName ?? ""}`;
+
+        nameMatchKeys(displayName).forEach((key) => {
+          teeTimeByNameRound.set(`${key}:${roundNumber}`, teeTimeLabel);
+        });
+      });
+    });
+  });
+
+  return teeTimeByNameRound;
+}
+
+function teeTimeForGolferRound(
+  teeTimeByNameRound: Map<string, string>,
+  golferName: string,
+  round: 1 | 2 | 3 | 4
+) {
+  for (const key of nameMatchKeys(golferName)) {
+    const teeTime = teeTimeByNameRound.get(`${key}:${round}`);
+    if (teeTime) return teeTime;
+  }
+
+  return null;
+}
+
+function publicRoundStatus(
+  player: PublicPlayer,
+  round: 1 | 2 | 3 | 4,
+  teeTimeLabel?: string | null
+): PublicRoundStatus {
   const scoring = player.scoringData;
   if (!scoring) return {};
 
@@ -209,16 +277,17 @@ function publicRoundStatus(player: PublicPlayer, round: 1 | 2 | 3 | 4): PublicRo
   const currentRound = Number(scoring.currentRound);
   const state = String(scoring.playerState || scoring.roundStatus || "").toUpperCase();
   const currentScore = String(scoring.score || scoring.total || "").trim();
+  const roundIsCurrent = currentRound === round;
   const hasLiveScore = !!currentScore && currentScore !== "-";
   const hasTeedOff =
-    currentRound === round &&
+    roundIsCurrent &&
     (hasLiveScore || (!!progress && progress !== "0" && state !== "NOT_STARTED"));
   const rawTeeTime = findDeepValue(player, [/tee.*time/i, /start.*time/i]);
 
   return {
     thruLabel: progress,
-    currentScore: hasLiveScore ? currentScore : null,
-    teeTimeLabel: hasTeedOff ? null : formatEasternTeeTime(rawTeeTime),
+    currentScore: roundIsCurrent && hasLiveScore ? currentScore : null,
+    teeTimeLabel: hasTeedOff ? null : teeTimeLabel ?? formatEasternTeeTime(rawTeeTime),
     hasTeedOff,
   };
 }
@@ -256,24 +325,65 @@ async function fetchPublicLeaderboard(leaderboardId: string) {
   return JSON.parse(gunzipSync(Buffer.from(payload, "base64")).toString("utf8"));
 }
 
+async function fetchPublicTeeTimes(leaderboardId: string) {
+  const response = await fetch(PGA_TOUR_GRAPHQL_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0",
+      "x-api-key": PGA_TOUR_API_KEY,
+      "x-pgat-platform": "web",
+    },
+    body: JSON.stringify({
+      query: `
+        query TeeTimesCompressedV2($teeTimesCompressedV2Id: ID!) {
+          teeTimesCompressedV2(id: $teeTimesCompressedV2Id) {
+            id
+            payload
+          }
+        }
+      `,
+      variables: { teeTimesCompressedV2Id: leaderboardId },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Public tee times request failed (${response.status}).`);
+  }
+
+  const json = await response.json();
+  const payload = json?.data?.teeTimesCompressedV2?.payload;
+  if (!payload) return null;
+
+  return JSON.parse(gunzipSync(Buffer.from(payload, "base64")).toString("utf8"));
+}
+
 async function getPublicRoundProgressByGolferRound(tournament: any, golfers: any[]) {
   const leaderboardId = publicLeaderboardIdForTournament(tournament?.name);
   const progressByGolferRound = new Map<string, PublicRoundStatus>();
   if (!leaderboardId) return progressByGolferRound;
 
   try {
-    const leaderboard = await fetchPublicLeaderboard(leaderboardId);
+    const [leaderboard, teeTimes] = await Promise.all([
+      fetchPublicLeaderboard(leaderboardId),
+      fetchPublicTeeTimes(leaderboardId).catch((err) => {
+        console.warn("Public tee times unavailable:", err);
+        return null;
+      }),
+    ]);
     const publicPlayers = ((leaderboard?.players ?? []) as PublicPlayer[]).filter(
       (player) => player.player
     );
     const sourceByName = buildPublicPlayerByName(publicPlayers);
+    const teeTimeByNameRound = buildTeeTimeByNameRound(teeTimes);
 
     golfers.forEach((golfer: any) => {
       const publicPlayer = findPublicPlayer(sourceByName, golfer.name);
       if (!publicPlayer) return;
 
       ([1, 2, 3, 4] as const).forEach((round) => {
-        const status = publicRoundStatus(publicPlayer, round);
+        const teeTimeLabel = teeTimeForGolferRound(teeTimeByNameRound, golfer.name, round);
+        const status = publicRoundStatus(publicPlayer, round, teeTimeLabel);
         if (status.thruLabel || status.currentScore || status.teeTimeLabel) {
           progressByGolferRound.set(`${golfer.id}:${round}`, status);
         }
