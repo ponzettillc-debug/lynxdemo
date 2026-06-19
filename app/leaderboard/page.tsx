@@ -489,6 +489,7 @@ export default function LeaderboardPage() {
           activePoolId
         )}&tournament_id=${encodeURIComponent(tournamentId)}`,
         {
+          cache: "no-store",
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -279,14 +279,16 @@ function publicRoundStatus(
   const currentScore = String(scoring.score || scoring.total || "").trim();
   const roundIsCurrent = currentRound === round;
   const hasLiveScore = !!currentScore && currentScore !== "-";
+  const isActivelyPlaying = state === "ACTIVE" || state === "IN_PROGRESS";
   const hasTeedOff =
     roundIsCurrent &&
-    (hasLiveScore || (!!progress && progress !== "0" && state !== "NOT_STARTED"));
+    ((isActivelyPlaying && hasLiveScore) ||
+      (!!progress && progress !== "0" && state !== "NOT_STARTED" && state !== "BETWEEN_ROUNDS"));
   const rawTeeTime = findDeepValue(player, [/tee.*time/i, /start.*time/i]);
 
   return {
     thruLabel: progress,
-    currentScore: roundIsCurrent && hasLiveScore ? currentScore : null,
+    currentScore: hasTeedOff && hasLiveScore ? currentScore : null,
     teeTimeLabel: hasTeedOff ? null : teeTimeLabel ?? formatEasternTeeTime(rawTeeTime),
     hasTeedOff,
   };
@@ -295,6 +297,7 @@ function publicRoundStatus(
 async function fetchPublicLeaderboard(leaderboardId: string) {
   const response = await fetch(PGA_TOUR_GRAPHQL_URL, {
     method: "POST",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0",
@@ -328,6 +331,7 @@ async function fetchPublicLeaderboard(leaderboardId: string) {
 async function fetchPublicTeeTimes(leaderboardId: string) {
   const response = await fetch(PGA_TOUR_GRAPHQL_URL, {
     method: "POST",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "Mozilla/5.0",
