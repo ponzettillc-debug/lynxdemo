@@ -30,6 +30,7 @@ const PUBLIC_LEADERBOARDS = [
   {
     id: "R2026026",
     label: "2026 US Open",
+    par: 70,
     source: "PGA TOUR",
     sourceUrl: "https://www.pgatour.com/leaderboard",
     matches: [/2026\s+u\.?s\.?\s+open/i, /\bu\.?s\.?\s+open\b/i],
@@ -366,7 +367,8 @@ async function syncTournamentScores({
   const golferById = new Map(golferRows.map((golfer) => [golfer.id, golfer]));
   const leaderboard = await fetchPgaTourLeaderboard(leaderboardId);
   const leaderboardPlayers = ((leaderboard.players ?? []) as PgaTourPlayer[]).filter((player) => player.player);
-  const par = inferRoundPar(leaderboardPlayers);
+  const configuredPar = "par" in leaderboardConfig ? leaderboardConfig.par : undefined;
+  const par = configuredPar ?? inferRoundPar(leaderboardPlayers);
   const sourceByName = buildSourceByName(leaderboardPlayers);
 
   const rows: ScoreRow[] = [];
