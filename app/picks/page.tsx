@@ -28,7 +28,7 @@ type Tournament = {
   round4_lock: string | null;
 };
 
-type Golfer = { id: string; name: string };
+type Golfer = { id: string; name: string; missed_cut?: boolean };
 type PickRow = { golfer_id: string; round: number };
 
 const ROUND_LABELS: Record<number, string> = {
@@ -106,6 +106,8 @@ export default function PicksPage() {
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [golfers, setGolfers] = useState<Golfer[]>([]);
+  const [cutLine, setCutLine] = useState<number | null>(null);
+  const [cutEstablished, setCutEstablished] = useState(false);
 
   const [selectedTournament, setSelectedTournament] = useState<string>("");
   const [round, setRound] = useState<number>(1);
@@ -262,6 +264,8 @@ export default function PicksPage() {
       try {
         if (!poolId || !selectedTournament) {
           setGolfers([]);
+          setCutLine(null);
+          setCutEstablished(false);
           return;
         }
 
@@ -285,14 +289,20 @@ export default function PicksPage() {
         if (!r.ok) {
           setMessage(j?.error || "Error loading tournament golfers.");
           setGolfers([]);
+          setCutLine(null);
+          setCutEstablished(false);
           return;
         }
 
         setGolfers((j?.golfers ?? []) as Golfer[]);
+        setCutLine(typeof j?.cutLine === "number" ? j.cutLine : null);
+        setCutEstablished(Boolean(j?.cutEstablished));
         setMessage((m) => (m === "Loadingâ€¦" ? "" : m));
       } catch (e: any) {
         setMessage(e?.message || "Golfer load error");
         setGolfers([]);
+        setCutLine(null);
+        setCutEstablished(false);
       }
     }
 
@@ -342,6 +352,11 @@ export default function PicksPage() {
   function togglePick(id: string) {
     if (isLocked) return;
     if (usedBefore.has(id) && !selected.includes(id)) return;
+    const golfer = golfers.find((item) => item.id === id);
+    if (isUsOpen2026 && round >= 3 && golfer?.missed_cut && !selected.includes(id)) {
+      setMessage(`${golfer.name} missed the cut and is unavailable.`);
+      return;
+    }
 
     if (selected.includes(id)) {
       setSelected((prev) => prev.filter((x) => x !== id));
@@ -1044,6 +1059,11 @@ export default function PicksPage() {
             {isUsOpen2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
                 2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 3 from Tiers 3, 4, and 5. Amateur picks receive a -5 stroke bonus on each scored round.
+                {cutEstablished && round >= 3 ? (
+                  <div style={{ marginTop: 5, color: "#fca5a5", fontWeight: 800 }}>
+                    Cut line: {cutLine === 0 ? "E" : cutLine && cutLine > 0 ? `+${cutLine}` : cutLine}. Struck-through players are unavailable.
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -1065,7 +1085,11 @@ export default function PicksPage() {
                     key={g.id}
                     onClick={() => removePick(g.id)}
                     disabled={isLocked}
-                    style={styles.chip(isLocked)}
+                    style={{
+                      ...styles.chip(isLocked),
+                      textDecoration: isUsOpen2026 && round >= 3 && g.missed_cut ? "line-through" : "none",
+                      opacity: isUsOpen2026 && round >= 3 && g.missed_cut ? 0.65 : 1,
+                    }}
                     title={isLocked ? "Locked" : "Remove pick"}
                   >
                     {g.name} {isLocked ? "" : "×"}
@@ -1181,11 +1205,12 @@ export default function PicksPage() {
                           {group.golfers.map((g) => {
                         const isUsed = usedBefore.has(g.id);
                         const isSelected = selectedSet.has(g.id);
+                        const isCutUnavailable = isUsOpen2026 && round >= 3 && Boolean(g.missed_cut);
                         const selectedNames = selectedGolfers.map((golfer) => golfer.name);
                         const tierCapError = isUsOpen2026 && !isSelected
                           ? getUsOpen2026TierCapError([...selectedNames, g.name])
                           : "";
-                        const disabled = isLocked || (isUsed && !isSelected) || !!tierCapError;
+                        const disabled = isLocked || (isUsed && !isSelected) || (isCutUnavailable && !isSelected) || !!tierCapError;
                         const parts = splitGolferName(g.name);
                         const meta = usOpen2026PlayerMeta(g.name);
 
@@ -1217,6 +1242,7 @@ export default function PicksPage() {
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
+                                  textDecoration: isCutUnavailable ? "line-through" : "none",
                                 }}
                                   >
                                     {parts.first}
@@ -1230,6 +1256,7 @@ export default function PicksPage() {
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
+                                  textDecoration: isCutUnavailable ? "line-through" : "none",
                                 }}
                                   >
                                     {parts.last || parts.first}
@@ -1246,6 +1273,8 @@ export default function PicksPage() {
                                 >
                                   {isLocked
                                     ? "LOCKED"
+                                    : isCutUnavailable
+                                    ? "MISSED CUT"
                                     : disabled
                                     ? isUsed && !isSelected
                                       ? "USED"

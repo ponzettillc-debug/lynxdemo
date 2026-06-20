@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { isUsOpen2026TournamentName } from "../../lib/usOpen2026";
+import { getUsOpen2026Cut, normalizeCutPlayerName } from "../../lib/usOpen2026Cut.server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -57,6 +59,15 @@ export async function GET(req: NextRequest) {
     if (membershipError) return jsonError(`Failed to verify pool membership: ${membershipError.message}`, 400);
     if (!membership) return jsonError("You are not a member of this pool.", 403);
 
+    const { data: tournament, error: tournamentError } = await check.supabaseAdmin
+      .from("tournaments")
+      .select("id,name")
+      .eq("pool_id", poolId)
+      .eq("id", tournamentId)
+      .maybeSingle();
+    if (tournamentError) return jsonError(`Failed to load tournament: ${tournamentError.message}`, 400);
+    if (!tournament) return jsonError("Tournament was not found.", 404);
+
     const { data: rosterRows, error: rosterError } = await check.supabaseAdmin
       .from("tournament_golfers")
       .select("golfer_id")
@@ -82,9 +93,26 @@ export async function GET(req: NextRequest) {
     const { data: golfers, error: golfersError } = await query;
     if (golfersError) return jsonError(`Failed to load golfers: ${golfersError.message}`, 400);
 
+    let cutLine: number | null = null;
+    let cutEstablished = false;
+    let cutNames = new Set<string>();
+    if (isUsOpen2026TournamentName(tournament.name)) {
+      const cut = await getUsOpen2026Cut();
+      cutLine = cut.cutLine;
+      cutEstablished = cut.established;
+      cutNames = cut.cutNames;
+    }
+
+    const golfersWithCutStatus = (golfers ?? []).map((golfer: any) => ({
+      ...golfer,
+      missed_cut: cutNames.has(normalizeCutPlayerName(golfer.name)),
+    }));
+
     return NextResponse.json({
       ok: true,
-      golfers: golfers ?? [],
+      golfers: golfersWithCutStatus,
+      cutLine,
+      cutEstablished,
       rostered: rosterIds.size > 0,
       fallback: rosterIds.size === 0,
     });

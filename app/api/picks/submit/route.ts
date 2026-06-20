@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isUsOpen2026TournamentName, validateUsOpen2026Selection } from "../../../lib/usOpen2026";
+import { getUsOpen2026Cut, normalizeCutPlayerName } from "../../../lib/usOpen2026Cut.server";
 
 type Body = {
   tournamentId: string;
@@ -146,6 +147,19 @@ export async function POST(req: Request) {
       });
       const validationError = validateUsOpen2026Selection(names);
       if (validationError) return jsonError(validationError, 400);
+
+      if (body.round >= 3) {
+        const cut = await getUsOpen2026Cut();
+        const missedCutPlayers = names.filter((name) =>
+          cut.cutNames.has(normalizeCutPlayerName(name))
+        );
+        if (missedCutPlayers.length > 0) {
+          return jsonError(
+            `Missed cut and unavailable: ${missedCutPlayers.join(", ")}.`,
+            400
+          );
+        }
+      }
     }
 
     // Burn rule: golfer cannot have been used by this user earlier in tournament (other rounds)
