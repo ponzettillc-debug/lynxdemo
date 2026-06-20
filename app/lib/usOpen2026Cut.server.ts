@@ -9,7 +9,13 @@ const CUT_POSITION = 60;
 
 type PublicPlayer = {
   player?: { displayName?: string; firstName?: string; lastName?: string };
-  scoringData?: { playerState?: string; roundStatus?: string; rounds?: string[] };
+  scoringData?: {
+    playerState?: string;
+    roundStatus?: string;
+    rounds?: string[];
+    total?: string;
+    score?: string;
+  };
 };
 
 export function normalizeCutPlayerName(name: string) {
@@ -50,6 +56,16 @@ export async function getUsOpen2026Cut() {
     gunzipSync(Buffer.from(payload, "base64")).toString("utf8")
   );
   const players = ((leaderboard?.players ?? []) as PublicPlayer[]).filter((row) => row.player);
+  const scoreByName = new Map<string, string>();
+  players.forEach((row) => {
+    const name =
+      row.player?.displayName ||
+      `${row.player?.firstName ?? ""} ${row.player?.lastName ?? ""}`;
+    const score = String(row.scoringData?.total || row.scoringData?.score || "").trim();
+    if (score && score !== "-") {
+      scoreByName.set(normalizeCutPlayerName(name), score);
+    }
+  });
   const completed = players
     .map((row) => {
       const rounds = (row.scoringData?.rounds ?? []).slice(0, 2).map(Number);
@@ -65,7 +81,12 @@ export async function getUsOpen2026Cut() {
     .sort((a, b) => a.total - b.total);
 
   if (completed.length < CUT_POSITION) {
-    return { established: false, cutLine: null as number | null, cutNames: new Set<string>() };
+    return {
+      established: false,
+      cutLine: null as number | null,
+      cutNames: new Set<string>(),
+      scoreByName,
+    };
   }
 
   const cutLine = completed[CUT_POSITION - 1].total;
@@ -85,5 +106,5 @@ export async function getUsOpen2026Cut() {
     }
   });
 
-  return { established: true, cutLine, cutNames };
+  return { established: true, cutLine, cutNames, scoreByName };
 }

@@ -28,7 +28,12 @@ type Tournament = {
   round4_lock: string | null;
 };
 
-type Golfer = { id: string; name: string; missed_cut?: boolean };
+type Golfer = {
+  id: string;
+  name: string;
+  missed_cut?: boolean;
+  tournament_score?: string | null;
+};
 type PickRow = { golfer_id: string; round: number };
 
 const ROUND_LABELS: Record<number, string> = {
@@ -98,6 +103,15 @@ function splitGolferName(name: string) {
     first: parts.slice(0, -1).join(" "),
     last: parts[parts.length - 1],
   };
+}
+
+function tournamentScoreColor(score?: string | null) {
+  const clean = String(score || "").trim();
+  if (!clean || /^e$/i.test(clean)) return "#f8fafc";
+  const value = Number(clean.replace(/^\+/, ""));
+  if (value < 0) return "#86efac";
+  if (value > 0) return "#fca5a5";
+  return "#f8fafc";
 }
 
 export default function PicksPage() {
@@ -1261,6 +1275,19 @@ export default function PicksPage() {
                                   >
                                     {parts.last || parts.first}
                                   </div>
+                                  {isUsOpen2026 && g.tournament_score ? (
+                                    <div
+                                      style={{
+                                        marginTop: 5,
+                                        fontSize: 11,
+                                        fontWeight: 900,
+                                        color: tournamentScoreColor(g.tournament_score),
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      TO PAR {g.tournament_score}
+                                    </div>
+                                  ) : null}
                                 </div>
 
                                 <div

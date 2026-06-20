@@ -96,16 +96,19 @@ export async function GET(req: NextRequest) {
     let cutLine: number | null = null;
     let cutEstablished = false;
     let cutNames = new Set<string>();
+    let scoreByName = new Map<string, string>();
     if (isUsOpen2026TournamentName(tournament.name)) {
       const cut = await getUsOpen2026Cut();
       cutLine = cut.cutLine;
       cutEstablished = cut.established;
       cutNames = cut.cutNames;
+      scoreByName = cut.scoreByName;
     }
 
     const golfersWithCutStatus = (golfers ?? []).map((golfer: any) => ({
       ...golfer,
       missed_cut: cutNames.has(normalizeCutPlayerName(golfer.name)),
+      tournament_score: scoreByName.get(normalizeCutPlayerName(golfer.name)) ?? null,
     }));
 
     return NextResponse.json({
