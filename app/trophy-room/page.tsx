@@ -53,6 +53,16 @@ function isUsOpen2026(tournamentName: string) {
   return /2026\s+u\.?s\.?.*open/i.test(tournamentName);
 }
 
+function trophyBannerFor(tournamentName: string) {
+  if (isMasters2026(tournamentName) || isPgaChampionship2026(tournamentName)) {
+    return "/4play-me/43004b27-4d15-434c-89c0-788550a0db66.png";
+  }
+  if (isUsOpen2026(tournamentName)) {
+    return "/4play-me/a2fc9c61-c935-4351-97ed-75397f0b7c5b-banner-v2.png";
+  }
+  return "";
+}
+
 export default function TrophyRoomPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,6 +214,18 @@ export default function TrophyRoomPage() {
     padding: "6px 10px",
     fontSize: 13,
     fontWeight: 900,
+  };
+
+  const tournamentBannerStyle: React.CSSProperties = {
+    width: "100%",
+    height: "clamp(120px, 25vw, 220px)",
+    display: "block",
+    objectFit: "cover",
+    objectPosition: "center 35%",
+    marginBottom: 14,
+    borderRadius: 10,
+    border: "1px solid rgba(248,250,252,0.18)",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 24px rgba(0,0,0,0.24)",
   };
 
   const winnerTile: React.CSSProperties = {
@@ -614,6 +636,14 @@ export default function TrophyRoomPage() {
                     {row.winners.length > 1 ? "Co-Winners" : "Winner"}
                   </div>
                 </div>
+
+                {trophyBannerFor(row.tournament_name) ? (
+                  <img
+                    src={trophyBannerFor(row.tournament_name)}
+                    alt={`${row.tournament_name} 4Play characters`}
+                    style={tournamentBannerStyle}
+                  />
+                ) : null}
 
                 <div style={{ display: "grid", gap: 8 }}>
                   {row.winners.map((winner) => {
