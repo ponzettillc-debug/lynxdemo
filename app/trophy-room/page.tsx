@@ -218,14 +218,28 @@ export default function TrophyRoomPage() {
 
   const tournamentBannerStyle: React.CSSProperties = {
     width: "100%",
-    height: "clamp(120px, 25vw, 220px)",
+    height: "clamp(240px, 42vw, 340px)",
     display: "block",
     objectFit: "cover",
     objectPosition: "center 35%",
-    marginBottom: 14,
-    borderRadius: 10,
+  };
+
+  const tournamentBannerStage: React.CSSProperties = {
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: 12,
     border: "1px solid rgba(248,250,252,0.18)",
     boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 10px 24px rgba(0,0,0,0.24)",
+  };
+
+  const tournamentWinnerOverlay: React.CSSProperties = {
+    position: "absolute",
+    left: 10,
+    right: 10,
+    bottom: 10,
+    zIndex: 2,
+    display: "grid",
+    gap: 8,
   };
 
   const winnerTile: React.CSSProperties = {
@@ -637,26 +651,64 @@ export default function TrophyRoomPage() {
                   </div>
                 </div>
 
-                {trophyBannerFor(row.tournament_name) ? (
-                  <img
-                    src={trophyBannerFor(row.tournament_name)}
-                    alt={`${row.tournament_name} 4Play characters`}
-                    style={tournamentBannerStyle}
-                  />
-                ) : null}
+                <div
+                  style={
+                    trophyBannerFor(row.tournament_name)
+                      ? tournamentBannerStage
+                      : undefined
+                  }
+                >
+                  {trophyBannerFor(row.tournament_name) ? (
+                    <img
+                      src={trophyBannerFor(row.tournament_name)}
+                      alt={`${row.tournament_name} 4Play characters`}
+                      style={{
+                        ...tournamentBannerStyle,
+                        objectPosition: isUsOpen2026(row.tournament_name)
+                          ? "center 18%"
+                          : "center 35%",
+                      }}
+                    />
+                  ) : null}
 
-                <div style={{ display: "grid", gap: 8 }}>
+                  <div
+                    style={
+                      trophyBannerFor(row.tournament_name)
+                        ? tournamentWinnerOverlay
+                        : { display: "grid", gap: 8 }
+                    }
+                  >
                   {row.winners.map((winner) => {
                     const useMastersTheme = isMasters2026(row.tournament_name);
                     const usePgaTheme = isPgaChampionship2026(row.tournament_name);
                     const useUsOpenTheme = isUsOpen2026(row.tournament_name);
-                    const winnerStyle = useMastersTheme
+                    const themedWinnerStyle = useMastersTheme
                       ? mastersWinnerTile
                       : usePgaTheme
                       ? pgaWinnerTile
                       : useUsOpenTheme
                       ? usOpenWinnerTile
                       : winnerTile;
+                    const overlayBackground = useMastersTheme
+                      ? "rgba(2,44,34,0.68)"
+                      : usePgaTheme
+                      ? "rgba(8,22,48,0.68)"
+                      : useUsOpenTheme
+                      ? "rgba(5,23,54,0.70)"
+                      : "rgba(2,6,23,0.70)";
+                    const winnerStyle = trophyBannerFor(row.tournament_name)
+                      ? {
+                          ...themedWinnerStyle,
+                          minHeight: 82,
+                          padding: "10px 12px",
+                          background: overlayBackground,
+                          backdropFilter: "blur(8px)",
+                          WebkitBackdropFilter: "blur(8px)",
+                          border: useUsOpenTheme
+                            ? "1px solid rgba(248,250,252,0.46)"
+                            : themedWinnerStyle.border,
+                        }
+                      : themedWinnerStyle;
 
                     return (
                       <div
@@ -803,6 +855,7 @@ export default function TrophyRoomPage() {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </section>
             ))}
