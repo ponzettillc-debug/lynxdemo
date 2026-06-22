@@ -49,6 +49,10 @@ function isPgaChampionship2026(tournamentName: string) {
   return /pga/i.test(tournamentName) && /championship/i.test(tournamentName) && /2026/.test(tournamentName);
 }
 
+function isUsOpen2026(tournamentName: string) {
+  return /2026\s+u\.?s\.?.*open/i.test(tournamentName);
+}
+
 export default function TrophyRoomPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -411,6 +415,103 @@ export default function TrophyRoomPage() {
     boxShadow: "0 2px 8px rgba(0,0,0,0.26)",
   };
 
+  const usOpenWinnerTile: React.CSSProperties = {
+    ...winnerTile,
+    minHeight: 106,
+    padding: 16,
+    background:
+      "linear-gradient(135deg, rgba(127,29,29,0.78), rgba(248,250,252,0.10) 45%, rgba(2,6,23,0.92) 57%, rgba(30,64,175,0.68))",
+    border: "1px solid rgba(248,250,252,0.38)",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.18), 0 16px 34px rgba(0,0,0,0.28), 0 0 22px rgba(37,99,235,0.12)",
+  };
+
+  const usOpenTrophyWrap: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "auto auto",
+    gap: 14,
+    alignItems: "center",
+    justifyContent: "end",
+    minWidth: 150,
+  };
+
+  const usOpenTrophy: React.CSSProperties = {
+    position: "relative",
+    width: 70,
+    height: 80,
+    display: "grid",
+    justifyItems: "center",
+    alignItems: "end",
+  };
+
+  const usOpenCup: React.CSSProperties = {
+    position: "relative",
+    width: 44,
+    height: 39,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "7px 7px 18px 18px",
+    background:
+      "linear-gradient(135deg, #ffffff 0%, #dbeafe 24%, #dc2626 45%, #f8fafc 62%, #1d4ed8 100%)",
+    border: "1px solid rgba(255,255,255,0.92)",
+    boxShadow:
+      "inset 0 5px 10px rgba(255,255,255,0.48), 0 0 24px rgba(248,250,252,0.24)",
+  };
+
+  const usOpenCupInscription: React.CSSProperties = {
+    width: 32,
+    minHeight: 22,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 5,
+    background: "linear-gradient(180deg, rgba(15,23,42,0.96), rgba(30,64,175,0.94))",
+    border: "1px solid rgba(255,255,255,0.72)",
+    color: "#ffffff",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 5.2,
+    fontWeight: 900,
+    lineHeight: 0.94,
+    textAlign: "center",
+    textTransform: "uppercase",
+    textShadow: "0 1px 1px rgba(0,0,0,0.58)",
+  };
+
+  const usOpenHandleBase: React.CSSProperties = {
+    position: "absolute",
+    top: 10,
+    width: 18,
+    height: 23,
+    border: "4px solid rgba(248,250,252,0.94)",
+    borderBottomColor: "transparent",
+  };
+
+  const usOpenStem: React.CSSProperties = {
+    width: 10,
+    height: 17,
+    borderRadius: 3,
+    background: "linear-gradient(180deg, #f8fafc, #dc2626 48%, #1d4ed8)",
+  };
+
+  const usOpenBase: React.CSSProperties = {
+    width: 54,
+    height: 11,
+    borderRadius: "9px 9px 4px 4px",
+    background: "linear-gradient(90deg, #b91c1c 0 33%, #f8fafc 33% 66%, #1d4ed8 66%)",
+    border: "1px solid rgba(255,255,255,0.55)",
+  };
+
+  const usOpenFlagAccent: React.CSSProperties = {
+    position: "absolute",
+    right: -1,
+    top: -3,
+    width: 17,
+    height: 17,
+    borderRadius: 999,
+    background: "linear-gradient(135deg, #dc2626 0 34%, #ffffff 34% 66%, #1d4ed8 66%)",
+    border: "1px solid rgba(255,255,255,0.92)",
+    boxShadow: "0 2px 9px rgba(0,0,0,0.30)",
+  };
+
   return (
     <main style={shell}>
       <div style={content}>
@@ -482,10 +583,13 @@ export default function TrophyRoomPage() {
                   {row.winners.map((winner) => {
                     const useMastersTheme = isMasters2026(row.tournament_name);
                     const usePgaTheme = isPgaChampionship2026(row.tournament_name);
+                    const useUsOpenTheme = isUsOpen2026(row.tournament_name);
                     const winnerStyle = useMastersTheme
                       ? mastersWinnerTile
                       : usePgaTheme
                       ? pgaWinnerTile
+                      : useUsOpenTheme
+                      ? usOpenWinnerTile
                       : winnerTile;
 
                     return (
@@ -516,6 +620,8 @@ export default function TrophyRoomPage() {
                               ? mastersTrophyWrap
                               : usePgaTheme
                               ? pgaTrophyWrap
+                              : useUsOpenTheme
+                              ? usOpenTrophyWrap
                               : undefined
                           }
                         >
@@ -581,9 +687,40 @@ export default function TrophyRoomPage() {
                             </div>
                           ) : null}
 
+                          {useUsOpenTheme ? (
+                            <div style={usOpenTrophy} aria-hidden="true">
+                              <div
+                                style={{
+                                  ...usOpenHandleBase,
+                                  left: 1,
+                                  borderRight: "none",
+                                  borderRadius: "15px 0 0 15px",
+                                }}
+                              />
+                              <div
+                                style={{
+                                  ...usOpenHandleBase,
+                                  right: 1,
+                                  borderLeft: "none",
+                                  borderRadius: "0 15px 15px 0",
+                                }}
+                              />
+                              <div style={usOpenFlagAccent} />
+                              <div style={usOpenCup}>
+                                <div style={usOpenCupInscription}>
+                                  <span>4Play</span>
+                                  <span>U.S. Open</span>
+                                  <span>Champ 26</span>
+                                </div>
+                              </div>
+                              <div style={usOpenStem} />
+                              <div style={usOpenBase} />
+                            </div>
+                          ) : null}
+
                           <div
                             style={
-                              useMastersTheme || usePgaTheme
+                              useMastersTheme || usePgaTheme || useUsOpenTheme
                                 ? { ...mastersScoreWrap, fontSize: 22, fontWeight: 900 }
                                 : { fontSize: 22, fontWeight: 900 }
                             }

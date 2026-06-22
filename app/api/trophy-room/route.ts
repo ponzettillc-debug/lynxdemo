@@ -199,6 +199,22 @@ export async function GET(req: NextRequest) {
       displayNameByUserId.set(row.user_id, row.display_name ?? null);
     });
 
+    const authDisplayNameByUserId = new Map<string, string>();
+    for (let page = 1; page <= 20; page += 1) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage: 1000,
+      });
+      if (error) return jsonError(`Error loading winner names: ${error.message}`, 400);
+
+      const authUsers = data?.users ?? [];
+      authUsers.forEach((authUser: any) => {
+        const displayName = String(authUser.user_metadata?.display_name || "").trim();
+        if (displayName) authDisplayNameByUserId.set(authUser.id, displayName);
+      });
+      if (authUsers.length < 1000) break;
+    }
+
     const scoreByTournamentGolferRound = new Map<string, number>();
     scores.forEach((score) => {
       const round = Number(score.round);
@@ -248,7 +264,10 @@ export async function GET(req: NextRequest) {
         const ranked = [...totalsByUserId.entries()]
           .map(([userId, row]) => ({
             user_id: userId,
-            user_name: userLabel(displayNameByUserId.get(userId), userId),
+            user_name: userLabel(
+              authDisplayNameByUserId.get(userId) || displayNameByUserId.get(userId),
+              userId
+            ),
             total_strokes: row.total,
             scored_picks: row.scoredPicks,
           }))
