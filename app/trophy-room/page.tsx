@@ -420,7 +420,7 @@ export default function TrophyRoomPage() {
     minHeight: 106,
     padding: 16,
     background:
-      "linear-gradient(135deg, rgba(127,29,29,0.78), rgba(248,250,252,0.10) 45%, rgba(2,6,23,0.92) 57%, rgba(30,64,175,0.68))",
+      "linear-gradient(180deg, rgba(5,23,54,0.97) 0 69%, rgba(185,28,28,0.78) 69% 76%, rgba(248,250,252,0.20) 76% 80%, rgba(12,45,92,0.96) 80% 100%)",
     border: "1px solid rgba(248,250,252,0.38)",
     boxShadow:
       "inset 0 1px 0 rgba(255,255,255,0.18), 0 16px 34px rgba(0,0,0,0.28), 0 0 22px rgba(37,99,235,0.12)",
@@ -439,20 +439,22 @@ export default function TrophyRoomPage() {
     position: "relative",
     width: 70,
     height: 80,
+    perspective: 180,
     display: "grid",
     justifyItems: "center",
     alignItems: "end",
   };
 
   const usOpenCup: React.CSSProperties = {
-    position: "relative",
+    position: "absolute",
+    inset: 0,
     width: 44,
     height: 39,
     display: "grid",
     placeItems: "center",
     borderRadius: "7px 7px 18px 18px",
     background:
-      "linear-gradient(135deg, #ffffff 0%, #dbeafe 24%, #dc2626 45%, #f8fafc 62%, #1d4ed8 100%)",
+      "linear-gradient(180deg, #153e75 0 24%, #f8fafc 24% 72%, #b91c1c 72% 100%)",
     border: "1px solid rgba(255,255,255,0.92)",
     boxShadow:
       "inset 0 5px 10px rgba(255,255,255,0.48), 0 0 24px rgba(248,250,252,0.24)",
@@ -464,8 +466,8 @@ export default function TrophyRoomPage() {
     display: "grid",
     placeItems: "center",
     borderRadius: 5,
-    background: "linear-gradient(180deg, rgba(15,23,42,0.96), rgba(30,64,175,0.94))",
-    border: "1px solid rgba(255,255,255,0.72)",
+    background: "linear-gradient(180deg, rgba(7,29,66,0.98), rgba(15,47,96,0.96))",
+    border: "1px solid rgba(220,38,38,0.78)",
     color: "#ffffff",
     fontFamily: "Georgia, 'Times New Roman', serif",
     fontSize: 5.2,
@@ -489,31 +491,65 @@ export default function TrophyRoomPage() {
     width: 10,
     height: 17,
     borderRadius: 3,
-    background: "linear-gradient(180deg, #f8fafc, #dc2626 48%, #1d4ed8)",
+    background: "linear-gradient(180deg, #f8fafc, #94a3b8 42%, #153e75)",
   };
 
   const usOpenBase: React.CSSProperties = {
     width: 54,
     height: 11,
     borderRadius: "9px 9px 4px 4px",
-    background: "linear-gradient(90deg, #b91c1c 0 33%, #f8fafc 33% 66%, #1d4ed8 66%)",
+    background: "linear-gradient(180deg, #b91c1c 0 22%, #f8fafc 22% 36%, #0b2a5b 36% 100%)",
     border: "1px solid rgba(255,255,255,0.55)",
   };
 
-  const usOpenFlagAccent: React.CSSProperties = {
+  const usOpenStarAccent: React.CSSProperties = {
     position: "absolute",
     right: -1,
     top: -3,
     width: 17,
     height: 17,
-    borderRadius: 999,
-    background: "linear-gradient(135deg, #dc2626 0 34%, #ffffff 34% 66%, #1d4ed8 66%)",
-    border: "1px solid rgba(255,255,255,0.92)",
-    boxShadow: "0 2px 9px rgba(0,0,0,0.30)",
+    background: "#ffffff",
+    clipPath: "polygon(50% 0%, 61% 34%, 98% 35%, 68% 56%, 79% 92%, 50% 70%, 21% 92%, 32% 56%, 2% 35%, 39% 34%)",
+    filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.42))",
+  };
+
+  const usOpenCupRotor: React.CSSProperties = {
+    position: "relative",
+    width: 44,
+    height: 39,
+    transformStyle: "preserve-3d",
+    animation: "usOpenTrophySpin 14s linear infinite",
+  };
+
+  const usOpenCupFront: React.CSSProperties = {
+    ...usOpenCup,
+    backfaceVisibility: "hidden",
+  };
+
+  const usOpenCupBack: React.CSSProperties = {
+    ...usOpenCup,
+    backfaceVisibility: "hidden",
+    transform: "rotateY(180deg)",
+    backgroundImage:
+      "linear-gradient(rgba(7,29,66,0.08), rgba(7,29,66,0.22)), url('/4play-logo.png')",
+    backgroundSize: "cover",
+    backgroundPosition: "center 15%",
+    border: "1px solid rgba(255,255,255,0.94)",
   };
 
   return (
     <main style={shell}>
+      <style>{`
+        @keyframes usOpenTrophySpin {
+          0%, 8% { transform: rotateY(0deg); }
+          42%, 58% { transform: rotateY(180deg); }
+          92%, 100% { transform: rotateY(360deg); }
+        }
+        .us-open-trophy-rotor:hover { animation-play-state: paused !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .us-open-trophy-rotor { animation: none !important; }
+        }
+      `}</style>
       <div style={content}>
         <img src="/4play-banner.png" alt="4Play Golf" style={bannerStyle} />
 
@@ -705,13 +741,19 @@ export default function TrophyRoomPage() {
                                   borderRadius: "0 15px 15px 0",
                                 }}
                               />
-                              <div style={usOpenFlagAccent} />
-                              <div style={usOpenCup}>
-                                <div style={usOpenCupInscription}>
-                                  <span>4Play</span>
-                                  <span>U.S. Open</span>
-                                  <span>Champ 26</span>
+                              <div style={usOpenStarAccent} />
+                              <div
+                                className="us-open-trophy-rotor"
+                                style={usOpenCupRotor}
+                              >
+                                <div style={usOpenCupFront}>
+                                  <div style={usOpenCupInscription}>
+                                    <span>4Play</span>
+                                    <span>U.S. Open</span>
+                                    <span>Champ 26</span>
+                                  </div>
                                 </div>
+                                <div style={usOpenCupBack} />
                               </div>
                               <div style={usOpenStem} />
                               <div style={usOpenBase} />
