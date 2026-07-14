@@ -1305,9 +1305,15 @@ export default function PicksPage() {
                           : "";
                         const disabled = isLocked || (isUsed && !isSelected) || (isCutUnavailable && !isSelected) || !!tierCapError;
                         const parts = splitGolferName(g.name);
-                        const meta = isOpenChampionship2026
-                          ? openChampionship2026PlayerMeta(g.name)
-                          : usOpen2026PlayerMeta(g.name);
+                        const openMeta = isOpenChampionship2026 ? openChampionship2026PlayerMeta(g.name) : null;
+                        const meta = openMeta ?? usOpen2026PlayerMeta(g.name);
+                        const openTileLabel = openMeta
+                          ? openMeta.isAmateur
+                            ? "(A)"
+                            : openMeta.isUkNative
+                            ? "TAP"
+                            : openMeta.label.toUpperCase()
+                          : "";
 
                             return (
                               <button
@@ -1390,7 +1396,7 @@ export default function PicksPage() {
                                     : isSelected
                                     ? "SELECTED"
                                     : isOpenChampionship2026
-                                    ? openChampionship2026PlayerMeta(g.name).badgeLabel.toUpperCase()
+                                    ? openTileLabel
                                     : isUsOpen2026
                                     ? meta.label.toUpperCase()
                                     : "TAP"}

@@ -256,7 +256,7 @@ export function openChampionship2026PlayerMeta(name: string) {
     isUkNative,
     isAmateur,
     label,
-    badgeLabel: isUkNative && isAmateur ? "UK/Ireland Native + Amateur" : label,
+    badgeLabel: isAmateur ? "(A)" : isUkNative ? "" : label,
     sortOrder: isUkNative ? 0 : isAmateur ? 9 : Number(tier),
   };
 }
