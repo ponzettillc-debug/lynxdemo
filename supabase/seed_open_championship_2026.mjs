@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 const EASY_OFFICE_POOLS_URL = "https://www.easyofficepools.com/british-open-championship-pool-tiers/";
 const TOURNAMENT_NAME = "2026 British Open";
+const AUTH_PAGE_SIZE = 1000;
 
 const UK_NATIVES = [
   "Sam Bairstow",
@@ -72,6 +73,67 @@ function buildFieldNames(tiers) {
   return [...UK_NATIVES, ...numberedNames];
 }
 
+async function listActiveAuthUsers(admin) {
+  const users = [];
+  let page = 1;
+
+  while (page <= 20) {
+    const { data, error } = await admin.auth.admin.listUsers({
+      page,
+      perPage: AUTH_PAGE_SIZE,
+    });
+    if (error) throw new Error(error.message || "Failed to list users.");
+
+    const pageUsers = data?.users || [];
+    users.push(
+      ...pageUsers.filter((user) => {
+        const hasEmail = Boolean(user.email);
+        const isDeleted = Boolean(user.deleted_at);
+        const isBanned = Boolean(user.banned_until && new Date(user.banned_until).getTime() > Date.now());
+        return hasEmail && !isDeleted && !isBanned;
+      })
+    );
+
+    if (pageUsers.length < AUTH_PAGE_SIZE) break;
+    page += 1;
+  }
+
+  return users;
+}
+
+async function ensureActiveUsersArePoolMembers(admin, poolId) {
+  const users = await listActiveAuthUsers(admin);
+  const shouldWrite = /^true$/i.test(process.env.ADD_ACTIVE_USERS_TO_POOL || "");
+
+  const { data: existingMembers, error: memberError } = await admin
+    .from("pool_members")
+    .select("user_id")
+    .eq("pool_id", poolId);
+  if (memberError) throw memberError;
+
+  const existingIds = new Set((existingMembers || []).map((row) => String(row.user_id)));
+  const missingUsers = users.filter((user) => !existingIds.has(user.id));
+
+  if (shouldWrite && missingUsers.length) {
+    const { error: insertMemberError } = await admin
+      .from("pool_members")
+      .insert(missingUsers.map((user) => ({
+        pool_id: poolId,
+        user_id: user.id,
+        role: "member",
+      })));
+    if (insertMemberError) throw insertMemberError;
+  }
+
+  return {
+    active_users: users.length,
+    missing_pool_members: missingUsers.length,
+    missing_pool_member_emails: missingUsers.map((user) => user.email).filter(Boolean),
+    pool_members_added: shouldWrite ? missingUsers.length : 0,
+    membership_write_enabled: shouldWrite,
+  };
+}
+
 async function main() {
   const env = readEnv();
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
@@ -96,6 +158,8 @@ async function main() {
     .maybeSingle();
   if (poolError) throw poolError;
   if (!pool) throw new Error(`Pool "${poolName}" not found. Run bootstrap first.`);
+
+  const membership = await ensureActiveUsersArePoolMembers(admin, pool.id);
 
   let { data: tournament, error: tournamentError } = await admin
     .from("tournaments")
@@ -167,6 +231,11 @@ async function main() {
     golfers_added: missingNames.length,
     roster_inserted: rosterRows.length,
     uk_native_count: UK_NATIVES.length,
+    active_users: membership.active_users,
+    missing_pool_members: membership.missing_pool_members,
+    missing_pool_member_emails: membership.missing_pool_member_emails,
+    pool_members_added: membership.pool_members_added,
+    membership_write_enabled: membership.membership_write_enabled,
   }, null, 2));
 }
 

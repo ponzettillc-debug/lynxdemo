@@ -17,6 +17,7 @@ const ROUND_BANNERS: Record<string, string> = {
   round3: "/4play_golf_saturday.png",
   round4: "/4play_golf_sunday.png",
 };
+const BRITISH_OPEN_2026_BANNER = "/british-open-2026-4play-header.png";
 
 type Tournament = {
   id: string;
@@ -229,6 +230,11 @@ function getBannerForLockedRound(lockedRound: 1 | 2 | 3 | 4 | null) {
   if (lockedRound === 3) return ROUND_BANNERS.round3;
   if (lockedRound === 4) return ROUND_BANNERS.round4;
   return ROUND_BANNERS.default;
+}
+
+function isBritishOpen2026(name?: string | null) {
+  const value = String(name || "");
+  return /2026/i.test(value) && /(british\s+open|open\s+championship)/i.test(value);
 }
 
 function getRoundTilesForDisplay(
@@ -602,7 +608,8 @@ export default function LeaderboardPage() {
     : lockedRound
     ? `Round ${lockedRound} locked`
     : "Awaiting lock";
-  const bannerSrc = getBannerForLockedRound(lockedRound);
+  const isBritishOpenSelected = isBritishOpen2026(selectedTournament?.name);
+  const bannerSrc = isBritishOpenSelected ? BRITISH_OPEN_2026_BANNER : getBannerForLockedRound(lockedRound);
 
   function toggleAllUsedExpanded(userId: string) {
     setExpandedAllUsedUsers((prev) => ({
@@ -920,7 +927,7 @@ export default function LeaderboardPage() {
             aria-label="View daily 4Play image"
             style={{ display: "inline-flex", justifySelf: "start", lineHeight: 0 }}
           >
-            <img src="/4play-logo.png" alt="4Play Golf" style={selectorLogo} />
+            <img src={bannerSrc} alt="4Play Golf" style={selectorLogo} />
           </a>
         </div>
         <div
