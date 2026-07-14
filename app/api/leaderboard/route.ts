@@ -68,6 +68,10 @@ const PUBLIC_LEADERBOARDS = [
     id: "R2026026",
     matches: [/2026\s+u\.?s\.?\s+open/i, /\bu\.?s\.?\s+open\b/i],
   },
+  {
+    id: "R2026100",
+    matches: [/2026\s+british\s+open/i, /open\s+championship/i],
+  },
 ];
 
 function jsonError(message: string, status = 400) {
