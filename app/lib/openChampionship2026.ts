@@ -22,6 +22,12 @@ const UK_NATIVES = [
   "Jack McDonald",
   "Robert MacIntyre",
   "Rory McIlroy",
+  "Shane Lowry",
+  "Tom McKibbin",
+  "Darren Clarke",
+  "Padraig Harrington",
+  "Stuart Grehan",
+  "David Howard",
 ];
 
 const TIER_1 = [
@@ -76,7 +82,6 @@ const TIER_5 = [
   "Gary Woodland",
   "Alex Smalley",
   "Jake Knapp",
-  "Shane Lowry",
   "Sam Stevens",
   "Joaquin Niemann",
   "Daniel Berger",
@@ -132,7 +137,6 @@ const TIER_7 = [
   "Hennie Du Plessis",
   "Adrien Saddier",
   "Jose Luis Ballester",
-  "Tom McKibbin",
   "Daniel Brown",
   "Cameron Smith",
   "Travis Smyth",
@@ -155,7 +159,6 @@ const TIER_8 = [
   "Baard Bjoernevik Skogen",
   "Caleb Surratt",
   "Cameron John",
-  "Darren Clarke",
   "David Duval",
   "Francesco Laporta",
   "Francesco Molinari",
@@ -168,7 +171,6 @@ const TIER_8 = [
   "Marcus Plunkett",
   "MJ Daffue",
   "Naoyuki Kataoka",
-  "Padraig Harrington",
   "Ren Yonezawa",
   "Ryutaro Nagano",
   "Stewart Cink",
@@ -199,11 +201,11 @@ export const OPEN_CHAMPIONSHIP_2026_FIELD = [
   ...TIER_6,
   ...TIER_7,
   ...TIER_8,
-  ...AMATEURS,
+  ...AMATEURS.filter((name) => !UK_NATIVES.includes(name)),
 ];
 
 const TIER_RULES: Record<string, string> = {
-  "UK Natives": "Required: choose exactly 1 each round",
+  "UK/Ireland Natives": "Required: choose exactly 1 each round",
   "Tier 1": "Cap: Choose 1 Max",
   "Tier 2": "Cap: Choose 1 Max",
   "Tier 3": "Cap: Choose 1 Max",
@@ -233,7 +235,11 @@ UK_NATIVES.forEach((name) => tierByName.set(normalizeName(name), "UK"));
 ].forEach(([names, tier]) => {
   (names as string[]).forEach((name) => tierByName.set(normalizeName(name), tier as OpenChampionship2026Tier));
 });
-AMATEURS.forEach((name) => tierByName.set(normalizeName(name), "A"));
+const amateurNames = new Set(AMATEURS.map(normalizeName));
+AMATEURS.forEach((name) => {
+  const normalized = normalizeName(name);
+  if (!tierByName.has(normalized)) tierByName.set(normalized, "A");
+});
 
 export function isOpenChampionship2026TournamentName(name?: string | null) {
   const value = String(name || "");
@@ -243,12 +249,14 @@ export function isOpenChampionship2026TournamentName(name?: string | null) {
 export function openChampionship2026PlayerMeta(name: string) {
   const tier = tierByName.get(normalizeName(name)) || 8;
   const isUkNative = tier === "UK";
-  const isAmateur = tier === "A";
+  const isAmateur = amateurNames.has(normalizeName(name));
+  const label = isUkNative ? "UK/Ireland Natives" : isAmateur ? "Amateur" : `Tier ${tier}`;
   return {
     tier,
     isUkNative,
     isAmateur,
-    label: isUkNative ? "UK Natives" : isAmateur ? "Amateur" : `Tier ${tier}`,
+    label,
+    badgeLabel: isUkNative && isAmateur ? "UK/Ireland Native + Amateur" : label,
     sortOrder: isUkNative ? 0 : isAmateur ? 9 : Number(tier),
   };
 }
@@ -277,8 +285,8 @@ export function openChampionship2026SelectionCounts(names: string[]) {
 export function validateOpenChampionship2026Selection(names: string[]) {
   const counts = openChampionship2026SelectionCounts(names);
 
-  if (counts.ukNative < 1) return "2026 British Open rule: pick exactly 1 UK Native each round.";
-  if (counts.ukNative > 1) return "2026 British Open rule: pick only 1 UK Native each round.";
+  if (counts.ukNative < 1) return "2026 British Open rule: pick exactly 1 UK/Ireland Native each round.";
+  if (counts.ukNative > 1) return "2026 British Open rule: pick only 1 UK/Ireland Native each round.";
   if (counts.tier1 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 1 per round.";
   if (counts.tier2 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 2 per round.";
   if (counts.tier3 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 3 per round.";
@@ -288,7 +296,7 @@ export function validateOpenChampionship2026Selection(names: string[]) {
 
 export function getOpenChampionship2026TierCapError(names: string[]) {
   const counts = openChampionship2026SelectionCounts(names);
-  if (counts.ukNative > 1) return "Only 1 UK Native player is allowed per round.";
+  if (counts.ukNative > 1) return "Only 1 UK/Ireland Native player is allowed per round.";
   if (counts.tier1 > 1) return "Only 1 Tier 1 player is allowed per round.";
   if (counts.tier2 > 1) return "Only 1 Tier 2 player is allowed per round.";
   if (counts.tier3 > 1) return "Only 1 Tier 3 player is allowed per round.";
