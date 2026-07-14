@@ -16,6 +16,11 @@ function isMissingRosterTable(error: any) {
   return text.includes("42p01") || text.includes("tournament_golfers");
 }
 
+function fmtRelativeScore(score: number) {
+  if (score === 0) return "E";
+  return score > 0 ? `+${score}` : String(score);
+}
+
 async function requireUser(req: NextRequest) {
   if (!supabaseUrl) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_URL.", 500) };
   if (!supabaseAnonKey) return { error: jsonError("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY.", 500) };
@@ -105,10 +110,32 @@ export async function GET(req: NextRequest) {
       scoreByName = cut.scoreByName;
     }
 
+    const scoreByGolferId = new Map<string, number>();
+    if (rosterIds.size > 0) {
+      const { data: scores, error: scoresError } = await check.supabaseAdmin
+        .from("scores")
+        .select("golfer_id,strokes")
+        .eq("pool_id", poolId)
+        .eq("tournament_id", tournamentId)
+        .in("golfer_id", Array.from(rosterIds));
+
+      if (scoresError) return jsonError(`Failed to load tournament scores: ${scoresError.message}`, 400);
+
+      (scores ?? []).forEach((score: any) => {
+        const golferId = String(score.golfer_id || "");
+        const strokes = Number(score.strokes);
+        if (!golferId || !Number.isFinite(strokes)) return;
+        scoreByGolferId.set(golferId, (scoreByGolferId.get(golferId) ?? 0) + strokes);
+      });
+    }
+
     const golfersWithCutStatus = (golfers ?? []).map((golfer: any) => ({
       ...golfer,
       missed_cut: cutNames.has(normalizeCutPlayerName(golfer.name)),
-      tournament_score: scoreByName.get(normalizeCutPlayerName(golfer.name)) ?? null,
+      tournament_score:
+        scoreByGolferId.has(String(golfer.id))
+          ? fmtRelativeScore(scoreByGolferId.get(String(golfer.id)) ?? 0)
+          : scoreByName.get(normalizeCutPlayerName(golfer.name)) ?? null,
     }));
 
     return NextResponse.json({

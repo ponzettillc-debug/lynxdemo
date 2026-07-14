@@ -350,28 +350,41 @@ async function syncTournamentScores({
   }
   const leaderboardId = leaderboardConfig.id;
 
-  const [{ data: picks, error: picksError }, { data: golfers, error: golfersError }] = await Promise.all([
+  const [
+    { data: picks, error: picksError },
+    { data: golfers, error: golfersError },
+    { data: rosterRows, error: rosterError },
+  ] = await Promise.all([
     supabaseAdmin
       .from("picks")
       .select("golfer_id,round")
       .eq("pool_id", poolId)
       .eq("tournament_id", tournamentId),
     supabaseAdmin.from("golfers").select("id,name").eq("pool_id", poolId),
+    supabaseAdmin
+      .from("tournament_golfers")
+      .select("golfer_id")
+      .eq("pool_id", poolId)
+      .eq("tournament_id", tournamentId)
+      .eq("active", true),
   ]);
 
   if (picksError) throw new Error(`Failed to load picks: ${picksError.message}`);
   if (golfersError) throw new Error(`Failed to load golfers: ${golfersError.message}`);
+  if (rosterError) throw new Error(`Failed to load tournament roster: ${rosterError.message}`);
 
   const pickedRows = (picks ?? []) as PickRow[];
   const golferRows = (golfers ?? []) as GolferRow[];
-  const pickedKeys = new Set(
-    pickedRows
-      .filter((pick) => [1, 2, 3, 4].includes(Number(pick.round)))
-      .map((pick) => `${pick.golfer_id}:${pick.round}`)
-  );
+  const activeRosterIds = new Set((rosterRows ?? []).map((row: any) => String(row.golfer_id)));
+  const pickedGolferIds = new Set(pickedRows.map((pick) => String(pick.golfer_id)));
+  const targetGolferIds = activeRosterIds.size > 0 ? activeRosterIds : pickedGolferIds;
+  const syncKeys = new Set<string>();
+  targetGolferIds.forEach((golferId) => {
+    ([1, 2, 3, 4] as const).forEach((round) => syncKeys.add(`${golferId}:${round}`));
+  });
 
-  if (pickedKeys.size === 0) {
-    throw new Error("No picks were found for this tournament.");
+  if (syncKeys.size === 0) {
+    throw new Error("No active roster golfers or picks were found for this tournament.");
   }
 
   const golferById = new Map(golferRows.map((golfer) => [golfer.id, golfer]));
@@ -386,7 +399,7 @@ async function syncTournamentScores({
   const unavailable: Array<{ golfer: string; round: number; reason: string }> = [];
   const syncedAt = new Date().toISOString();
 
-  pickedKeys.forEach((key) => {
+  syncKeys.forEach((key) => {
     const [golferId, roundText] = key.split(":");
     const round = Number(roundText);
     const golfer = golferById.get(golferId);
@@ -415,18 +428,14 @@ async function syncTournamentScores({
     matched.push({ golfer: golfer.name, round, score });
   });
 
-  for (const row of rows) {
-    const { error: deleteError } = await supabaseAdmin
-      .from("scores")
-      .delete()
-      .eq("pool_id", row.pool_id)
-      .eq("tournament_id", row.tournament_id)
-      .eq("golfer_id", row.golfer_id)
-      .eq("round", row.round);
+  const { error: deleteError } = await supabaseAdmin
+    .from("scores")
+    .delete()
+    .eq("pool_id", poolId)
+    .eq("tournament_id", tournamentId);
 
-    if (deleteError) {
-      throw new Error(`Failed to replace existing score for ${row.golfer_id} R${row.round}: ${deleteError.message}`);
-    }
+  if (deleteError) {
+    throw new Error(`Failed to clear existing synced scores: ${deleteError.message}`);
   }
 
   if (rows.length > 0) {

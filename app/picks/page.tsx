@@ -585,6 +585,19 @@ export default function PicksPage() {
   }, [availableFilteredGolfers, selected, golfers]);
 
   const groupedGolfers = useMemo(() => {
+    const sortOpenChampionshipGolfers = (items: Golfer[]) =>
+      [...items].sort((a, b) => {
+        const metaA = openChampionship2026PlayerMeta(a.name);
+        const metaB = openChampionship2026PlayerMeta(b.name);
+        const rankA = metaA.owgr ?? Number.POSITIVE_INFINITY;
+        const rankB = metaB.owgr ?? Number.POSITIVE_INFINITY;
+        if (rankA !== rankB) return rankA - rankB;
+        const lastA = getLastName(a.name);
+        const lastB = getLastName(b.name);
+        if (lastA !== lastB) return lastA.localeCompare(lastB);
+        return a.name.localeCompare(b.name);
+      });
+
     if (isUsOpen2026) {
       const labels = ["Tier 1", "Tier 2", "Tier 3", "Tier 4", "Tier 5", "Tier 6", "Amateur"];
       const groups = new Map(labels.map((label) => [label, [] as Golfer[]]));
@@ -624,7 +637,7 @@ export default function PicksPage() {
       return labels
         .map((label) => ({
           letter: label,
-          golfers: groups.get(label) || [],
+          golfers: sortOpenChampionshipGolfers(groups.get(label) || []),
         }))
         .filter((group) => group.golfers.length > 0);
     }
@@ -1361,8 +1374,13 @@ export default function PicksPage() {
                                 }}
                                   >
                                     {parts.last || parts.first}
+                                    {isOpenChampionship2026 ? (
+                                      <span style={{ color: "#94a3b8", fontSize: 12, fontWeight: 800 }}>
+                                        {" "}({openChampionship2026PlayerMeta(g.name).owgrLabel})
+                                      </span>
+                                    ) : null}
                                   </div>
-                                  {isUsOpen2026 && g.tournament_score ? (
+                                  {g.tournament_score ? (
                                     <div
                                       style={{
                                         marginTop: 5,
