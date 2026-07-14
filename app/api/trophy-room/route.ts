@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { applyOpenChampionship2026AmateurBonus } from "../../lib/openChampionship2026";
 import { applyUsOpen2026AmateurBonus } from "../../lib/usOpen2026";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -252,7 +253,11 @@ export async function GET(req: NextRequest) {
                 : undefined;
               const golferName = pick ? golferNameById.get(pick.golfer_id) ?? "" : "";
               const score = typeof pickedScore === "number"
-                ? applyUsOpen2026AmateurBonus(tournament.name, golferName, pickedScore)
+                ? applyOpenChampionship2026AmateurBonus(
+                    tournament.name,
+                    golferName,
+                    applyUsOpen2026AmateurBonus(tournament.name, golferName, pickedScore)
+                  )
                 : PENALTY_SCORE;
 
               row.total += score;

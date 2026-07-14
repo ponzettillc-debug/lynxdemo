@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isUsOpen2026TournamentName, validateUsOpen2026Selection } from "../../../lib/usOpen2026";
+import { isOpenChampionship2026TournamentName, validateOpenChampionship2026Selection } from "../../../lib/openChampionship2026";
 import { getUsOpen2026Cut, normalizeCutPlayerName } from "../../../lib/usOpen2026Cut.server";
 
 type Body = {
@@ -160,6 +161,14 @@ export async function POST(req: Request) {
           );
         }
       }
+    }
+    if (isOpenChampionship2026TournamentName(tourn.name)) {
+      const names = body.golferIds.map((id) => {
+        const row = (selectedGolfers ?? []).find((golfer: GolferRow) => golfer.id === id);
+        return String(row?.name || "");
+      });
+      const validationError = validateOpenChampionship2026Selection(names);
+      if (validationError) return jsonError(validationError, 400);
     }
 
     // Burn rule: golfer cannot have been used by this user earlier in tournament (other rounds)

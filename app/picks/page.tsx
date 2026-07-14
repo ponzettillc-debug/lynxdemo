@@ -11,6 +11,14 @@ import {
   usOpen2026SelectionCounts,
   validateUsOpen2026Selection,
 } from "../lib/usOpen2026";
+import {
+  getOpenChampionship2026TierRule,
+  getOpenChampionship2026TierCapError,
+  isOpenChampionship2026TournamentName,
+  openChampionship2026PlayerMeta,
+  openChampionship2026SelectionCounts,
+  validateOpenChampionship2026Selection,
+} from "../lib/openChampionship2026";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -175,10 +183,14 @@ export default function PicksPage() {
     () => isUsOpen2026TournamentName(currentTournament?.name),
     [currentTournament?.name]
   );
+  const isOpenChampionship2026 = useMemo(
+    () => isOpenChampionship2026TournamentName(currentTournament?.name),
+    [currentTournament?.name]
+  );
 
   useEffect(() => {
     setExpandedGroups({});
-  }, [selectedTournament, isUsOpen2026]);
+  }, [selectedTournament, isUsOpen2026, isOpenChampionship2026]);
 
   const lockIso = useMemo(
     () => getRoundLock(currentTournament, round),
@@ -376,12 +388,14 @@ export default function PicksPage() {
       setSelected((prev) => prev.filter((x) => x !== id));
     } else {
       if (selected.length >= 4) return;
-      if (isUsOpen2026) {
+      if (isUsOpen2026 || isOpenChampionship2026) {
         const byId = new Map(golfers.map((g) => [g.id, g.name] as const));
         const nextNames = [...selected, id]
           .map((golferId) => byId.get(golferId))
           .filter(Boolean) as string[];
-        const tierCapError = getUsOpen2026TierCapError(nextNames);
+        const tierCapError = isOpenChampionship2026
+          ? getOpenChampionship2026TierCapError(nextNames)
+          : getUsOpen2026TierCapError(nextNames);
         if (tierCapError) {
           setMessage(tierCapError);
           return;
@@ -418,6 +432,13 @@ export default function PicksPage() {
 
       if (isUsOpen2026) {
         const validationError = validateUsOpen2026Selection(selectedGolfers.map((g) => g.name));
+        if (validationError) {
+          setMessage(validationError);
+          return;
+        }
+      }
+      if (isOpenChampionship2026) {
+        const validationError = validateOpenChampionship2026Selection(selectedGolfers.map((g) => g.name));
         if (validationError) {
           setMessage(validationError);
           return;
@@ -518,8 +539,16 @@ export default function PicksPage() {
     () => usOpen2026SelectionCounts(selectedGolfers.map((g) => g.name)),
     [selectedGolfers]
   );
+  const openChampionshipCounts = useMemo(
+    () => openChampionship2026SelectionCounts(selectedGolfers.map((g) => g.name)),
+    [selectedGolfers]
+  );
   const usOpenValidationMessage = useMemo(
     () => selected.length === 4 ? validateUsOpen2026Selection(selectedGolfers.map((g) => g.name)) : "",
+    [selected.length, selectedGolfers]
+  );
+  const openChampionshipValidationMessage = useMemo(
+    () => selected.length === 4 ? validateOpenChampionship2026Selection(selectedGolfers.map((g) => g.name)) : "",
     [selected.length, selectedGolfers]
   );
 
@@ -572,6 +601,33 @@ export default function PicksPage() {
         }))
         .filter((group) => group.golfers.length > 0);
     }
+    if (isOpenChampionship2026) {
+      const labels = [
+        "UK Natives",
+        "Tier 1",
+        "Tier 2",
+        "Tier 3",
+        "Tier 4",
+        "Tier 5",
+        "Tier 6",
+        "Tier 7",
+        "Tier 8",
+        "Amateur",
+      ];
+      const groups = new Map(labels.map((label) => [label, [] as Golfer[]]));
+
+      for (const g of golfersToShow) {
+        const meta = openChampionship2026PlayerMeta(g.name);
+        groups.get(meta.label)?.push(g);
+      }
+
+      return labels
+        .map((label) => ({
+          letter: label,
+          golfers: groups.get(label) || [],
+        }))
+        .filter((group) => group.golfers.length > 0);
+    }
 
     const groups: Record<string, Golfer[]> = {};
 
@@ -587,7 +643,7 @@ export default function PicksPage() {
       letter: key,
       golfers: groups[key],
     }));
-  }, [golfersToShow, isUsOpen2026]);
+  }, [golfersToShow, isUsOpen2026, isOpenChampionship2026]);
 
   const totalVisibleCount = golfersToShow.length;
   const availableCount = golfersSorted.filter(
@@ -1080,6 +1136,11 @@ export default function PicksPage() {
                 ) : null}
               </div>
             ) : null}
+            {isOpenChampionship2026 ? (
+              <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
+                2026 British Open rules: pick at least 1 UK Native each round; max 1 from each of Tiers 1, 2, 3, and 4. Tiers 5-8 and Amateur are unlimited. Amateur picks receive a -2 stroke bonus on each scored round.
+              </div>
+            ) : null}
           </div>
 
           <div style={{ ...styles.card, marginBottom: 14 }}>
@@ -1121,6 +1182,17 @@ export default function PicksPage() {
                   Amateur/Tier 6 requirement: {usOpenCounts.requiredValue >= 1 ? "met" : "need 1"}
                 </div>
                 {usOpenValidationMessage ? <div style={{ color: "#fde68a" }}>{usOpenValidationMessage}</div> : null}
+              </div>
+            ) : null}
+            {isOpenChampionship2026 ? (
+              <div style={{ marginTop: 12, display: "grid", gap: 6, color: "#cbd5e1", fontSize: 13 }}>
+                <div>
+                  Tier caps: T1 {openChampionshipCounts.tier1}/1 | T2 {openChampionshipCounts.tier2}/1 | T3 {openChampionshipCounts.tier3}/1 | T4 {openChampionshipCounts.tier4}/1
+                </div>
+                <div style={{ color: openChampionshipCounts.ukNative >= 1 ? "#86efac" : "#fde68a" }}>
+                  UK Native requirement: {openChampionshipCounts.ukNative >= 1 ? "met" : "need 1"}
+                </div>
+                {openChampionshipValidationMessage ? <div style={{ color: "#fde68a" }}>{openChampionshipValidationMessage}</div> : null}
               </div>
             ) : null}
 
@@ -1189,15 +1261,20 @@ export default function PicksPage() {
                 </div>
               ) : (
                 groupedGolfers.map((group) => {
-                  const rule = isUsOpen2026 ? getUsOpen2026TierRule(group.letter) : "";
-                  const isExpanded = isUsOpen2026 ? Boolean(expandedGroups[group.letter]) : true;
+                  const isTieredTournament = isUsOpen2026 || isOpenChampionship2026;
+                  const rule = isOpenChampionship2026
+                    ? getOpenChampionship2026TierRule(group.letter)
+                    : isUsOpen2026
+                    ? getUsOpen2026TierRule(group.letter)
+                    : "";
+                  const isExpanded = isTieredTournament ? Boolean(expandedGroups[group.letter]) : true;
 
                   return (
                     <div key={group.letter}>
                       <button
                         type="button"
                         onClick={() => {
-                          if (!isUsOpen2026) return;
+                          if (!isTieredTournament) return;
                           setExpandedGroups((prev) => ({
                             ...prev,
                             [group.letter]: !prev[group.letter],
@@ -1221,12 +1298,16 @@ export default function PicksPage() {
                         const isSelected = selectedSet.has(g.id);
                         const isCutUnavailable = isUsOpen2026 && round >= 3 && Boolean(g.missed_cut);
                         const selectedNames = selectedGolfers.map((golfer) => golfer.name);
-                        const tierCapError = isUsOpen2026 && !isSelected
-                          ? getUsOpen2026TierCapError([...selectedNames, g.name])
+                        const tierCapError = !isSelected && (isUsOpen2026 || isOpenChampionship2026)
+                          ? isOpenChampionship2026
+                            ? getOpenChampionship2026TierCapError([...selectedNames, g.name])
+                            : getUsOpen2026TierCapError([...selectedNames, g.name])
                           : "";
                         const disabled = isLocked || (isUsed && !isSelected) || (isCutUnavailable && !isSelected) || !!tierCapError;
                         const parts = splitGolferName(g.name);
-                        const meta = usOpen2026PlayerMeta(g.name);
+                        const meta = isOpenChampionship2026
+                          ? openChampionship2026PlayerMeta(g.name)
+                          : usOpen2026PlayerMeta(g.name);
 
                             return (
                               <button
@@ -1308,7 +1389,7 @@ export default function PicksPage() {
                                       : "CAP"
                                     : isSelected
                                     ? "SELECTED"
-                                    : isUsOpen2026
+                                    : isUsOpen2026 || isOpenChampionship2026
                                     ? meta.label.toUpperCase()
                                     : "TAP"}
                                 </div>

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { gunzipSync } from "zlib";
+import {
+  applyOpenChampionship2026AmateurBonus,
+  isOpenChampionship2026Amateur,
+} from "../../lib/openChampionship2026";
 import { applyUsOpen2026AmateurBonus, isUsOpen2026Amateur } from "../../lib/usOpen2026";
 
 export const runtime = "nodejs";
@@ -845,9 +849,18 @@ export async function GET(req: NextRequest) {
             const shouldScorePenalty =
               !hasPickedScore && (pick ? applyMissingGolferPenalty : applyMissingPickPenalty);
             const pickedName = pick ? golferNameById.get(pick.golfer_id) ?? "" : "";
-            const amateurPick = Boolean(pick && pickedName && !shouldScorePenalty && isUsOpen2026Amateur(pickedName));
+            const amateurPick = Boolean(
+              pick &&
+                pickedName &&
+                !shouldScorePenalty &&
+                (isUsOpen2026Amateur(pickedName) || isOpenChampionship2026Amateur(pickedName))
+            );
             const score = hasPickedScore
-              ? applyUsOpen2026AmateurBonus(tournament?.name, pickedName, pickedScore)
+              ? applyOpenChampionship2026AmateurBonus(
+                  tournament?.name,
+                  pickedName,
+                  applyUsOpen2026AmateurBonus(tournament?.name, pickedName, pickedScore)
+                )
               : shouldScorePenalty
               ? PENALTY_SCORE
               : null;
