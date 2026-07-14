@@ -203,7 +203,7 @@ export const OPEN_CHAMPIONSHIP_2026_FIELD = [
 ];
 
 const TIER_RULES: Record<string, string> = {
-  "UK Natives": "Required: choose at least 1 each round",
+  "UK Natives": "Required: choose exactly 1 each round",
   "Tier 1": "Cap: Choose 1 Max",
   "Tier 2": "Cap: Choose 1 Max",
   "Tier 3": "Cap: Choose 1 Max",
@@ -277,7 +277,8 @@ export function openChampionship2026SelectionCounts(names: string[]) {
 export function validateOpenChampionship2026Selection(names: string[]) {
   const counts = openChampionship2026SelectionCounts(names);
 
-  if (counts.ukNative < 1) return "2026 British Open rule: pick at least 1 UK Native each round.";
+  if (counts.ukNative < 1) return "2026 British Open rule: pick exactly 1 UK Native each round.";
+  if (counts.ukNative > 1) return "2026 British Open rule: pick only 1 UK Native each round.";
   if (counts.tier1 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 1 per round.";
   if (counts.tier2 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 2 per round.";
   if (counts.tier3 > 1) return "2026 British Open rule: pick no more than 1 player from Tier 3 per round.";
@@ -287,6 +288,7 @@ export function validateOpenChampionship2026Selection(names: string[]) {
 
 export function getOpenChampionship2026TierCapError(names: string[]) {
   const counts = openChampionship2026SelectionCounts(names);
+  if (counts.ukNative > 1) return "Only 1 UK Native player is allowed per round.";
   if (counts.tier1 > 1) return "Only 1 Tier 1 player is allowed per round.";
   if (counts.tier2 > 1) return "Only 1 Tier 2 player is allowed per round.";
   if (counts.tier3 > 1) return "Only 1 Tier 3 player is allowed per round.";

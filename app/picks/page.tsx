@@ -1138,7 +1138,7 @@ export default function PicksPage() {
             ) : null}
             {isOpenChampionship2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
-                2026 British Open rules: pick at least 1 UK Native each round; max 1 from each of Tiers 1, 2, 3, and 4. Tiers 5-8 and Amateur are unlimited. Amateur picks receive a -2 stroke bonus on each scored round.
+                2026 British Open rules: pick exactly 1 UK Native each round; max 1 from each of Tiers 1, 2, 3, and 4. Tiers 5-8 and Amateur are unlimited. Amateur picks receive a -2 stroke bonus on each scored round.
               </div>
             ) : null}
           </div>
@@ -1189,8 +1189,8 @@ export default function PicksPage() {
                 <div>
                   Tier caps: T1 {openChampionshipCounts.tier1}/1 | T2 {openChampionshipCounts.tier2}/1 | T3 {openChampionshipCounts.tier3}/1 | T4 {openChampionshipCounts.tier4}/1
                 </div>
-                <div style={{ color: openChampionshipCounts.ukNative >= 1 ? "#86efac" : "#fde68a" }}>
-                  UK Native requirement: {openChampionshipCounts.ukNative >= 1 ? "met" : "need 1"}
+                <div style={{ color: openChampionshipCounts.ukNative === 1 ? "#86efac" : "#fde68a" }}>
+                  UK Native requirement: {openChampionshipCounts.ukNative === 1 ? "met" : `need exactly 1 (${openChampionshipCounts.ukNative}/1)`}
                 </div>
                 {openChampionshipValidationMessage ? <div style={{ color: "#fde68a" }}>{openChampionshipValidationMessage}</div> : null}
               </div>
