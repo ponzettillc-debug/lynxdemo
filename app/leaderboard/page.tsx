@@ -1325,7 +1325,7 @@ export default function LeaderboardPage() {
                                             >
                                               {score}
                                               {!hidden && tile?.isAmateur ? (
-                                                <span style={{ color: "#22c55e" }}> -5 bonus</span>
+                                                <span style={{ color: "#22c55e" }}> -2 bonus</span>
                                               ) : null}
                                             </div>
                                             {statusLine ? (
