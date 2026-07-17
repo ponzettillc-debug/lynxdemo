@@ -38,6 +38,7 @@ const PUBLIC_LEADERBOARDS = [
   {
     id: "R2026100",
     label: "2026 British Open",
+    par: 70,
     source: "PGA TOUR",
     sourceUrl: "https://www.pgatour.com/tournaments/2026/the-open-championship/R2026100",
     matches: [/2026\s+british\s+open/i, /open\s+championship/i],
@@ -73,6 +74,8 @@ type PgaTourPlayer = {
     total?: string;
     score?: string;
     currentRound?: number;
+    playerState?: string;
+    roundStatus?: string;
     rounds?: string[];
   };
 };
@@ -163,8 +166,15 @@ function inferRoundPar(players: PgaTourPlayer[]) {
     const rounds = player.scoringData?.rounds ?? [];
     const numericRounds = rounds.map(parseStrokeCount).filter((v): v is number => v !== null);
     const total = parseRelativeScore(player.scoringData?.total);
+    const state = String(player.scoringData?.playerState || player.scoringData?.roundStatus || "").toUpperCase();
+    const currentRoundScore = parseRelativeScore(player.scoringData?.score);
+    const roundInProgress =
+      currentRoundScore !== null &&
+      state !== "COMPLETE" &&
+      state !== "FINISHED" &&
+      !state.includes("COMPLETED");
 
-    if (numericRounds.length === 0 || total === null) return;
+    if (numericRounds.length === 0 || total === null || roundInProgress) return;
 
     const par = (numericRounds.reduce((sum, value) => sum + value, 0) - total) / numericRounds.length;
     if (Number.isInteger(par) && par >= 60 && par <= 80) {
