@@ -187,6 +187,7 @@ export default function PicksPage() {
     () => isOpenChampionship2026TournamentName(currentTournament?.name),
     [currentTournament?.name]
   );
+  const cutRestrictedTournament = isUsOpen2026 || isOpenChampionship2026;
 
   useEffect(() => {
     setExpandedGroups({});
@@ -379,7 +380,7 @@ export default function PicksPage() {
     if (isLocked) return;
     if (usedBefore.has(id) && !selected.includes(id)) return;
     const golfer = golfers.find((item) => item.id === id);
-    if (isUsOpen2026 && round >= 3 && golfer?.missed_cut && !selected.includes(id)) {
+    if (cutRestrictedTournament && round >= 3 && golfer?.missed_cut && !selected.includes(id)) {
       setMessage(`${golfer.name} missed the cut and is unavailable.`);
       return;
     }
@@ -428,6 +429,16 @@ export default function PicksPage() {
       if (selected.length !== 4) {
         setMessage("Pick exactly 4 golfers");
         return;
+      }
+
+      if (cutRestrictedTournament && round >= 3) {
+        const missedCutPlayers = selectedGolfers
+          .filter((g) => g.missed_cut)
+          .map((g) => g.name);
+        if (missedCutPlayers.length > 0) {
+          setMessage(`Missed cut and unavailable: ${missedCutPlayers.join(", ")}.`);
+          return;
+        }
       }
 
       if (isUsOpen2026) {
@@ -1142,16 +1153,16 @@ export default function PicksPage() {
             {isUsOpen2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
                 2026 US Open rules: at least 1 Amateur or Tier 6 pick per round; max 1 from Tier 1, max 1 from Tier 2, max 3 from Tiers 3, 4, and 5. Amateur picks receive a -5 stroke bonus on each scored round.
-                {cutEstablished && round >= 3 ? (
-                  <div style={{ marginTop: 5, color: "#fca5a5", fontWeight: 800 }}>
-                    Cut line: {cutLine === 0 ? "E" : cutLine && cutLine > 0 ? `+${cutLine}` : cutLine}. Struck-through players are unavailable.
-                  </div>
-                ) : null}
               </div>
             ) : null}
             {isOpenChampionship2026 ? (
               <div style={{ marginTop: 10, fontSize: 13, color: "#bfdbfe", lineHeight: 1.5 }}>
                 2026 British Open rules: pick exactly 1 UK/Ireland Native each round; max 1 from each of Tiers 1, 2, 3, and 4. Tiers 5-8 and Amateur are unlimited. Amateur picks receive a -2 stroke bonus on each scored round.
+              </div>
+            ) : null}
+            {cutRestrictedTournament && cutEstablished && round >= 3 ? (
+              <div style={{ marginTop: 5, color: "#fca5a5", fontSize: 13, fontWeight: 800 }}>
+                Cut line: {cutLine === 0 ? "E" : cutLine && cutLine > 0 ? `+${cutLine}` : cutLine}. Struck-through players are unavailable.
               </div>
             ) : null}
           </div>
@@ -1175,8 +1186,8 @@ export default function PicksPage() {
                     disabled={isLocked}
                     style={{
                       ...styles.chip(isLocked),
-                      textDecoration: isUsOpen2026 && round >= 3 && g.missed_cut ? "line-through" : "none",
-                      opacity: isUsOpen2026 && round >= 3 && g.missed_cut ? 0.65 : 1,
+                      textDecoration: cutRestrictedTournament && round >= 3 && g.missed_cut ? "line-through" : "none",
+                      opacity: cutRestrictedTournament && round >= 3 && g.missed_cut ? 0.65 : 1,
                     }}
                     title={isLocked ? "Locked" : "Remove pick"}
                   >
@@ -1309,7 +1320,7 @@ export default function PicksPage() {
                           {group.golfers.map((g) => {
                         const isUsed = usedBefore.has(g.id);
                         const isSelected = selectedSet.has(g.id);
-                        const isCutUnavailable = isUsOpen2026 && round >= 3 && Boolean(g.missed_cut);
+                        const isCutUnavailable = cutRestrictedTournament && round >= 3 && Boolean(g.missed_cut);
                         const selectedNames = selectedGolfers.map((golfer) => golfer.name);
                         const tierCapError = !isSelected && (isUsOpen2026 || isOpenChampionship2026)
                           ? isOpenChampionship2026

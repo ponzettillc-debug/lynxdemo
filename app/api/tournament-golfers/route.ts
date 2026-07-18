@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { isUsOpen2026TournamentName } from "../../lib/usOpen2026";
 import { getUsOpen2026Cut, normalizeCutPlayerName } from "../../lib/usOpen2026Cut.server";
+import { isOpenChampionship2026TournamentName } from "../../lib/openChampionship2026";
+import { getOpenChampionship2026Cut, normalizeOpenCutPlayerName } from "../../lib/openChampionship2026Cut.server";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -102,8 +104,18 @@ export async function GET(req: NextRequest) {
     let cutEstablished = false;
     let cutNames = new Set<string>();
     let scoreByName = new Map<string, string>();
+    const normalizeCutName = isOpenChampionship2026TournamentName(tournament.name)
+      ? normalizeOpenCutPlayerName
+      : normalizeCutPlayerName;
+
     if (isUsOpen2026TournamentName(tournament.name)) {
       const cut = await getUsOpen2026Cut();
+      cutLine = cut.cutLine;
+      cutEstablished = cut.established;
+      cutNames = cut.cutNames;
+      scoreByName = cut.scoreByName;
+    } else if (isOpenChampionship2026TournamentName(tournament.name)) {
+      const cut = await getOpenChampionship2026Cut();
       cutLine = cut.cutLine;
       cutEstablished = cut.established;
       cutNames = cut.cutNames;
@@ -131,11 +143,11 @@ export async function GET(req: NextRequest) {
 
     const golfersWithCutStatus = (golfers ?? []).map((golfer: any) => ({
       ...golfer,
-      missed_cut: cutNames.has(normalizeCutPlayerName(golfer.name)),
+      missed_cut: cutNames.has(normalizeCutName(golfer.name)),
       tournament_score:
         scoreByGolferId.has(String(golfer.id))
           ? fmtRelativeScore(scoreByGolferId.get(String(golfer.id)) ?? 0)
-          : scoreByName.get(normalizeCutPlayerName(golfer.name)) ?? null,
+          : scoreByName.get(normalizeCutName(golfer.name)) ?? null,
     }));
 
     return NextResponse.json({
