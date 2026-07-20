@@ -38,6 +38,107 @@ type PastResult = {
   field_size: number;
 };
 
+function trophyColors(rank: number) {
+  if (rank === 1) {
+    return {
+      cup: "linear-gradient(135deg, #fef3c7 0%, #facc15 40%, #a16207 78%, #fde68a 100%)",
+      border: "rgba(253,230,138,0.84)",
+      glow: "rgba(250,204,21,0.24)",
+    };
+  }
+  if (rank === 2) {
+    return {
+      cup: "linear-gradient(135deg, #ffffff 0%, #cbd5e1 42%, #64748b 78%, #f8fafc 100%)",
+      border: "rgba(226,232,240,0.84)",
+      glow: "rgba(226,232,240,0.18)",
+    };
+  }
+  if (rank === 3) {
+    return {
+      cup: "linear-gradient(135deg, #fed7aa 0%, #c2410c 44%, #7c2d12 78%, #fdba74 100%)",
+      border: "rgba(253,186,116,0.84)",
+      glow: "rgba(251,146,60,0.20)",
+    };
+  }
+  return null;
+}
+
+function PlacementTrophy({ rank }: { rank: number }) {
+  const colors = trophyColors(rank);
+  if (!colors) return null;
+
+  const handle: React.CSSProperties = {
+    position: "absolute",
+    top: 5,
+    width: 9,
+    height: 12,
+    border: `2px solid ${colors.border}`,
+    borderBottomColor: "transparent",
+  };
+
+  return (
+    <span
+      aria-label={`${rank === 1 ? "Gold" : rank === 2 ? "Silver" : "Bronze"} trophy`}
+      title={`${rank === 1 ? "Gold" : rank === 2 ? "Silver" : "Bronze"} trophy`}
+      style={{
+        position: "relative",
+        width: 28,
+        height: 32,
+        flex: "0 0 auto",
+        display: "inline-grid",
+        justifyItems: "center",
+        alignItems: "end",
+        filter: `drop-shadow(0 0 8px ${colors.glow})`,
+      }}
+    >
+      <span
+        style={{
+          ...handle,
+          left: 1,
+          borderRight: "none",
+          borderRadius: "9px 0 0 9px",
+        }}
+      />
+      <span
+        style={{
+          ...handle,
+          right: 1,
+          borderLeft: "none",
+          borderRadius: "0 9px 9px 0",
+        }}
+      />
+      <span
+        style={{
+          width: 18,
+          height: 16,
+          borderRadius: "4px 4px 10px 10px",
+          background: colors.cup,
+          border: `1px solid ${colors.border}`,
+          boxShadow: "inset 0 3px 5px rgba(255,255,255,0.36)",
+        }}
+      />
+      <span
+        style={{
+          width: 6,
+          height: 7,
+          background: colors.cup,
+          borderLeft: `1px solid ${colors.border}`,
+          borderRight: `1px solid ${colors.border}`,
+        }}
+      />
+      <span
+        style={{
+          width: 22,
+          height: 5,
+          borderRadius: "6px 6px 3px 3px",
+          background: colors.cup,
+          border: `1px solid ${colors.border}`,
+        }}
+      />
+    </span>
+  );
+}
+
 export default function UserManagementPage() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -303,7 +404,10 @@ export default function UserManagementPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 900 }}>{result.tournament_name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                    <PlacementTrophy rank={result.rank} />
+                    <div style={{ fontWeight: 900, minWidth: 0 }}>{result.tournament_name}</div>
+                  </div>
                   <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>
                     {result.rank_label} Place of {result.field_size}
                   </div>
