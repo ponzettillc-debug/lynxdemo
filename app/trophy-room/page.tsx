@@ -53,12 +53,19 @@ function isUsOpen2026(tournamentName: string) {
   return /2026\s+u\.?s\.?.*open/i.test(tournamentName);
 }
 
+function isBritishOpen2026(tournamentName: string) {
+  return /2026/i.test(tournamentName) && /(british\s+open|open\s+championship)/i.test(tournamentName);
+}
+
 function trophyBannerFor(tournamentName: string) {
   if (isMasters2026(tournamentName) || isPgaChampionship2026(tournamentName)) {
     return "/4play-me/43004b27-4d15-434c-89c0-788550a0db66.png";
   }
   if (isUsOpen2026(tournamentName)) {
     return "/4play-me/a2fc9c61-c935-4351-97ed-75397f0b7c5b-banner-v2.png";
+  }
+  if (isBritishOpen2026(tournamentName)) {
+    return "/4play-me/e04c8744-c2ed-4606-8892-b91f4f453215-british-open-banner.png";
   }
   return "";
 }
@@ -573,6 +580,106 @@ export default function TrophyRoomPage() {
     border: "1px solid rgba(255,255,255,0.94)",
   };
 
+  const britishOpenWinnerTile: React.CSSProperties = {
+    ...winnerTile,
+    minHeight: 106,
+    padding: 16,
+    background:
+      "linear-gradient(135deg, rgba(127,29,29,0.92), rgba(248,250,252,0.16) 42%, rgba(2,6,23,0.94) 100%)",
+    border: "1px solid rgba(248,250,252,0.46)",
+    boxShadow:
+      "inset 0 1px 0 rgba(255,255,255,0.18), 0 16px 34px rgba(0,0,0,0.28), 0 0 22px rgba(220,38,38,0.16)",
+  };
+
+  const britishOpenTrophyWrap: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "auto auto",
+    gap: 14,
+    alignItems: "center",
+    justifyContent: "end",
+    minWidth: 150,
+  };
+
+  const britishOpenTrophy: React.CSSProperties = {
+    position: "relative",
+    width: 70,
+    height: 80,
+    display: "grid",
+    justifyItems: "center",
+    alignItems: "end",
+  };
+
+  const britishOpenCup: React.CSSProperties = {
+    position: "relative",
+    width: 44,
+    height: 39,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: "7px 7px 18px 18px",
+    background:
+      "linear-gradient(90deg, #f8fafc 0 42%, #b91c1c 42% 58%, #f8fafc 58% 100%)",
+    border: "1px solid rgba(255,255,255,0.94)",
+    boxShadow:
+      "inset 0 5px 10px rgba(255,255,255,0.48), 0 0 24px rgba(248,250,252,0.24)",
+  };
+
+  const britishOpenCupInscription: React.CSSProperties = {
+    width: 32,
+    minHeight: 22,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 5,
+    background:
+      "linear-gradient(180deg, rgba(127,29,29,0.98), rgba(69,10,10,0.96))",
+    border: "1px solid rgba(248,250,252,0.82)",
+    color: "#ffffff",
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    fontSize: 5,
+    fontWeight: 900,
+    lineHeight: 0.94,
+    textAlign: "center",
+    textTransform: "uppercase",
+    textShadow: "0 1px 1px rgba(0,0,0,0.58)",
+  };
+
+  const britishOpenHandleBase: React.CSSProperties = {
+    position: "absolute",
+    top: 10,
+    width: 18,
+    height: 23,
+    border: "4px solid rgba(248,250,252,0.94)",
+    borderBottomColor: "transparent",
+  };
+
+  const britishOpenStem: React.CSSProperties = {
+    width: 10,
+    height: 17,
+    borderRadius: 3,
+    background: "linear-gradient(180deg, #f8fafc, #b91c1c)",
+  };
+
+  const britishOpenBase: React.CSSProperties = {
+    width: 54,
+    height: 11,
+    borderRadius: "9px 9px 4px 4px",
+    background:
+      "linear-gradient(90deg, #f8fafc 0 38%, #b91c1c 38% 62%, #f8fafc 62% 100%)",
+    border: "1px solid rgba(255,255,255,0.58)",
+  };
+
+  const britishOpenFlagAccent: React.CSSProperties = {
+    position: "absolute",
+    right: -2,
+    top: -3,
+    width: 18,
+    height: 14,
+    borderRadius: 2,
+    background:
+      "linear-gradient(90deg, transparent 0 42%, #b91c1c 42% 58%, transparent 58% 100%), linear-gradient(180deg, transparent 0 38%, #b91c1c 38% 62%, transparent 62% 100%), #f8fafc",
+    border: "1px solid rgba(255,255,255,0.9)",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.34)",
+  };
+
   return (
     <main style={shell}>
       <style>{`
@@ -666,6 +773,8 @@ export default function TrophyRoomPage() {
                         ...tournamentBannerStyle,
                         objectPosition: isUsOpen2026(row.tournament_name)
                           ? "center 18%"
+                          : isBritishOpen2026(row.tournament_name)
+                          ? "center 28%"
                           : "center 35%",
                       }}
                     />
@@ -682,12 +791,15 @@ export default function TrophyRoomPage() {
                     const useMastersTheme = isMasters2026(row.tournament_name);
                     const usePgaTheme = isPgaChampionship2026(row.tournament_name);
                     const useUsOpenTheme = isUsOpen2026(row.tournament_name);
+                    const useBritishOpenTheme = isBritishOpen2026(row.tournament_name);
                     const themedWinnerStyle = useMastersTheme
                       ? mastersWinnerTile
                       : usePgaTheme
                       ? pgaWinnerTile
                       : useUsOpenTheme
                       ? usOpenWinnerTile
+                      : useBritishOpenTheme
+                      ? britishOpenWinnerTile
                       : winnerTile;
                     const overlayBackground = useMastersTheme
                       ? "rgba(2,44,34,0.68)"
@@ -695,6 +807,8 @@ export default function TrophyRoomPage() {
                       ? "rgba(8,22,48,0.68)"
                       : useUsOpenTheme
                       ? "rgba(5,23,54,0.70)"
+                      : useBritishOpenTheme
+                      ? "rgba(127,29,29,0.68)"
                       : "rgba(2,6,23,0.70)";
                     const winnerStyle = trophyBannerFor(row.tournament_name)
                       ? {
@@ -704,7 +818,7 @@ export default function TrophyRoomPage() {
                           background: overlayBackground,
                           backdropFilter: "blur(8px)",
                           WebkitBackdropFilter: "blur(8px)",
-                          border: useUsOpenTheme
+                          border: useUsOpenTheme || useBritishOpenTheme
                             ? "1px solid rgba(248,250,252,0.46)"
                             : themedWinnerStyle.border,
                         }
@@ -740,6 +854,8 @@ export default function TrophyRoomPage() {
                               ? pgaTrophyWrap
                               : useUsOpenTheme
                               ? usOpenTrophyWrap
+                              : useBritishOpenTheme
+                              ? britishOpenTrophyWrap
                               : undefined
                           }
                         >
@@ -842,9 +958,40 @@ export default function TrophyRoomPage() {
                             </div>
                           ) : null}
 
+                          {useBritishOpenTheme ? (
+                            <div style={britishOpenTrophy} aria-hidden="true">
+                              <div
+                                style={{
+                                  ...britishOpenHandleBase,
+                                  left: 1,
+                                  borderRight: "none",
+                                  borderRadius: "15px 0 0 15px",
+                                }}
+                              />
+                              <div
+                                style={{
+                                  ...britishOpenHandleBase,
+                                  right: 1,
+                                  borderLeft: "none",
+                                  borderRadius: "0 15px 15px 0",
+                                }}
+                              />
+                              <div style={britishOpenFlagAccent} />
+                              <div style={britishOpenCup}>
+                                <div style={britishOpenCupInscription}>
+                                  <span>4Play</span>
+                                  <span>British</span>
+                                  <span>Open 26</span>
+                                </div>
+                              </div>
+                              <div style={britishOpenStem} />
+                              <div style={britishOpenBase} />
+                            </div>
+                          ) : null}
+
                           <div
                             style={
-                              useMastersTheme || usePgaTheme || useUsOpenTheme
+                              useMastersTheme || usePgaTheme || useUsOpenTheme || useBritishOpenTheme
                                 ? { ...mastersScoreWrap, fontSize: 22, fontWeight: 900 }
                                 : { fontSize: 22, fontWeight: 900 }
                             }
