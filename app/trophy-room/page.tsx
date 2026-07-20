@@ -17,6 +17,7 @@ type Winner = {
   user_name: string;
   total_strokes: number;
   scored_picks: number;
+  rank?: number;
 };
 
 type TrophyRow = {
@@ -24,6 +25,7 @@ type TrophyRow = {
   tournament_name: string;
   completed_at: string | null;
   winners: Winner[];
+  standings?: Winner[];
 };
 
 function fmtScore(v: number) {
@@ -735,7 +737,11 @@ export default function TrophyRoomPage() {
 
         {!loading && !message && rows.length > 0 ? (
           <div style={{ display: "grid", gap: 12 }}>
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const detailHref = `/trophy-room/${row.tournament_id}`;
+              const bannerSrc = trophyBannerFor(row.tournament_name);
+
+              return (
               <section key={row.tournament_id} style={card}>
                 <div
                   style={{
@@ -760,29 +766,36 @@ export default function TrophyRoomPage() {
 
                 <div
                   style={
-                    trophyBannerFor(row.tournament_name)
+                    bannerSrc
                       ? tournamentBannerStage
                       : undefined
                   }
                 >
-                  {trophyBannerFor(row.tournament_name) ? (
-                    <img
-                      src={trophyBannerFor(row.tournament_name)}
-                      alt={`${row.tournament_name} 4Play characters`}
-                      style={{
-                        ...tournamentBannerStyle,
-                        objectPosition: isUsOpen2026(row.tournament_name)
-                          ? "center 18%"
-                          : isBritishOpen2026(row.tournament_name)
-                          ? "center 28%"
-                          : "center 35%",
-                      }}
-                    />
+                  {bannerSrc ? (
+                    <Link
+                      href={detailHref}
+                      aria-label={`View ${row.tournament_name} winner image`}
+                      style={{ display: "block", color: "inherit", textDecoration: "none" }}
+                    >
+                      <img
+                        src={bannerSrc}
+                        alt={`${row.tournament_name} 4Play characters`}
+                        style={{
+                          ...tournamentBannerStyle,
+                          cursor: "pointer",
+                          objectPosition: isUsOpen2026(row.tournament_name)
+                            ? "center 18%"
+                            : isBritishOpen2026(row.tournament_name)
+                            ? "center 28%"
+                            : "center 35%",
+                        }}
+                      />
+                    </Link>
                   ) : null}
 
                   <div
                     style={
-                      trophyBannerFor(row.tournament_name)
+                      bannerSrc
                         ? tournamentWinnerOverlay
                         : { display: "grid", gap: 8 }
                     }
@@ -810,7 +823,7 @@ export default function TrophyRoomPage() {
                       : useBritishOpenTheme
                       ? "rgba(127,29,29,0.68)"
                       : "rgba(2,6,23,0.70)";
-                    const winnerStyle = trophyBannerFor(row.tournament_name)
+                    const winnerStyle = bannerSrc
                       ? {
                           ...themedWinnerStyle,
                           minHeight: 82,
@@ -825,9 +838,16 @@ export default function TrophyRoomPage() {
                       : themedWinnerStyle;
 
                     return (
-                      <div
+                      <Link
+                        href={detailHref}
                         key={`${row.tournament_id}-${winner.user_id}`}
-                        style={winnerStyle}
+                        aria-label={`View ${winner.user_name}'s ${row.tournament_name} winner image`}
+                        style={{
+                          ...winnerStyle,
+                          color: "inherit",
+                          cursor: "pointer",
+                          textDecoration: "none",
+                        }}
                       >
                         <div style={{ minWidth: 0 }}>
                           <div
@@ -996,13 +1016,14 @@ export default function TrophyRoomPage() {
                             {fmtScore(winner.total_strokes)}
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                   </div>
                 </div>
               </section>
-            ))}
+              );
+            })}
           </div>
         ) : null}
       </div>

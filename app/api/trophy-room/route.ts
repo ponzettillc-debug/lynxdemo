@@ -287,12 +287,23 @@ export async function GET(req: NextRequest) {
           typeof winningScore === "number"
             ? ranked.filter((row) => row.total_strokes === winningScore)
             : [];
+        let previousScore: number | null = null;
+        let currentRank = 0;
+        const standings = ranked.map((row, index) => {
+          if (row.total_strokes !== previousScore) currentRank = index + 1;
+          previousScore = row.total_strokes;
+          return {
+            ...row,
+            rank: currentRank,
+          };
+        });
 
         return {
           tournament_id: tournament.id,
           tournament_name: tournament.name,
           completed_at: tournament.final_lock,
           winners,
+          standings,
         };
       })
       .filter((row) => row.winners.length > 0);
