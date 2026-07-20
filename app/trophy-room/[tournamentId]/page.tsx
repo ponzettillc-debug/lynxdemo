@@ -72,6 +72,7 @@ function trophyBannerFor(tournamentName: string) {
 }
 
 function placeLabel(rank: number) {
+  if (rank === 1) return "1st";
   if (rank === 2) return "2nd";
   if (rank === 3) return "3rd";
   return `${rank}th`;
@@ -158,7 +159,7 @@ export default function TrophyDetailPage() {
   const bannerSrc = row ? trophyBannerFor(row.tournament_name) : "";
   const podium = useMemo(() => {
     const standings = row?.standings ?? [];
-    return standings.filter((standing) => standing.rank === 2 || standing.rank === 3);
+    return standings.filter((standing) => standing.rank === 1 || standing.rank === 2 || standing.rank === 3);
   }, [row]);
 
   const shell: React.CSSProperties = {
@@ -261,9 +262,6 @@ export default function TrophyDetailPage() {
               </div>
 
               <aside style={sidebar}>
-                <div style={{ color: "#94a3b8", fontSize: 13, fontWeight: 900, marginBottom: 10 }}>
-                  Runner Up
-                </div>
                 <div style={{ display: "grid", gap: 10 }}>
                   {podium.length > 0 ? (
                     podium.map((standing) => (
@@ -281,7 +279,7 @@ export default function TrophyDetailPage() {
                       </div>
                     ))
                   ) : (
-                    <div style={{ color: "#cbd5e1" }}>No runner-up scores available.</div>
+                    <div style={{ color: "#cbd5e1" }}>No podium scores available.</div>
                   )}
                 </div>
               </aside>
