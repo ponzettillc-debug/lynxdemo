@@ -841,9 +841,6 @@ export default function TrophyRoomPage() {
                           >
                             {winner.user_name}
                           </div>
-                          <div style={{ marginTop: 4, color: "#94a3b8", fontSize: 13 }}>
-                            {winner.scored_picks} scored pick{winner.scored_picks === 1 ? "" : "s"}
-                          </div>
                         </div>
 
                         <div
